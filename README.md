@@ -39,6 +39,10 @@ is disabled by design, and payment is left unbuilt on purpose). Judge this repo
 on its architecture, its module isolation, its event-driven backbone and its
 generator, not on pixels.
 
+## Known issues
+
+An honest, categorised list of what does not work yet (including authorization gaps that a production system must close) lives in [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+
 ## What to look at
 
 | If you care about… | Look at |
