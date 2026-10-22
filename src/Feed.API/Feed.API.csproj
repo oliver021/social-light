@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    Feed.API — HAND-WRITTEN composition service (category 3). It has NO database: it
+    composes the generated modules purely through their typed clients (SocialGraph,
+    Posts, Engagement) + the Profile service, honouring "no cross-module data access"
+    (DESIGN-STRATEGY.md §4). MVP = fan-out-on-read (pull + rank in memory); the
+    contract is shaped so it can later flip to a materialized read-model
+    (FeedProcessor consuming PostPublished/UserFollowed) with no client change.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SocialLight.ServiceDefaults\SocialLight.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Modules\SocialGraph\SocialGraph.Client\SocialGraph.Client.csproj" />
+    <ProjectReference Include="..\Modules\Posts\Posts.Client\Posts.Client.csproj" />
+    <ProjectReference Include="..\Modules\Engagement\Engagement.Client\Engagement.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Feed.UnitTests" />
+  </ItemGroup>
+
+</Project>

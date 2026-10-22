@@ -1,0 +1,12 @@
+﻿global using System.Data;
+global using MediatR;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.EntityFrameworkCore.Design;
+global using Microsoft.EntityFrameworkCore.Metadata.Builders;
+global using Microsoft.EntityFrameworkCore.Storage;
+global using SocialLight.Ordering.Domain.AggregatesModel.BuyerAggregate;
+global using SocialLight.Ordering.Domain.AggregatesModel.OrderAggregate;
+global using SocialLight.Ordering.Domain.Exceptions;
+global using SocialLight.Ordering.Domain.Seedwork;
+global using SocialLight.Ordering.Infrastructure.EntityConfigurations;
+global using SocialLight.Ordering.Infrastructure.Idempotency;

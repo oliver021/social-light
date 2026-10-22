@@ -1,0 +1,30 @@
+@page "/{{ entityPluralKebab }}"
+@using {{ clientNamespace }}
+@using {{ contractsNamespace }}
+@inject {{ module }}Client Client
+
+@*
+  Generated CRUD page (category 1, DESIGN-STRATEGY.md §6/§7) — a direct projection
+  of the spec's `ui:` intent. Native-per-platform: this is the WEB render of the
+  same neutral intent a MAUI template renders as a CollectionView. It is wired into
+  a web host by hand; until then it is inert scaffolding (this task is API-only).
+*@
+<h3>{{ EntityPlural }}</h3>
+
+<ul>
+@foreach (var item in items)
+{
+{% if ui and ui.list and ui.list.primary %}
+    <li>@item.{{ ui.list.primary }}</li>
+{% else %}
+    <li>@item.{{ keyField.Name }}</li>
+{% endif %}
+}
+</ul>
+
+@code {
+    private IReadOnlyList<{{ Entity }}Dto> items = [];
+
+    protected override async Task OnInitializedAsync()
+        => items = await Client.Get{{ EntityPlural }}Async();
+}

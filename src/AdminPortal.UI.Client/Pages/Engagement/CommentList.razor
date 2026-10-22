@@ -1,0 +1,87 @@
+@* Generated (entity scope, category-1 immutable): a CRUD grid for Engagement.Comment,
+   one per entity across every module. A list page IS a direct projection of the spec
+   (DESIGN-STRATEGY.md §6), so it is generated, never hand-edited. It consumes the typed
+   EngagementClient exactly as a hand-built page would — the seam rides on the contract. *@
+@page "/admin/engagement/comments"
+@inject EngagementClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Admin · Comments</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Comments</MudText>
+    <MudChip T="string" Size="Size.Small" Color="Color.Default">Engagement</MudChip>
+    <MudSpacer />
+    <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="_loading">Refresh</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="CreateSampleAsync" Disabled="_loading">New sample</MudButton>
+</MudStack>
+
+<MudDataGrid T="CommentDto" Items="_items" Loading="_loading" Dense="true" Hover="true"
+             Filterable="true" SortMode="SortMode.Multiple" QuickFilter="_quickFilter">
+    <ToolBarContent>
+        <MudTextField @bind-Value="_search" Placeholder="Search" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium"
+                      Immediate="true" Class="mt-0" />
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Id" Title="Id" />
+        <PropertyColumn Property="x => x.AuthorId" Title="AuthorId" />
+        <PropertyColumn Property="x => x.TargetType" Title="TargetType" />
+        <PropertyColumn Property="x => x.TargetId" Title="TargetId" />
+        <PropertyColumn Property="x => x.ParentCommentId" Title="ParentCommentId" />
+        <PropertyColumn Property="x => x.Body" Title="Body" />
+    </Columns>
+    <NoRecordsContent>
+        <MudText Class="pa-4" Color="Color.Secondary">No comments yet.</MudText>
+    </NoRecordsContent>
+</MudDataGrid>
+
+@code {
+    private IReadOnlyList<CommentDto> _items = [];
+    private bool _loading;
+    private string _search = string.Empty;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _items = await Client.GetCommentsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load comments: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task CreateSampleAsync()
+    {
+        _loading = true;
+        try
+        {
+            // Deterministic sample built from the spec (the same data the generated
+            // functional tests use) — no inference. Replace with a real form (category-3).
+            await Client.CreateCommentAsync(new CreateCommentRequest("sample TargetType", Guid.NewGuid(), Guid.NewGuid(), "sample Body"));
+            Snackbar.Add("Created a sample Comment.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Create failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Func<CommentDto, bool> _quickFilter => x =>
+        string.IsNullOrWhiteSpace(_search) || x.ToString()!.Contains(_search, StringComparison.OrdinalIgnoreCase);
+}

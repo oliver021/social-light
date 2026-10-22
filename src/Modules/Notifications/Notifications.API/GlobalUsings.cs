@@ -1,0 +1,17 @@
+global using System.Security.Claims;
+global using Asp.Versioning;
+global using Asp.Versioning.Builder;
+global using Asp.Versioning.Conventions;
+global using Microsoft.AspNetCore.Http.HttpResults;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.EntityFrameworkCore.Metadata.Builders;
+global using SocialLight.EventBus.Abstractions;
+global using SocialLight.EventBus.Events;
+global using SocialLight.ServiceDefaults;
+global using SocialLight.Notifications.Contracts;
+global using SocialLight.Notifications.API.IntegrationEvents;
+global using SocialLight.Notifications.Domain;
+global using SocialLight.Notifications.API;
+global using SocialLight.Notifications.API.Api;
+global using SocialLight.Notifications.API.Application;
+global using SocialLight.Notifications.API.Infrastructure;

@@ -1,0 +1,82 @@
+// AdminPortal.UI host (host-as-BFF). The aggregate scope generated the per-module
+// proxy routes and broker subscriptions below from every module spec; auth + the
+// hub body are seeds you own.
+var builder = WebApplication.CreateBuilder(args);
+
+builder.AddServiceDefaults();
+
+// OIDC login for admins (cookie session) — see AdminAuthExtensions (seed).
+builder.AddAdminAuthentication();
+
+// Reverse proxy to the modules with Aspire service discovery (resolves http://<svc>).
+builder.Services.AddHttpForwarderWithServiceDiscovery();
+
+// Realtime over the broker (no polling): subscribe to every module's published
+// events and relay them to the SignalR hub. Generated from all module specs.
+builder.Services.AddSignalR();
+builder.AddAdminEventRelay();
+
+var app = builder.Build();
+
+app.MapDefaultEndpoints();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseHsts();
+}
+
+// Serve the WASM client.
+app.UseBlazorFrameworkFiles();
+app.UseStaticFiles();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+// BFF login surface: the WASM navigates (full load) to /login; the cookie session is
+// then exchanged onto every forwarded call as a bearer token (InjectToken below).
+app.MapGet("/login", (string? returnUrl) =>
+    Results.Challenge(new AuthenticationProperties { RedirectUri = returnUrl ?? "/" },
+        [OpenIdConnectDefaults.AuthenticationScheme]));
+
+app.MapGet("/logout", () =>
+    Results.SignOut(new AuthenticationProperties { RedirectUri = "/" },
+        [CookieAuthenticationDefaults.AuthenticationScheme, OpenIdConnectDefaults.AuthenticationScheme]));
+
+app.MapGet("/user", (HttpContext ctx) =>
+    ctx.User.Identity?.IsAuthenticated == true
+        ? Results.Ok(new { name = ctx.User.Identity!.Name ?? ctx.User.FindFirst("name")?.Value ?? "admin" })
+        : Results.Unauthorized());
+
+// Stamps the admin's access token (saved on the OIDC cookie) onto every /api request
+// before the forwarders run; YARP copies the Authorization header downstream, so the
+// modules — which all RequireAuthorization — accept the BFF hop.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        var token = await context.GetTokenAsync("access_token");
+        if (!string.IsNullOrEmpty(token))
+        {
+            context.Request.Headers.Authorization = $"Bearer {token}";
+        }
+    }
+    await next();
+});
+
+// BFF: forward each module's entity routes to its service. The browser calls these
+// same-origin (one public host), so there is no CORS and the token stays here.
+// One MapForwarder per entity across all modules (fan-in).
+{% for m in modules %}
+{% for e in m.entities %}
+app.MapForwarder("/api/{{ e.entityPluralKebab }}/{**catch-all}", "http://{{ m.module | lower }}-api").RequireAuthorization();
+{% endfor %}
+{% endfor %}
+
+// Realtime hub the WASM client connects to.
+app.MapHub<AdminEventHub>("/hubs/admin-events").RequireAuthorization();
+
+// Everything else is the WASM SPA.
+app.MapFallbackToFile("index.html");
+
+app.Run();

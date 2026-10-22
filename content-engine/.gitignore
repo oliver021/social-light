@@ -1,0 +1,7 @@
+# Local run scope — generated corpora, and crucially token sidecars. Never commit.
+# Publishable assets (head/content/traces) go to a Hugging Face dataset via
+# `content-engine seed commit`, not into this repo.
+.runs/
+
+bin/
+obj/

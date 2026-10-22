@@ -1,0 +1,35 @@
+@* Seed (category-2): the portal shell. Theme, app bar and drawer are yours to own. *@
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                       OnClick="@(() => _drawerOpen = !_drawerOpen)" />
+        <MudText Typo="Typo.h6">socialLight · Admin</MudText>
+        <MudSpacer />
+        <MudChip T="string" Icon="@Icons.Material.Filled.Bolt" Color="Color.Secondary" Size="Size.Small">live</MudChip>
+        @* Full-page nav (forceLoad) so the host's BFF /login and /logout run server-side. *@
+        <MudButton Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Login"
+                   OnClick="@(() => Nav.NavigateTo("login", forceLoad: true))">Login</MudButton>
+        <MudButton Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout"
+                   OnClick="@(() => Nav.NavigateTo("logout", forceLoad: true))">Logout</MudButton>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="2" ClipMode="DrawerClipMode.Always">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.subtitle1">Modules</MudText>
+        </MudDrawerHeader>
+        <NavMenu />
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+}

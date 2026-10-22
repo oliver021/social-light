@@ -1,0 +1,35 @@
+{
+  "module": "Events",
+  "schema": "events",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Event",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "organizerId", "type": "guid" },
+        { "name": "title", "type": "string" },
+        { "name": "description", "type": "text", "nullable": true },
+        { "name": "location", "type": "string", "nullable": true },
+        { "name": "startDate", "type": "datetime" },
+        { "name": "endDate", "type": "datetime" },
+        { "name": "capacity", "type": "int", "nullable": true },
+        { "name": "visibility", "type": "string" }
+      ],
+      "relations": [
+        { "to": "EventAttendance", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "EventAttendance",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "eventId", "type": "guid" },
+        { "name": "userId", "type": "guid" },
+        { "name": "status", "type": "string" }
+      ]
+    }
+  ],
+  "publishes": ["EventCreated", "EventAttendanceChanged"],
+  "consumes": ["UserDeleted"]
+}

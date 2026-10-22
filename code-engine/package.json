@@ -1,0 +1,25 @@
+{
+  "name": "code-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Spec-driven code generator for socialLight. Feeds an entity spec JSON through Nunjucks templates to scaffold the eShop-style vertical slice of files for a service.",
+  "bin": {
+    "code-engine": "src/index.js"
+  },
+  "scripts": {
+    "generate": "node src/index.js generate",
+    "presets": "node src/index.js list-presets",
+    "demo": "node src/index.js generate examples/post.entity.json --out .out --force",
+    "verify": "node src/index.js verify",
+    "fixtures:update": "node src/index.js verify --update",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "nunjucks": "^3.2.4"
+  }
+}

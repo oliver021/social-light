@@ -1,0 +1,24 @@
+namespace SocialLight.AdminPortal.UI.Realtime;
+
+/// <summary>
+/// Aggregate (fan-in) wiring of realtime: the broker subscription set is generated
+/// from EVERY module's <c>publishes</c> contract, so each published integration
+/// event is relayed to admins via <see cref="AdminEventRelay{T}"/> → the SignalR
+/// hub. Adding a module spec that publishes events adds a subscription here on
+/// regen — no hand-editing (DESIGN-STRATEGY.md §4).
+/// </summary>
+public static class AdminEventSubscriptions
+{
+    public static IHostApplicationBuilder AddAdminEventRelay(this IHostApplicationBuilder builder)
+    {
+        builder.AddRabbitMqEventBus("eventbus")
+{% for m in modules %}
+{% for e in m.publishes %}
+            .AddSubscription<{{ m.contractsNamespace }}.IntegrationEvents.{{ e.Name }}, AdminEventRelay<{{ m.contractsNamespace }}.IntegrationEvents.{{ e.Name }}>>()
+{% endfor %}
+{% endfor %}
+            ;
+
+        return builder;
+    }
+}

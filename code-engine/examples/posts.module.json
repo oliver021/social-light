@@ -1,0 +1,32 @@
+{
+  "module": "Posts",
+  "schema": "posts",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Post",
+      "fields": [
+        { "name": "Id", "type": "guid", "key": true },
+        { "name": "Title", "type": "string" },
+        { "name": "Body", "type": "string", "nullable": true },
+        { "name": "AuthorId", "type": "guid", "fromPrincipal": true }
+      ],
+      "relations": [{ "to": "Comment", "kind": "oneToMany" }],
+      "ui": {
+        "list": { "primary": "Title", "secondary": "Body" },
+        "detail": { "sections": ["Title", "Body"] }
+      }
+    },
+    {
+      "name": "Comment",
+      "fields": [
+        { "name": "Id", "type": "guid", "key": true },
+        { "name": "PostId", "type": "guid" },
+        { "name": "Text", "type": "string" },
+        { "name": "AuthorId", "type": "guid" }
+      ]
+    }
+  ],
+  "publishes": ["PostCreated", "PostDeleted"],
+  "consumes": ["UserDeleted"]
+}

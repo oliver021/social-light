@@ -1,0 +1,690 @@
+name: sociallight-demo
+services:
+  postgres:
+    image: docker.io/ankane/pgvector:latest
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    expose:
+    - '5432'
+    networks:
+    - aspire
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U postgres
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+    - pgdata:/var/lib/postgresql/data
+  eventbus:
+    image: docker.io/library/rabbitmq:4.2
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: ${EVENTBUS_PASSWORD}
+    expose:
+    - '5672'
+    networks:
+    - aspire
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - rabbitmq-diagnostics
+      - -q
+      - ping
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
+  identity-api:
+    image: ${IDENTITY_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${IDENTITY_API_PORT:-8080}
+      ConnectionStrings__identitydb: Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=identitydb
+      IDENTITYDB_HOST: postgres
+      IDENTITYDB_PORT: '5432'
+      IDENTITYDB_USERNAME: postgres
+      IDENTITYDB_PASSWORD: ${POSTGRES_PASSWORD}
+      IDENTITYDB_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/identitydb
+      IDENTITYDB_JDBCCONNECTIONSTRING: jdbc:postgresql://postgres:5432/identitydb
+      IDENTITYDB_DATABASENAME: identitydb
+      ConnectionStrings__eventbus: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      EVENTBUS_HOST: eventbus
+      EVENTBUS_PORT: '5672'
+      EVENTBUS_USERNAME: guest
+      EVENTBUS_PASSWORD: ${EVENTBUS_PASSWORD}
+      EVENTBUS_URI: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      AdminPortalClient: http://admin-portal:${ADMIN_PORTAL_PORT:-8080}
+    depends_on:
+      eventbus:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  profile-api:
+    image: ${PROFILE_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${PROFILE_API_PORT:-8080}
+      ConnectionStrings__eventbus: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      EVENTBUS_HOST: eventbus
+      EVENTBUS_PORT: '5672'
+      EVENTBUS_USERNAME: guest
+      EVENTBUS_PASSWORD: ${EVENTBUS_PASSWORD}
+      EVENTBUS_URI: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      ConnectionStrings__profiledb: Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=profiledb
+      PROFILEDB_HOST: postgres
+      PROFILEDB_PORT: '5432'
+      PROFILEDB_USERNAME: postgres
+      PROFILEDB_PASSWORD: ${POSTGRES_PASSWORD}
+      PROFILEDB_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/profiledb
+      PROFILEDB_JDBCCONNECTIONSTRING: jdbc:postgresql://postgres:5432/profiledb
+      PROFILEDB_DATABASENAME: profiledb
+      Identity__Url: http://identity-api:${IDENTITY_API_PORT:-8080}
+      Identity__Audience: socialapi
+      Identity__Scopes__socialapi: socialLight API
+    expose:
+    - ${PROFILE_API_PORT:-8080}
+    depends_on:
+      eventbus:
+        condition: service_healthy
+      identity-api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  posts-api:
+    image: ${POSTS_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${POSTS_API_PORT:-8080}
+      ConnectionStrings__eventbus: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      EVENTBUS_HOST: eventbus
+      EVENTBUS_PORT: '5672'
+      EVENTBUS_USERNAME: guest
+      EVENTBUS_PASSWORD: ${EVENTBUS_PASSWORD}
+      EVENTBUS_URI: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      ConnectionStrings__postsdb: Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=postsdb
+      POSTSDB_HOST: postgres
+      POSTSDB_PORT: '5432'
+      POSTSDB_USERNAME: postgres
+      POSTSDB_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTSDB_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/postsdb
+      POSTSDB_JDBCCONNECTIONSTRING: jdbc:postgresql://postgres:5432/postsdb
+      POSTSDB_DATABASENAME: postsdb
+      Identity__Url: http://identity-api:${IDENTITY_API_PORT:-8080}
+      Identity__Audience: socialapi
+      Identity__Scopes__socialapi: socialLight API
+    expose:
+    - ${POSTS_API_PORT:-8080}
+    depends_on:
+      eventbus:
+        condition: service_healthy
+      identity-api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  engagement-api:
+    image: ${ENGAGEMENT_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${ENGAGEMENT_API_PORT:-8080}
+      ConnectionStrings__eventbus: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      EVENTBUS_HOST: eventbus
+      EVENTBUS_PORT: '5672'
+      EVENTBUS_USERNAME: guest
+      EVENTBUS_PASSWORD: ${EVENTBUS_PASSWORD}
+      EVENTBUS_URI: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      ConnectionStrings__engagementdb: Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=engagementdb
+      ENGAGEMENTDB_HOST: postgres
+      ENGAGEMENTDB_PORT: '5432'
+      ENGAGEMENTDB_USERNAME: postgres
+      ENGAGEMENTDB_PASSWORD: ${POSTGRES_PASSWORD}
+      ENGAGEMENTDB_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/engagementdb
+      ENGAGEMENTDB_JDBCCONNECTIONSTRING: jdbc:postgresql://postgres:5432/engagementdb
+      ENGAGEMENTDB_DATABASENAME: engagementdb
+      Identity__Url: http://identity-api:${IDENTITY_API_PORT:-8080}
+      Identity__Audience: socialapi
+      Identity__Scopes__socialapi: socialLight API
+    expose:
+    - ${ENGAGEMENT_API_PORT:-8080}
+    depends_on:
+      eventbus:
+        condition: service_healthy
+      identity-api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  socialgraph-api:
+    image: ${SOCIALGRAPH_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${SOCIALGRAPH_API_PORT:-8080}
+      ConnectionStrings__eventbus: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      EVENTBUS_HOST: eventbus
+      EVENTBUS_PORT: '5672'
+      EVENTBUS_USERNAME: guest
+      EVENTBUS_PASSWORD: ${EVENTBUS_PASSWORD}
+      EVENTBUS_URI: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      ConnectionStrings__socialGraphdb: Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=socialGraphdb
+      SOCIALGRAPHDB_HOST: postgres
+      SOCIALGRAPHDB_PORT: '5432'
+      SOCIALGRAPHDB_USERNAME: postgres
+      SOCIALGRAPHDB_PASSWORD: ${POSTGRES_PASSWORD}
+      SOCIALGRAPHDB_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/socialGraphdb
+      SOCIALGRAPHDB_JDBCCONNECTIONSTRING: jdbc:postgresql://postgres:5432/socialGraphdb
+      SOCIALGRAPHDB_DATABASENAME: socialGraphdb
+      Identity__Url: http://identity-api:${IDENTITY_API_PORT:-8080}
+      Identity__Audience: socialapi
+      Identity__Scopes__socialapi: socialLight API
+    expose:
+    - ${SOCIALGRAPH_API_PORT:-8080}
+    depends_on:
+      eventbus:
+        condition: service_healthy
+      identity-api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  feed-api:
+    image: ${FEED_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${FEED_API_PORT:-8080}
+      SOCIALGRAPH_API_HTTP: http://socialgraph-api:${SOCIALGRAPH_API_PORT:-8080}
+      services__socialgraph-api__http__0: http://socialgraph-api:${SOCIALGRAPH_API_PORT:-8080}
+      SOCIALGRAPH_API_HTTPS: https://socialgraph-api:${SOCIALGRAPH_API_PORT:-8080}
+      POSTS_API_HTTP: http://posts-api:${POSTS_API_PORT:-8080}
+      services__posts-api__http__0: http://posts-api:${POSTS_API_PORT:-8080}
+      POSTS_API_HTTPS: https://posts-api:${POSTS_API_PORT:-8080}
+      ENGAGEMENT_API_HTTP: http://engagement-api:${ENGAGEMENT_API_PORT:-8080}
+      services__engagement-api__http__0: http://engagement-api:${ENGAGEMENT_API_PORT:-8080}
+      ENGAGEMENT_API_HTTPS: https://engagement-api:${ENGAGEMENT_API_PORT:-8080}
+      PROFILE_API_HTTP: http://profile-api:${PROFILE_API_PORT:-8080}
+      services__profile-api__http__0: http://profile-api:${PROFILE_API_PORT:-8080}
+      PROFILE_API_HTTPS: https://profile-api:${PROFILE_API_PORT:-8080}
+      Identity__Url: http://identity-api:${IDENTITY_API_PORT:-8080}
+      Identity__Audience: socialapi
+      Identity__Scopes__socialapi: socialLight API
+    expose:
+    - ${FEED_API_PORT:-8080}
+    depends_on:
+      identity-api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      eventbus:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  media-service:
+    image: ${MEDIA_SERVICE_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${MEDIA_SERVICE_PORT:-8080}
+      Media__BlobRoot: /data/blobs
+    networks:
+    - aspire
+    restart: unless-stopped
+    volumes:
+    - blobs:/data/blobs
+    user: 0:0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eventbus:
+        condition: service_healthy
+  groups-api:
+    image: ${GROUPS_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${GROUPS_API_PORT:-8080}
+      ConnectionStrings__eventbus: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      EVENTBUS_HOST: eventbus
+      EVENTBUS_PORT: '5672'
+      EVENTBUS_USERNAME: guest
+      EVENTBUS_PASSWORD: ${EVENTBUS_PASSWORD}
+      EVENTBUS_URI: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      ConnectionStrings__groupsdb: Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=groupsdb
+      GROUPSDB_HOST: postgres
+      GROUPSDB_PORT: '5432'
+      GROUPSDB_USERNAME: postgres
+      GROUPSDB_PASSWORD: ${POSTGRES_PASSWORD}
+      GROUPSDB_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/groupsdb
+      GROUPSDB_JDBCCONNECTIONSTRING: jdbc:postgresql://postgres:5432/groupsdb
+      GROUPSDB_DATABASENAME: groupsdb
+      Identity__Url: http://identity-api:${IDENTITY_API_PORT:-8080}
+      Identity__Audience: socialapi
+      Identity__Scopes__socialapi: socialLight API
+    expose:
+    - ${GROUPS_API_PORT:-8080}
+    depends_on:
+      eventbus:
+        condition: service_healthy
+      identity-api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  events-api:
+    image: ${EVENTS_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${EVENTS_API_PORT:-8080}
+      ConnectionStrings__eventbus: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      EVENTBUS_HOST: eventbus
+      EVENTBUS_PORT: '5672'
+      EVENTBUS_USERNAME: guest
+      EVENTBUS_PASSWORD: ${EVENTBUS_PASSWORD}
+      EVENTBUS_URI: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      ConnectionStrings__eventsdb: Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=eventsdb
+      EVENTSDB_HOST: postgres
+      EVENTSDB_PORT: '5432'
+      EVENTSDB_USERNAME: postgres
+      EVENTSDB_PASSWORD: ${POSTGRES_PASSWORD}
+      EVENTSDB_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/eventsdb
+      EVENTSDB_JDBCCONNECTIONSTRING: jdbc:postgresql://postgres:5432/eventsdb
+      EVENTSDB_DATABASENAME: eventsdb
+      Identity__Url: http://identity-api:${IDENTITY_API_PORT:-8080}
+      Identity__Audience: socialapi
+      Identity__Scopes__socialapi: socialLight API
+    expose:
+    - ${EVENTS_API_PORT:-8080}
+    depends_on:
+      eventbus:
+        condition: service_healthy
+      identity-api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  stories-api:
+    image: ${STORIES_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${STORIES_API_PORT:-8080}
+      ConnectionStrings__eventbus: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      EVENTBUS_HOST: eventbus
+      EVENTBUS_PORT: '5672'
+      EVENTBUS_USERNAME: guest
+      EVENTBUS_PASSWORD: ${EVENTBUS_PASSWORD}
+      EVENTBUS_URI: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      ConnectionStrings__storiesdb: Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=storiesdb
+      STORIESDB_HOST: postgres
+      STORIESDB_PORT: '5432'
+      STORIESDB_USERNAME: postgres
+      STORIESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      STORIESDB_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/storiesdb
+      STORIESDB_JDBCCONNECTIONSTRING: jdbc:postgresql://postgres:5432/storiesdb
+      STORIESDB_DATABASENAME: storiesdb
+      Identity__Url: http://identity-api:${IDENTITY_API_PORT:-8080}
+      Identity__Audience: socialapi
+      Identity__Scopes__socialapi: socialLight API
+    expose:
+    - ${STORIES_API_PORT:-8080}
+    depends_on:
+      eventbus:
+        condition: service_healthy
+      identity-api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  reels-api:
+    image: ${REELS_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${REELS_API_PORT:-8080}
+      ConnectionStrings__eventbus: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      EVENTBUS_HOST: eventbus
+      EVENTBUS_PORT: '5672'
+      EVENTBUS_USERNAME: guest
+      EVENTBUS_PASSWORD: ${EVENTBUS_PASSWORD}
+      EVENTBUS_URI: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      ConnectionStrings__reelsdb: Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=reelsdb
+      REELSDB_HOST: postgres
+      REELSDB_PORT: '5432'
+      REELSDB_USERNAME: postgres
+      REELSDB_PASSWORD: ${POSTGRES_PASSWORD}
+      REELSDB_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/reelsdb
+      REELSDB_JDBCCONNECTIONSTRING: jdbc:postgresql://postgres:5432/reelsdb
+      REELSDB_DATABASENAME: reelsdb
+      Identity__Url: http://identity-api:${IDENTITY_API_PORT:-8080}
+      Identity__Audience: socialapi
+      Identity__Scopes__socialapi: socialLight API
+    expose:
+    - ${REELS_API_PORT:-8080}
+    depends_on:
+      eventbus:
+        condition: service_healthy
+      identity-api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  notifications-api:
+    image: ${NOTIFICATIONS_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${NOTIFICATIONS_API_PORT:-8080}
+      ConnectionStrings__eventbus: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      EVENTBUS_HOST: eventbus
+      EVENTBUS_PORT: '5672'
+      EVENTBUS_USERNAME: guest
+      EVENTBUS_PASSWORD: ${EVENTBUS_PASSWORD}
+      EVENTBUS_URI: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      ConnectionStrings__notificationsdb: Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=notificationsdb
+      NOTIFICATIONSDB_HOST: postgres
+      NOTIFICATIONSDB_PORT: '5432'
+      NOTIFICATIONSDB_USERNAME: postgres
+      NOTIFICATIONSDB_PASSWORD: ${POSTGRES_PASSWORD}
+      NOTIFICATIONSDB_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/notificationsdb
+      NOTIFICATIONSDB_JDBCCONNECTIONSTRING: jdbc:postgresql://postgres:5432/notificationsdb
+      NOTIFICATIONSDB_DATABASENAME: notificationsdb
+      Identity__Url: http://identity-api:${IDENTITY_API_PORT:-8080}
+      Identity__Audience: socialapi
+      Identity__Scopes__socialapi: socialLight API
+    expose:
+    - ${NOTIFICATIONS_API_PORT:-8080}
+    depends_on:
+      eventbus:
+        condition: service_healthy
+      identity-api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  chat-api:
+    image: ${CHAT_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${CHAT_API_PORT:-8080}
+      ConnectionStrings__eventbus: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      EVENTBUS_HOST: eventbus
+      EVENTBUS_PORT: '5672'
+      EVENTBUS_USERNAME: guest
+      EVENTBUS_PASSWORD: ${EVENTBUS_PASSWORD}
+      EVENTBUS_URI: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      ConnectionStrings__chatdb: Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=chatdb
+      CHATDB_HOST: postgres
+      CHATDB_PORT: '5432'
+      CHATDB_USERNAME: postgres
+      CHATDB_PASSWORD: ${POSTGRES_PASSWORD}
+      CHATDB_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/chatdb
+      CHATDB_JDBCCONNECTIONSTRING: jdbc:postgresql://postgres:5432/chatdb
+      CHATDB_DATABASENAME: chatdb
+      Identity__Url: http://identity-api:${IDENTITY_API_PORT:-8080}
+      Identity__Audience: socialapi
+      Identity__Scopes__socialapi: socialLight API
+    expose:
+    - ${CHAT_API_PORT:-8080}
+    depends_on:
+      eventbus:
+        condition: service_healthy
+      identity-api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  catalog-api:
+    image: ${CATALOG_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${CATALOG_API_PORT:-8080}
+      ConnectionStrings__eventbus: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      EVENTBUS_HOST: eventbus
+      EVENTBUS_PORT: '5672'
+      EVENTBUS_USERNAME: guest
+      EVENTBUS_PASSWORD: ${EVENTBUS_PASSWORD}
+      EVENTBUS_URI: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      ConnectionStrings__catalogdb: Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=catalogdb
+      CATALOGDB_HOST: postgres
+      CATALOGDB_PORT: '5432'
+      CATALOGDB_USERNAME: postgres
+      CATALOGDB_PASSWORD: ${POSTGRES_PASSWORD}
+      CATALOGDB_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/catalogdb
+      CATALOGDB_JDBCCONNECTIONSTRING: jdbc:postgresql://postgres:5432/catalogdb
+      CATALOGDB_DATABASENAME: catalogdb
+      Identity__Url: http://identity-api:${IDENTITY_API_PORT:-8080}
+      Identity__Audience: socialapi
+      Identity__Scopes__socialapi: socialLight API
+    expose:
+    - ${CATALOG_API_PORT:-8080}
+    depends_on:
+      eventbus:
+        condition: service_healthy
+      identity-api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  social-bff:
+    image: mcr.microsoft.com/dotnet/nightly/yarp:2.3-preview
+    command:
+    - /app/yarp.dll
+    entrypoint:
+    - dotnet
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      IDENTITY_API_HTTP: http://identity-api:${IDENTITY_API_PORT:-8080}
+      REVERSEPROXY__ROUTES__route0__MATCH__PATH: /connect/{**catch-all}
+      REVERSEPROXY__ROUTES__route0__CLUSTERID: cluster_identity-api
+      REVERSEPROXY__ROUTES__route1__MATCH__PATH: /api/account/{**catch-all}
+      REVERSEPROXY__ROUTES__route1__CLUSTERID: cluster_identity-api
+      REVERSEPROXY__ROUTES__route2__MATCH__PATH: /api/profiles/{**catch-all}
+      REVERSEPROXY__ROUTES__route2__CLUSTERID: cluster_profile-api
+      REVERSEPROXY__ROUTES__route3__MATCH__PATH: /api/posts/{**catch-all}
+      REVERSEPROXY__ROUTES__route3__CLUSTERID: cluster_posts-api
+      REVERSEPROXY__ROUTES__route4__MATCH__PATH: /api/post-medias/{**catch-all}
+      REVERSEPROXY__ROUTES__route4__CLUSTERID: cluster_posts-api
+      REVERSEPROXY__ROUTES__route5__MATCH__PATH: /api/post-feeds/{**catch-all}
+      REVERSEPROXY__ROUTES__route5__CLUSTERID: cluster_posts-api
+      REVERSEPROXY__ROUTES__route6__MATCH__PATH: /api/comments/{**catch-all}
+      REVERSEPROXY__ROUTES__route6__CLUSTERID: cluster_engagement-api
+      REVERSEPROXY__ROUTES__route7__MATCH__PATH: /api/reactions/{**catch-all}
+      REVERSEPROXY__ROUTES__route7__CLUSTERID: cluster_engagement-api
+      REVERSEPROXY__ROUTES__route8__MATCH__PATH: /api/shares/{**catch-all}
+      REVERSEPROXY__ROUTES__route8__CLUSTERID: cluster_engagement-api
+      REVERSEPROXY__ROUTES__route9__MATCH__PATH: /api/follows/{**catch-all}
+      REVERSEPROXY__ROUTES__route9__CLUSTERID: cluster_socialgraph-api
+      REVERSEPROXY__ROUTES__route10__MATCH__PATH: /api/friends/{**catch-all}
+      REVERSEPROXY__ROUTES__route10__CLUSTERID: cluster_socialgraph-api
+      REVERSEPROXY__ROUTES__route11__MATCH__PATH: /api/blocks/{**catch-all}
+      REVERSEPROXY__ROUTES__route11__CLUSTERID: cluster_socialgraph-api
+      REVERSEPROXY__ROUTES__route12__MATCH__PATH: /api/user-preferences/{**catch-all}
+      REVERSEPROXY__ROUTES__route12__CLUSTERID: cluster_socialgraph-api
+      REVERSEPROXY__ROUTES__route13__MATCH__PATH: /api/stories/{**catch-all}
+      REVERSEPROXY__ROUTES__route13__CLUSTERID: cluster_stories-api
+      REVERSEPROXY__ROUTES__route14__MATCH__PATH: /api/story-views/{**catch-all}
+      REVERSEPROXY__ROUTES__route14__CLUSTERID: cluster_stories-api
+      REVERSEPROXY__ROUTES__route15__MATCH__PATH: /api/story-replies/{**catch-all}
+      REVERSEPROXY__ROUTES__route15__CLUSTERID: cluster_stories-api
+      REVERSEPROXY__ROUTES__route16__MATCH__PATH: /api/groups/{**catch-all}
+      REVERSEPROXY__ROUTES__route16__CLUSTERID: cluster_groups-api
+      REVERSEPROXY__ROUTES__route17__MATCH__PATH: /api/group-members/{**catch-all}
+      REVERSEPROXY__ROUTES__route17__CLUSTERID: cluster_groups-api
+      REVERSEPROXY__ROUTES__route18__MATCH__PATH: /api/events/{**catch-all}
+      REVERSEPROXY__ROUTES__route18__CLUSTERID: cluster_events-api
+      REVERSEPROXY__ROUTES__route19__MATCH__PATH: /api/event-attendances/{**catch-all}
+      REVERSEPROXY__ROUTES__route19__CLUSTERID: cluster_events-api
+      REVERSEPROXY__ROUTES__route20__MATCH__PATH: /api/reels/{**catch-all}
+      REVERSEPROXY__ROUTES__route20__CLUSTERID: cluster_reels-api
+      REVERSEPROXY__ROUTES__route21__MATCH__PATH: /api/reel-views/{**catch-all}
+      REVERSEPROXY__ROUTES__route21__CLUSTERID: cluster_reels-api
+      REVERSEPROXY__ROUTES__route22__MATCH__PATH: /api/organizations/{**catch-all}
+      REVERSEPROXY__ROUTES__route22__CLUSTERID: cluster_organizations-api
+      REVERSEPROXY__ROUTES__route23__MATCH__PATH: /api/organization-members/{**catch-all}
+      REVERSEPROXY__ROUTES__route23__CLUSTERID: cluster_organizations-api
+      REVERSEPROXY__ROUTES__route24__MATCH__PATH: /api/chats/{**catch-all}
+      REVERSEPROXY__ROUTES__route24__CLUSTERID: cluster_chat-api
+      REVERSEPROXY__ROUTES__route25__MATCH__PATH: /api/chat-participants/{**catch-all}
+      REVERSEPROXY__ROUTES__route25__CLUSTERID: cluster_chat-api
+      REVERSEPROXY__ROUTES__route26__MATCH__PATH: /api/chat-blocks/{**catch-all}
+      REVERSEPROXY__ROUTES__route26__CLUSTERID: cluster_chat-api
+      REVERSEPROXY__ROUTES__route27__MATCH__PATH: /api/chat-requests/{**catch-all}
+      REVERSEPROXY__ROUTES__route27__CLUSTERID: cluster_chat-api
+      REVERSEPROXY__ROUTES__route28__MATCH__PATH: /api/chat-mutes/{**catch-all}
+      REVERSEPROXY__ROUTES__route28__CLUSTERID: cluster_chat-api
+      REVERSEPROXY__ROUTES__route29__MATCH__PATH: /api/chat-pins/{**catch-all}
+      REVERSEPROXY__ROUTES__route29__CLUSTERID: cluster_chat-api
+      REVERSEPROXY__ROUTES__route30__MATCH__PATH: /api/messages/{**catch-all}
+      REVERSEPROXY__ROUTES__route30__CLUSTERID: cluster_chat-api
+      REVERSEPROXY__ROUTES__route31__MATCH__PATH: /api/message-reactions/{**catch-all}
+      REVERSEPROXY__ROUTES__route31__CLUSTERID: cluster_chat-api
+      REVERSEPROXY__ROUTES__route32__MATCH__PATH: /api/message-read-receipts/{**catch-all}
+      REVERSEPROXY__ROUTES__route32__CLUSTERID: cluster_chat-api
+      REVERSEPROXY__ROUTES__route33__MATCH__PATH: /api/message-attachments/{**catch-all}
+      REVERSEPROXY__ROUTES__route33__CLUSTERID: cluster_chat-api
+      REVERSEPROXY__ROUTES__route34__MATCH__PATH: /hubs/chat/{**catch-all}
+      REVERSEPROXY__ROUTES__route34__CLUSTERID: cluster_chat-api
+      REVERSEPROXY__ROUTES__route35__MATCH__PATH: /api/notifications/{**catch-all}
+      REVERSEPROXY__ROUTES__route35__CLUSTERID: cluster_notifications-api
+      REVERSEPROXY__ROUTES__route36__MATCH__PATH: /api/feed/{**catch-all}
+      REVERSEPROXY__ROUTES__route36__CLUSTERID: cluster_feed-api
+      REVERSEPROXY__ROUTES__route37__MATCH__PATH: /api/v1/media/{**catch-all}
+      REVERSEPROXY__ROUTES__route37__CLUSTERID: cluster_media-service
+      REVERSEPROXY__ROUTES__route38__MATCH__PATH: /blobs/{**catch-all}
+      REVERSEPROXY__ROUTES__route38__CLUSTERID: cluster_media-service
+      REVERSEPROXY__ROUTES__route39__MATCH__PATH: /api/catalog/{**catch-all}
+      REVERSEPROXY__ROUTES__route39__CLUSTERID: cluster_catalog-api
+      REVERSEPROXY__ROUTES__route40__MATCH__PATH: /api/orders/{**catch-all}
+      REVERSEPROXY__ROUTES__route40__CLUSTERID: cluster_ordering-api
+      REVERSEPROXY__ROUTES__route41__MATCH__PATH: /api/basket/{**catch-all}
+      REVERSEPROXY__ROUTES__route41__CLUSTERID: cluster_basket-api
+      REVERSEPROXY__CLUSTERS__cluster_identity-api__DESTINATIONS__destination1__ADDRESS: http://_http.identity-api
+      REVERSEPROXY__CLUSTERS__cluster_profile-api__DESTINATIONS__destination1__ADDRESS: http://_http.profile-api
+      REVERSEPROXY__CLUSTERS__cluster_posts-api__DESTINATIONS__destination1__ADDRESS: http://_http.posts-api
+      REVERSEPROXY__CLUSTERS__cluster_engagement-api__DESTINATIONS__destination1__ADDRESS: http://_http.engagement-api
+      REVERSEPROXY__CLUSTERS__cluster_socialgraph-api__DESTINATIONS__destination1__ADDRESS: http://_http.socialgraph-api
+      REVERSEPROXY__CLUSTERS__cluster_stories-api__DESTINATIONS__destination1__ADDRESS: http://_http.stories-api
+      REVERSEPROXY__CLUSTERS__cluster_groups-api__DESTINATIONS__destination1__ADDRESS: http://_http.groups-api
+      REVERSEPROXY__CLUSTERS__cluster_events-api__DESTINATIONS__destination1__ADDRESS: http://_http.events-api
+      REVERSEPROXY__CLUSTERS__cluster_reels-api__DESTINATIONS__destination1__ADDRESS: http://_http.reels-api
+      REVERSEPROXY__CLUSTERS__cluster_organizations-api__DESTINATIONS__destination1__ADDRESS: http://_http.organizations-api
+      REVERSEPROXY__CLUSTERS__cluster_chat-api__DESTINATIONS__destination1__ADDRESS: http://_http.chat-api
+      REVERSEPROXY__CLUSTERS__cluster_notifications-api__DESTINATIONS__destination1__ADDRESS: http://_http.notifications-api
+      REVERSEPROXY__CLUSTERS__cluster_feed-api__DESTINATIONS__destination1__ADDRESS: http://_http.feed-api
+      REVERSEPROXY__CLUSTERS__cluster_media-service__DESTINATIONS__destination1__ADDRESS: http://_http.media-service
+      REVERSEPROXY__CLUSTERS__cluster_catalog-api__DESTINATIONS__destination1__ADDRESS: http://_http.catalog-api
+      REVERSEPROXY__CLUSTERS__cluster_ordering-api__DESTINATIONS__destination1__ADDRESS: http://_http.ordering-api
+      REVERSEPROXY__CLUSTERS__cluster_basket-api__DESTINATIONS__destination1__ADDRESS: http://_http.basket-api
+      services__identity-api__http__0: http://identity-api:${IDENTITY_API_PORT:-8080}
+      PROFILE_API_HTTP: http://profile-api:${PROFILE_API_PORT:-8080}
+      services__profile-api__http__0: http://profile-api:${PROFILE_API_PORT:-8080}
+      POSTS_API_HTTP: http://posts-api:${POSTS_API_PORT:-8080}
+      services__posts-api__http__0: http://posts-api:${POSTS_API_PORT:-8080}
+      ENGAGEMENT_API_HTTP: http://engagement-api:${ENGAGEMENT_API_PORT:-8080}
+      services__engagement-api__http__0: http://engagement-api:${ENGAGEMENT_API_PORT:-8080}
+      SOCIALGRAPH_API_HTTP: http://socialgraph-api:${SOCIALGRAPH_API_PORT:-8080}
+      services__socialgraph-api__http__0: http://socialgraph-api:${SOCIALGRAPH_API_PORT:-8080}
+      STORIES_API_HTTP: http://stories-api:${STORIES_API_PORT:-8080}
+      services__stories-api__http__0: http://stories-api:${STORIES_API_PORT:-8080}
+      GROUPS_API_HTTP: http://groups-api:${GROUPS_API_PORT:-8080}
+      services__groups-api__http__0: http://groups-api:${GROUPS_API_PORT:-8080}
+      EVENTS_API_HTTP: http://events-api:${EVENTS_API_PORT:-8080}
+      services__events-api__http__0: http://events-api:${EVENTS_API_PORT:-8080}
+      REELS_API_HTTP: http://reels-api:${REELS_API_PORT:-8080}
+      services__reels-api__http__0: http://reels-api:${REELS_API_PORT:-8080}
+      ORGANIZATIONS_API_HTTP: http://organizations-api:${ORGANIZATIONS_API_PORT:-8080}
+      services__organizations-api__http__0: http://organizations-api:${ORGANIZATIONS_API_PORT:-8080}
+      CHAT_API_HTTP: http://chat-api:${CHAT_API_PORT:-8080}
+      services__chat-api__http__0: http://chat-api:${CHAT_API_PORT:-8080}
+      NOTIFICATIONS_API_HTTP: http://notifications-api:${NOTIFICATIONS_API_PORT:-8080}
+      services__notifications-api__http__0: http://notifications-api:${NOTIFICATIONS_API_PORT:-8080}
+      FEED_API_HTTP: http://feed-api:${FEED_API_PORT:-8080}
+      services__feed-api__http__0: http://feed-api:${FEED_API_PORT:-8080}
+      MEDIA_SERVICE_HTTP: http://media-service:${MEDIA_SERVICE_PORT:-8080}
+      services__media-service__http__0: http://media-service:${MEDIA_SERVICE_PORT:-8080}
+      CATALOG_API_HTTP: http://catalog-api:${CATALOG_API_PORT:-8080}
+      services__catalog-api__http__0: http://catalog-api:${CATALOG_API_PORT:-8080}
+      ORDERING_API_HTTP: http://ordering-api:${ORDERING_API_PORT:-8080}
+      services__ordering-api__http__0: http://ordering-api:${ORDERING_API_PORT:-8080}
+      BASKET_API_HTTP: http://basket-api:${BASKET_API_PORT:-8080}
+      services__basket-api__http__0: http://basket-api:${BASKET_API_PORT:-8080}
+    ports:
+    - ${PUBLIC_GATEWAY_PORT:-8088}:5000
+    networks:
+    - aspire
+    restart: unless-stopped
+    depends_on:
+      identity-api:
+        condition: service_started
+      profile-api:
+        condition: service_started
+      posts-api:
+        condition: service_started
+      engagement-api:
+        condition: service_started
+      socialgraph-api:
+        condition: service_started
+      feed-api:
+        condition: service_started
+      media-service:
+        condition: service_started
+      groups-api:
+        condition: service_started
+      events-api:
+        condition: service_started
+      stories-api:
+        condition: service_started
+      reels-api:
+        condition: service_started
+      notifications-api:
+        condition: service_started
+      chat-api:
+        condition: service_started
+      catalog-api:
+        condition: service_started
+  web:
+    image: ${WEB_IMAGE}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      GATEWAY_URL: http://social-bff:5000
+    ports:
+    - ${PUBLIC_WEB_PORT:-3000}:3000
+    depends_on:
+      social-bff:
+        condition: service_started
+    networks:
+    - aspire
+networks:
+  aspire:
+    driver: bridge
+volumes:
+  pgdata: {}
+  blobs: {}

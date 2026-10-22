@@ -1,0 +1,27 @@
+@page "/{{ entityPluralKebab }}/{Id}"
+@using {{ clientNamespace }}
+@using {{ contractsNamespace }}
+@inject {{ module }}Client Client
+
+@*
+  Seed (category 2, DESIGN-STRATEGY.md §6): generated once, then yours to own — the
+  generator never overwrites it again. Product decisions (layout, narrative,
+  composition with other modules) belong here, not in the generated list page.
+*@
+<h3>{{ Entity }} detail</h3>
+
+@if (item is not null)
+{
+{% for f in fields %}
+    <p><strong>{{ f.Name }}:</strong> @item.{{ f.Name }}</p>
+{% endfor %}
+}
+
+@code {
+    [Parameter] public {{ keyType }} Id { get; set; }
+
+    private {{ Entity }}Dto? item;
+
+    protected override async Task OnParametersSetAsync()
+        => item = await Client.Get{{ Entity }}Async(Id);
+}

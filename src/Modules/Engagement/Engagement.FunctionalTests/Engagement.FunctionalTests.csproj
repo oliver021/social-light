@@ -1,0 +1,30 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.2.0">
+
+  <!--
+    Engagement.FunctionalTests — HTTP API end-to-end (DESIGN-STRATEGY.md §11 test
+    strategy). Boots Engagement.API in-process via WebApplicationFactory<Program>
+    against a real Postgres container (Aspire), with the RabbitMQ binding swapped
+    for an in-memory IEventBus (§4) so the tests need no broker and can ASSERT the
+    events the API publishes. Mirrors the eShop *.FunctionalTests pattern.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <IsPublishable>false</IsPublishable>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Http.Client" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Engagement.API\Engagement.API.csproj" IsAspireProjectResource="false" />
+  </ItemGroup>
+
+</Project>

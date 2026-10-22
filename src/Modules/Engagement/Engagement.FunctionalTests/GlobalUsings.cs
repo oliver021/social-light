@@ -1,0 +1,10 @@
+global using System.Net;
+global using System.Net.Http.Json;
+global using System.Text.Json;
+global using Asp.Versioning;
+global using Asp.Versioning.Http;
+global using Xunit;
+global using SocialLight.Engagement.Contracts;
+global using SocialLight.Engagement.Contracts.IntegrationEvents;
+global using SocialLight.EventBus.Abstractions;
+global using SocialLight.EventBus.Events;

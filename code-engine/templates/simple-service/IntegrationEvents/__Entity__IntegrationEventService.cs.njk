@@ -1,0 +1,22 @@
+using EventBus.Abstractions;
+using {{ namespace }}.Model;
+
+namespace {{ namespace }}.IntegrationEvents;
+
+public interface I{{ Entity }}IntegrationEventService
+{
+{% for e in events %}
+    Task Publish{{ e.Name }}Async({{ Entity }} {{ entity }});
+{% endfor %}
+}
+
+// Publishes {{ Entity }} integration events through the event bus.
+// NOTE: for the transactional outbox, persist + publish in one transaction via
+// IntegrationEventLogEF (see CLAUDE.md §4.5) — wire that in here.
+public class {{ Entity }}IntegrationEventService(IEventBus eventBus) : I{{ Entity }}IntegrationEventService
+{
+{% for e in events %}
+    public Task Publish{{ e.Name }}Async({{ Entity }} {{ entity }})
+        => eventBus.PublishAsync(new {{ e.Name }}IntegrationEvent({{ entity }}.{{ keyField.Name }}));
+{% endfor %}
+}

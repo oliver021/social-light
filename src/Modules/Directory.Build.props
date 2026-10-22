@@ -1,0 +1,20 @@
+<Project>
+
+  <!-- Inherit the repo-wide settings (TreatWarningsAsErrors, ImplicitUsings,
+       artifacts output, …) — without this Import the nearest-wins rule would
+       shadow the root Directory.Build.props for everything under src/Modules. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    Repo-owned BINDING for the generated modules (DESIGN-STRATEGY.md §4: infra is
+    the host's job, not the module's). This sits ABOVE the generated module trees
+    and is auto-imported by MSBuild, so the *.FunctionalTests projects gain the
+    Microsoft.Testing.Platform TRX report extension WITHOUT editing the generated
+    csproj files (category-1, overwritten on every regeneration). With it
+    referenced, the dotnet test report-trx option emits a .trx per project for CI.
+  -->
+  <ItemGroup Condition="$(MSBuildProjectName.EndsWith('FunctionalTests'))">
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+  </ItemGroup>
+
+</Project>

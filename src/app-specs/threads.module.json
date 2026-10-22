@@ -1,0 +1,41 @@
+{
+  "module": "Threads",
+  "schema": "threads",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Thread",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "authorId", "type": "guid" },
+        { "name": "title", "type": "string" },
+        { "name": "body", "type": "text" },
+        { "name": "visibility", "type": "string" }
+      ],
+      "relations": [
+        { "to": "ThreadReply", "kind": "oneToMany" },
+        { "to": "ThreadSubscription", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "ThreadReply",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "threadId", "type": "guid" },
+        { "name": "authorId", "type": "guid" },
+        { "name": "parentReplyId", "type": "guid", "nullable": true },
+        { "name": "body", "type": "text" }
+      ]
+    },
+    {
+      "name": "ThreadSubscription",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "threadId", "type": "guid" },
+        { "name": "userId", "type": "guid" }
+      ]
+    }
+  ],
+  "publishes": ["ThreadCreated", "ThreadReplyAdded"],
+  "consumes": ["UserDeleted"]
+}

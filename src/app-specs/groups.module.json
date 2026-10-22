@@ -1,0 +1,33 @@
+{
+  "module": "Groups",
+  "schema": "groups",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Group",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "name", "type": "string" },
+        { "name": "description", "type": "text", "nullable": true },
+        { "name": "avatar", "type": "string", "nullable": true },
+        { "name": "coverImage", "type": "string", "nullable": true },
+        { "name": "privacyType", "type": "string" },
+        { "name": "approvalRequired", "type": "bool" }
+      ],
+      "relations": [
+        { "to": "GroupMember", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "GroupMember",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "groupId", "type": "guid" },
+        { "name": "userId", "type": "guid" },
+        { "name": "role", "type": "string" }
+      ]
+    }
+  ],
+  "publishes": ["GroupCreated", "GroupMemberJoined", "GroupMemberLeft"],
+  "consumes": ["UserDeleted"]
+}

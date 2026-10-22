@@ -1,0 +1,40 @@
+{
+  "module": "Engagement",
+  "schema": "engagement",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Reaction",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "userId", "type": "guid", "fromPrincipal": true },
+        { "name": "targetType", "type": "string" },
+        { "name": "targetId", "type": "guid" },
+        { "name": "reactionType", "type": "string" }
+      ]
+    },
+    {
+      "name": "Comment",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "authorId", "type": "guid", "fromPrincipal": true },
+        { "name": "targetType", "type": "string" },
+        { "name": "targetId", "type": "guid" },
+        { "name": "parentCommentId", "type": "guid", "nullable": true },
+        { "name": "body", "type": "text" }
+      ]
+    },
+    {
+      "name": "Share",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "sharerId", "type": "guid", "fromPrincipal": true },
+        { "name": "targetType", "type": "string" },
+        { "name": "targetId", "type": "guid" },
+        { "name": "commentary", "type": "text", "nullable": true }
+      ]
+    }
+  ],
+  "publishes": ["ReactionAdded", "ReactionRemoved", "CommentAdded", "ContentShared"],
+  "consumes": ["UserDeleted", "PostRemoved"]
+}

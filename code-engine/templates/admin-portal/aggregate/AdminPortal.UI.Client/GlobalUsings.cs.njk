@@ -1,0 +1,9 @@
+// Generated (aggregate scope) — WASM client usings, including every module's typed
+// client + contract namespace so the generated grid pages compile.
+global using SocialLight.AdminPortal.UI.Client;
+global using SocialLight.AdminPortal.UI.Client.Realtime;
+global using MudBlazor;
+{% for m in modules %}
+global using {{ m.clientNamespace }};
+global using {{ m.contractsNamespace }};
+{% endfor %}

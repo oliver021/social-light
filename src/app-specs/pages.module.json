@@ -1,0 +1,33 @@
+{
+  "module": "Pages",
+  "schema": "pages",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Page",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "name", "type": "string" },
+        { "name": "category", "type": "string" },
+        { "name": "description", "type": "text", "nullable": true },
+        { "name": "avatar", "type": "string", "nullable": true },
+        { "name": "coverImage", "type": "string", "nullable": true },
+        { "name": "verificationStatus", "type": "string" }
+      ],
+      "relations": [
+        { "to": "PageRole", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "PageRole",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "pageId", "type": "guid" },
+        { "name": "userId", "type": "guid" },
+        { "name": "role", "type": "string" }
+      ]
+    }
+  ],
+  "publishes": ["PageCreated", "PageRoleAssigned"],
+  "consumes": ["UserDeleted"]
+}

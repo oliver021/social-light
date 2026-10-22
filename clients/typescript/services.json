@@ -1,0 +1,17 @@
+[
+  { "name": "profile", "url": "http://localhost:5300/openapi/v1.json" },
+  { "name": "feed", "url": "http://localhost:5301/openapi/v1.json" },
+  { "name": "posts", "url": "http://localhost:5302/openapi/v1.json" },
+  { "name": "engagement", "url": "http://localhost:5303/openapi/v1.json" },
+  { "name": "social-graph", "url": "http://localhost:5304/openapi/v1.json" },
+  { "name": "stories", "url": "http://localhost:5305/openapi/v1.json" },
+  { "name": "groups", "url": "http://localhost:5306/openapi/v1.json" },
+  { "name": "events", "url": "http://localhost:5307/openapi/v1.json" },
+  { "name": "reels", "url": "http://localhost:5308/openapi/v1.json" },
+  { "name": "organizations", "url": "http://localhost:5309/openapi/v1.json" },
+  { "name": "chat", "url": "http://localhost:5310/openapi/v1.json" },
+  { "name": "notifications", "url": "http://localhost:5311/openapi/v1.json" },
+  { "name": "catalog", "url": "http://localhost:5312/openapi/v1.json" },
+  { "name": "ordering", "url": "http://localhost:5313/openapi/v1.json" },
+  { "name": "basket", "url": "http://localhost:5314/openapi/v1.json" }
+]

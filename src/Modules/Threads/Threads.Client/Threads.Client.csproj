@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Threads.Client — the typed HTTP client (DESIGN-STRATEGY.md §5). The ONE
+    artifact shared across every frontend (web, MAUI native, hand-built feed). It
+    references only Threads.Contracts, so a frontend consumes it without any
+    backend dependency — port-based decoupling across the client/server boundary.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Threads.Contracts\Threads.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

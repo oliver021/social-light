@@ -1,0 +1,13 @@
+namespace {{ namespace }}.Api;
+
+/// <summary>Maps every entity endpoint group in the "{{ module }}" module.</summary>
+public static class {{ module }}Api
+{
+    public static IEndpointRouteBuilder Map{{ module }}Api(this IEndpointRouteBuilder app)
+    {
+{% for e in entities %}
+        app.Map{{ e.Entity }}Endpoints();
+{% endfor %}
+        return app;
+    }
+}

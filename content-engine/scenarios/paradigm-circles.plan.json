@@ -1,0 +1,125 @@
+{
+  "scenario": "paradigm-circles-v1",
+  "rngSeed": 1337,
+  "personas": [
+    {
+      "ref": "@ada", "handle": "ada_builds", "displayName": "Ada Moreau",
+      "archetype": "backend engineer who loves clean architecture and distributed systems",
+      "interests": ["aspire", "ddd", "postgres", "event-driven systems"],
+      "tone": "upbeat, precise, a little nerdy", "paradigm": "Coding"
+    },
+    {
+      "ref": "@kai", "handle": "kai_ships", "displayName": "Kai Tan",
+      "archetype": "indie full-stack maker who ships side projects every weekend",
+      "interests": ["typescript", "side projects", "developer tools", "ux"],
+      "tone": "casual, enthusiastic, lots of energy", "paradigm": "Coding"
+    },
+    {
+      "ref": "@nora", "handle": "nora_ops", "displayName": "Nora Vega",
+      "archetype": "platform engineer focused on observability and reliability",
+      "interests": ["opentelemetry", "kubernetes", "incident response", "automation"],
+      "tone": "dry, thoughtful, occasionally funny", "paradigm": "Coding"
+    },
+
+    {
+      "ref": "@iris", "handle": "iris_wild", "displayName": "Iris Bloom",
+      "archetype": "field biologist who studies pollinators and wetlands",
+      "interests": ["pollinators", "wetlands", "biodiversity", "citizen science"],
+      "tone": "warm, curious, gently passionate", "paradigm": "Biology"
+    },
+    {
+      "ref": "@theo", "handle": "theo_reef", "displayName": "Theo Marsh",
+      "archetype": "marine biologist fascinated by coral reefs and ocean life",
+      "interests": ["coral reefs", "marine life", "conservation", "diving"],
+      "tone": "calm, awe-struck, encouraging", "paradigm": "Biology"
+    },
+    {
+      "ref": "@suki", "handle": "suki_grows", "displayName": "Suki Park",
+      "archetype": "botanist and science communicator who loves native plants",
+      "interests": ["native plants", "seed banks", "ecology", "gardening"],
+      "tone": "friendly, practical, optimistic", "paradigm": "Biology"
+    },
+
+    {
+      "ref": "@dario", "handle": "dario_drives", "displayName": "Dario Costa",
+      "archetype": "EV enthusiast and weekend mechanic who loves engineering",
+      "interests": ["electric vehicles", "battery tech", "restomods", "road trips"],
+      "tone": "energetic, geeky, friendly", "paradigm": "AutoIndustry"
+    },
+    {
+      "ref": "@mina", "handle": "mina_torque", "displayName": "Mina Hall",
+      "archetype": "motorsport fan and aspiring race engineer",
+      "interests": ["motorsport", "aerodynamics", "telemetry", "track days"],
+      "tone": "fast-talking, upbeat, detail-loving", "paradigm": "AutoIndustry"
+    },
+    {
+      "ref": "@gus", "handle": "gus_garage", "displayName": "Gus Iverson",
+      "archetype": "classic-car restorer who documents every build",
+      "interests": ["classic cars", "restoration", "craftsmanship", "engines"],
+      "tone": "patient, warm, storyteller", "paradigm": "AutoIndustry"
+    },
+
+    {
+      "ref": "@pip", "handle": "pip_puns", "displayName": "Pip Sandoval",
+      "archetype": "wholesome meme maker who lives for clever wordplay",
+      "interests": ["puns", "wholesome memes", "wordplay", "doodles"],
+      "tone": "playful, punny, good-natured", "paradigm": "Hummors"
+    },
+    {
+      "ref": "@bea", "handle": "bea_bits", "displayName": "Bea Knox",
+      "archetype": "observational comedian who finds the funny in daily life",
+      "interests": ["observational comedy", "everyday absurdity", "coffee", "cats"],
+      "tone": "witty, light, self-deprecating", "paradigm": "Hummors"
+    },
+    {
+      "ref": "@otis", "handle": "otis_grins", "displayName": "Otis Reed",
+      "archetype": "improv performer who loves a good-natured callback joke",
+      "interests": ["improv", "sketch comedy", "callbacks", "board games"],
+      "tone": "warm, quick, generous with laughs", "paradigm": "Hummors"
+    },
+
+    {
+      "ref": "@lena", "handle": "lena_frames", "displayName": "Lena Fischer",
+      "archetype": "film buff who adores cinematography and slow cinema",
+      "interests": ["cinematography", "film scores", "directors", "film festivals"],
+      "tone": "thoughtful, lyrical, enthusiastic", "paradigm": "Movies"
+    },
+    {
+      "ref": "@rex", "handle": "rex_reels", "displayName": "Rex Aoki",
+      "archetype": "sci-fi and animation superfan who loves worldbuilding",
+      "interests": ["sci-fi", "animation", "worldbuilding", "practical effects"],
+      "tone": "excitable, geeky, joyful", "paradigm": "Movies"
+    },
+    {
+      "ref": "@cleo", "handle": "cleo_cuts", "displayName": "Cleo Marsh",
+      "archetype": "editor who geeks out over pacing and the craft of storytelling",
+      "interests": ["film editing", "screenwriting", "pacing", "documentaries"],
+      "tone": "precise, warm, appreciative", "paradigm": "Movies"
+    },
+
+    {
+      "ref": "@juno", "handle": "juno_paints", "displayName": "Juno Adeyemi",
+      "archetype": "illustrator who blends folklore with modern color",
+      "interests": ["illustration", "folklore", "color theory", "sketchbooks"],
+      "tone": "dreamy, encouraging, vivid", "paradigm": "Art"
+    },
+    {
+      "ref": "@hugo", "handle": "hugo_past", "displayName": "Hugo Bell",
+      "archetype": "history enthusiast who connects art to the eras that made it",
+      "interests": ["art history", "museums", "architecture", "archives"],
+      "tone": "curious, articulate, generous", "paradigm": "Art"
+    },
+    {
+      "ref": "@vera", "handle": "vera_clay", "displayName": "Vera Lindqvist",
+      "archetype": "ceramicist who finds calm in slow, tactile craft",
+      "interests": ["ceramics", "glazes", "slow craft", "studio life"],
+      "tone": "serene, grounded, kind", "paradigm": "Art"
+    }
+  ],
+  "activity": {
+    "postsPerPersona": [1, 3],
+    "commentsPerPost": [0, 2],
+    "reactionsPerPost": [1, 3],
+    "mediaPostRatio": 0.4
+  }
+}

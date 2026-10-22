@@ -1,0 +1,21 @@
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using MudBlazor.Services;
+
+var builder = WebAssemblyHostBuilder.CreateDefault(args);
+builder.RootComponents.Add<App>("#app");
+builder.RootComponents.Add<HeadOutlet>("head::after");
+
+builder.Services.AddMudServices();
+
+// Same-origin: the host serves this WASM and proxies /api/* to the modules, so every
+// typed client points at the host origin. One registration per module spec (fan-in).
+// In the browser HttpClient wraps fetch, so a plain instance per client is the norm.
+{% for m in modules %}
+builder.Services.AddScoped(_ => new {{ m.module }}Client(new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) }));
+{% endfor %}
+
+// Realtime: SignalR client to the host's hub (broker-driven, no polling).
+builder.Services.AddSingleton<AdminHubClient>();
+
+await builder.Build().RunAsync();

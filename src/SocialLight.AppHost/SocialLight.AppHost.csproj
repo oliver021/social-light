@@ -1,0 +1,54 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.2.0">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <UserSecretsId>a1b2c3d4-e5f6-7890-abcd-ef1234567890</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Docker" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" />
+    <PackageReference Include="Aspire.Hosting.Redis" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.Yarp" />
+  </ItemGroup>
+
+  <!-- Generated social modules (src/Modules/<Module>/<Module>.API) are referenced
+       here one line per module as they are generated from src/app-specs/. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Identity.API\Identity.API.csproj" />
+    <!-- Marketplace module: the eShop store reused wholesale (not generated) as the
+         social-network marketplace. Rich pre-existing DDD/CQRS domain → reuse, the
+         counterpoint to code-engine's redundant-slice generation. -->
+    <ProjectReference Include="..\Catalog.API\Catalog.API.csproj" />
+    <ProjectReference Include="..\Basket.API\Basket.API.csproj" />
+    <ProjectReference Include="..\Ordering.API\Ordering.API.csproj" />
+    <ProjectReference Include="..\OrderProcessor\OrderProcessor.csproj" />
+    <ProjectReference Include="..\PaymentProcessor\PaymentProcessor.csproj" />
+    <ProjectReference Include="..\Profile.API\Profile.API.csproj" />
+    <ProjectReference Include="..\Feed.API\Feed.API.csproj" />
+    <!-- media-service: store-and-serve media host (avatars, post photos). -->
+    <ProjectReference Include="..\MPEG.Service\MPEG.Service.csproj" />
+    <ProjectReference Include="..\AdminPortal.UI\AdminPortal.UI.csproj" />
+    <ProjectReference Include="..\Modules\SocialGraph\SocialGraph.API\SocialGraph.API.csproj" />
+    <ProjectReference Include="..\Modules\Posts\Posts.API\Posts.API.csproj" />
+    <ProjectReference Include="..\Modules\Engagement\Engagement.API\Engagement.API.csproj" />
+    <ProjectReference Include="..\Modules\Stories\Stories.API\Stories.API.csproj" />
+    <ProjectReference Include="..\Modules\Groups\Groups.API\Groups.API.csproj" />
+    <ProjectReference Include="..\Modules\Events\Events.API\Events.API.csproj" />
+    <ProjectReference Include="..\Modules\Reels\Reels.API\Reels.API.csproj" />
+    <ProjectReference Include="..\Modules\Organizations\Organizations.API\Organizations.API.csproj" />
+    <ProjectReference Include="..\Modules\Chat\Chat.API\Chat.API.csproj" />
+    <ProjectReference Include="..\Modules\Notifications\Notifications.API\Notifications.API.csproj" />
+    <ProjectReference Include="..\Modules\Gaming\Gaming.API\Gaming.API.csproj" />
+    <ProjectReference Include="..\Modules\Jobs\Jobs.API\Jobs.API.csproj" />
+    <ProjectReference Include="..\Modules\Moderation\Moderation.API\Moderation.API.csproj" />
+    <ProjectReference Include="..\Modules\Pages\Pages.API\Pages.API.csproj" />
+    <ProjectReference Include="..\Modules\Recommendation\Recommendation.API\Recommendation.API.csproj" />
+    <ProjectReference Include="..\Modules\Threads\Threads.API\Threads.API.csproj" />
+  </ItemGroup>
+
+</Project>

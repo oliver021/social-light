@@ -1,0 +1,20 @@
+using MediatR;
+using {{ domainNamespace }}.AggregatesModel.{{ Entity }}Aggregate;
+
+namespace {{ namespace }}.Application.Commands;
+
+public class Create{{ Entity }}CommandHandler(I{{ Entity }}Repository repository)
+    : IRequestHandler<Create{{ Entity }}Command, bool>
+{
+    public async Task<bool> Handle(Create{{ Entity }}Command request, CancellationToken cancellationToken)
+    {
+        var {{ entity }} = new {{ Entity }}(
+{% for f in nonKeyFields %}
+            request.{{ f.Name }}{{ "," if not loop.last }}
+{% endfor %}
+        );
+
+        repository.Add({{ entity }});
+        return await repository.UnitOfWork.SaveEntitiesAsync(cancellationToken);
+    }
+}

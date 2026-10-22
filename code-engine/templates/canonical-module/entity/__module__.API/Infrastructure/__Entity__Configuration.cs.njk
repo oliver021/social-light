@@ -1,0 +1,17 @@
+namespace {{ namespace }}.Infrastructure;
+
+/// <summary>EF Core mapping for <c>{{ Entity }}</c> (applied by the module DbContext).</summary>
+public class {{ Entity }}Configuration : IEntityTypeConfiguration<{{ TypeRef }}>
+{
+    public void Configure(EntityTypeBuilder<{{ TypeRef }}> builder)
+    {
+        builder.HasKey(x => x.{{ keyField.Name }});
+{% for f in requiredStringFields %}
+        builder.Property(x => x.{{ f.Name }}).IsRequired();
+{% endfor %}
+{% for r in relations %}
+        // Intra-module relation (DESIGN-STRATEGY.md §3): allowed because {{ r.To }} is in this module.
+        builder.HasMany(x => x.{{ r.To }}s).WithOne();
+{% endfor %}
+    }
+}

@@ -1,0 +1,13 @@
+{
+  "entity": "Post",
+  "service": "Posts.API",
+  "kind": "simple",
+  "fields": [
+    { "name": "Id", "type": "guid", "key": true },
+    { "name": "AuthorId", "type": "guid" },
+    { "name": "Content", "type": "string" },
+    { "name": "MediaUrl", "type": "url", "nullable": true },
+    { "name": "CreatedAt", "type": "datetime" }
+  ],
+  "events": ["PostCreated", "PostDeleted"]
+}

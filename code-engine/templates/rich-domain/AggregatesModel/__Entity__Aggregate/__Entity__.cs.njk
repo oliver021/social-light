@@ -1,0 +1,29 @@
+using {{ domainNamespace }}.SeedWork;
+
+namespace {{ domainNamespace }}.AggregatesModel.{{ Entity }}Aggregate;
+
+/// <summary>
+/// {{ Entity }} aggregate root. Business rules live here, not in handlers (CLAUDE.md §4.3).
+/// </summary>
+public class {{ Entity }} : Entity, IAggregateRoot
+{
+{% for f in nonKeyFields %}
+    public {{ f.csType }}{{ '?' if f.nullable }} {{ f.Name }} { get; private set; }{{ ' = default!;' if f.required and f.csType == 'string' }}
+{% endfor %}
+
+    protected {{ Entity }}() { }
+
+    public {{ Entity }}(
+{% for f in nonKeyFields %}
+        {{ f.csType }}{{ '?' if f.nullable }} {{ f.camel }}{{ "," if not loop.last }}
+{% endfor %}
+    )
+    {
+{% for f in nonKeyFields %}
+        {{ f.Name }} = {{ f.camel }};
+{% endfor %}
+{% if createdEvent %}
+        AddDomainEvent(new {{ createdEvent.Name }}DomainEvent(this));
+{% endif %}
+    }
+}

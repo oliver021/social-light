@@ -1,0 +1,14 @@
+global using System.Security.Claims;
+global using Asp.Versioning;
+global using Asp.Versioning.Builder;
+global using Asp.Versioning.Conventions;
+global using Microsoft.AspNetCore.Http.HttpResults;
+global using SocialLight.Feed.API;
+global using SocialLight.Feed.API.Api;
+global using SocialLight.Feed.API.Application;
+global using SocialLight.Feed.API.Clients;
+global using SocialLight.Feed.API.Dtos;
+global using SocialLight.ServiceDefaults;
+global using SocialLight.SocialGraph.Client;
+global using SocialLight.Posts.Client;
+global using SocialLight.Engagement.Client;

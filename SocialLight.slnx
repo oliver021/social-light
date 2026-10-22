@@ -1,0 +1,162 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EventBus/EventBus.csproj" />
+    <Project Path="src/PaymentProcessor/PaymentProcessor.csproj" />
+    <Project Path="src/SocialLight.ServiceDefaults/SocialLight.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/src/APIs/">
+    <Project Path="src/Basket.API/Basket.API.csproj" />
+    <Project Path="src/Catalog.API/Catalog.API.csproj" />
+    <Project Path="src/Identity.API/Identity.API.csproj" />
+    <Project Path="src/Profile.API/Profile.API.csproj" />
+    <Project Path="src/Feed.API/Feed.API.csproj" />
+    <Project Path="src/Webhooks.API/Webhooks.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Foundational/" />
+  <Folder Name="/src/Foundational/Ordering/">
+    <Project Path="src/Ordering.API/Ordering.API.csproj" />
+    <Project Path="src/Ordering.Domain/Ordering.Domain.csproj" />
+    <Project Path="src/Ordering.Infrastructure/Ordering.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/">
+    <Project Path="src/EventBusRabbitMQ/EventBusRabbitMQ.csproj" />
+    <Project Path="src/IntegrationEventLogEF/IntegrationEventLogEF.csproj" />
+  </Folder>
+  <Folder Name="/src/Hosts/">
+    <Project Path="src/SocialLight.AppHost/SocialLight.AppHost.csproj" />
+    <Project Path="src/OrderProcessor/OrderProcessor.csproj" />
+    <Project Path="src/AdminPortal.UI/AdminPortal.UI.csproj" />
+  </Folder>
+  <Folder Name="/src/Clients/">
+    <Project Path="src/AdminPortal.UI.Client/AdminPortal.UI.Client.csproj" />
+    <Project Path="src/ClientApp/ClientApp.csproj" />
+    <Project Path="src/HybridApp/HybridApp.csproj" />
+    <Project Path="src/WebhookClient/WebhookClient.csproj" />
+    <Project Path="src/MPEG.Service.Client/MPEG.Service.Client.csproj" />
+  </Folder>
+  <Folder Name="/src/Legacy/">
+    <Project Path="src/WebApp/WebApp.csproj" />
+    <Project Path="src/WebAppComponents/WebAppComponents.csproj" />
+    <Project Path="src/SocialLight.LegacyEShop/SocialLight.LegacyEShop.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/">
+    <File Path="src/Modules/README.md" />
+  </Folder>
+  <Folder Name="/src/Modules/SocialGraph/">
+    <Project Path="src/Modules/SocialGraph/SocialGraph.Contracts/SocialGraph.Contracts.csproj" />
+    <Project Path="src/Modules/SocialGraph/SocialGraph.Client/SocialGraph.Client.csproj" />
+    <Project Path="src/Modules/SocialGraph/SocialGraph.API/SocialGraph.API.csproj" />
+    <Project Path="src/Modules/SocialGraph/SocialGraph.FunctionalTests/SocialGraph.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Posts/">
+    <Project Path="src/Modules/Posts/Posts.Contracts/Posts.Contracts.csproj" />
+    <Project Path="src/Modules/Posts/Posts.Client/Posts.Client.csproj" />
+    <Project Path="src/Modules/Posts/Posts.API/Posts.API.csproj" />
+    <Project Path="src/Modules/Posts/Posts.FunctionalTests/Posts.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Engagement/">
+    <Project Path="src/Modules/Engagement/Engagement.Contracts/Engagement.Contracts.csproj" />
+    <Project Path="src/Modules/Engagement/Engagement.Client/Engagement.Client.csproj" />
+    <Project Path="src/Modules/Engagement/Engagement.API/Engagement.API.csproj" />
+    <Project Path="src/Modules/Engagement/Engagement.FunctionalTests/Engagement.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Stories/">
+    <Project Path="src/Modules/Stories/Stories.Contracts/Stories.Contracts.csproj" />
+    <Project Path="src/Modules/Stories/Stories.Client/Stories.Client.csproj" />
+    <Project Path="src/Modules/Stories/Stories.API/Stories.API.csproj" />
+    <Project Path="src/Modules/Stories/Stories.FunctionalTests/Stories.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Groups/">
+    <Project Path="src/Modules/Groups/Groups.Contracts/Groups.Contracts.csproj" />
+    <Project Path="src/Modules/Groups/Groups.Client/Groups.Client.csproj" />
+    <Project Path="src/Modules/Groups/Groups.API/Groups.API.csproj" />
+    <Project Path="src/Modules/Groups/Groups.FunctionalTests/Groups.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Events/">
+    <Project Path="src/Modules/Events/Events.Contracts/Events.Contracts.csproj" />
+    <Project Path="src/Modules/Events/Events.Client/Events.Client.csproj" />
+    <Project Path="src/Modules/Events/Events.API/Events.API.csproj" />
+    <Project Path="src/Modules/Events/Events.FunctionalTests/Events.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Reels/">
+    <Project Path="src/Modules/Reels/Reels.Contracts/Reels.Contracts.csproj" />
+    <Project Path="src/Modules/Reels/Reels.Client/Reels.Client.csproj" />
+    <Project Path="src/Modules/Reels/Reels.API/Reels.API.csproj" />
+    <Project Path="src/Modules/Reels/Reels.FunctionalTests/Reels.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Organizations/">
+    <Project Path="src/Modules/Organizations/Organizations.Contracts/Organizations.Contracts.csproj" />
+    <Project Path="src/Modules/Organizations/Organizations.Client/Organizations.Client.csproj" />
+    <Project Path="src/Modules/Organizations/Organizations.API/Organizations.API.csproj" />
+    <Project Path="src/Modules/Organizations/Organizations.FunctionalTests/Organizations.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Chat/">
+    <Project Path="src/Modules/Chat/Chat.Contracts/Chat.Contracts.csproj" />
+    <Project Path="src/Modules/Chat/Chat.Client/Chat.Client.csproj" />
+    <Project Path="src/Modules/Chat/Chat.API/Chat.API.csproj" />
+    <Project Path="src/Modules/Chat/Chat.FunctionalTests/Chat.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/Notifications.Contracts/Notifications.Contracts.csproj" />
+    <Project Path="src/Modules/Notifications/Notifications.Client/Notifications.Client.csproj" />
+    <Project Path="src/Modules/Notifications/Notifications.API/Notifications.API.csproj" />
+    <Project Path="src/Modules/Notifications/Notifications.FunctionalTests/Notifications.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Gaming/">
+    <Project Path="src/Modules/Gaming/Gaming.Contracts/Gaming.Contracts.csproj" />
+    <Project Path="src/Modules/Gaming/Gaming.Client/Gaming.Client.csproj" />
+    <Project Path="src/Modules/Gaming/Gaming.API/Gaming.API.csproj" />
+    <Project Path="src/Modules/Gaming/Gaming.FunctionalTests/Gaming.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Jobs/">
+    <Project Path="src/Modules/Jobs/Jobs.Contracts/Jobs.Contracts.csproj" />
+    <Project Path="src/Modules/Jobs/Jobs.Client/Jobs.Client.csproj" />
+    <Project Path="src/Modules/Jobs/Jobs.API/Jobs.API.csproj" />
+    <Project Path="src/Modules/Jobs/Jobs.FunctionalTests/Jobs.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Moderation/">
+    <Project Path="src/Modules/Moderation/Moderation.Contracts/Moderation.Contracts.csproj" />
+    <Project Path="src/Modules/Moderation/Moderation.Client/Moderation.Client.csproj" />
+    <Project Path="src/Modules/Moderation/Moderation.API/Moderation.API.csproj" />
+    <Project Path="src/Modules/Moderation/Moderation.FunctionalTests/Moderation.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Pages/">
+    <Project Path="src/Modules/Pages/Pages.Contracts/Pages.Contracts.csproj" />
+    <Project Path="src/Modules/Pages/Pages.Client/Pages.Client.csproj" />
+    <Project Path="src/Modules/Pages/Pages.API/Pages.API.csproj" />
+    <Project Path="src/Modules/Pages/Pages.FunctionalTests/Pages.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Recommendation/">
+    <Project Path="src/Modules/Recommendation/Recommendation.Contracts/Recommendation.Contracts.csproj" />
+    <Project Path="src/Modules/Recommendation/Recommendation.Client/Recommendation.Client.csproj" />
+    <Project Path="src/Modules/Recommendation/Recommendation.API/Recommendation.API.csproj" />
+    <Project Path="src/Modules/Recommendation/Recommendation.FunctionalTests/Recommendation.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Threads/">
+    <Project Path="src/Modules/Threads/Threads.Contracts/Threads.Contracts.csproj" />
+    <Project Path="src/Modules/Threads/Threads.Client/Threads.Client.csproj" />
+    <Project Path="src/Modules/Threads/Threads.API/Threads.API.csproj" />
+    <Project Path="src/Modules/Threads/Threads.FunctionalTests/Threads.FunctionalTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/">
+    <Project Path="src/MPEG.Service/MPEG.Service.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Basket.UnitTests/Basket.UnitTests.csproj" />
+    <Project Path="tests/Catalog.FunctionalTests/Catalog.FunctionalTests.csproj" />
+    <Project Path="tests/Ordering.FunctionalTests/Ordering.FunctionalTests.csproj" />
+    <Project Path="tests/Ordering.UnitTests/Ordering.UnitTests.csproj" />
+    <Project Path="tests/ClientApp.UnitTests/ClientApp.UnitTests.csproj" />
+    <Project Path="tests/MPEG.Service.UnitTests/MPEG.Service.UnitTests.csproj" />
+    <Project Path="tests/Profile.FunctionalTests/Profile.FunctionalTests.csproj" />
+    <Project Path="tests/Feed.UnitTests/Feed.UnitTests.csproj" />
+    <Project Path="tests/Architecture.UnitTests/Architecture.UnitTests.csproj" />
+    <Project Path="tests/SocialLight.AcceptanceTests/SocialLight.AcceptanceTests.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Packages.props" />
+    <File Path="NuGet.config" />
+    <File Path="README.md" />
+  </Folder>
+</Solution>

@@ -1,0 +1,23 @@
+using Microsoft.EntityFrameworkCore;
+using {{ namespace }}.Model;
+
+namespace {{ namespace }}.Infrastructure;
+
+// EF Core DbContext (Npgsql / Postgres — see CLAUDE.md §2). Owns its own schema.
+public class {{ contextName }}(DbContextOptions<{{ contextName }}> options) : DbContext(options)
+{
+    public DbSet<{{ Entity }}> {{ EntityPlural }} => Set<{{ Entity }}>();
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        builder.Entity<{{ Entity }}>(e =>
+        {
+            e.HasKey(x => x.{{ keyField.Name }});
+{% for f in requiredStringFields %}
+            e.Property(x => x.{{ f.Name }}).IsRequired();
+{% endfor %}
+        });
+
+        base.OnModelCreating(builder);
+    }
+}

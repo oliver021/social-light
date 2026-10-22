@@ -1,0 +1,106 @@
+{
+  "module": "Gaming",
+  "schema": "gaming",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Game",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "name", "type": "string" },
+        { "name": "type", "type": "string" },
+        { "name": "provider", "type": "string", "nullable": true },
+        { "name": "source", "type": "string", "nullable": true },
+        { "name": "platform", "type": "string", "nullable": true }
+      ],
+      "relations": [
+        { "to": "Achievement", "kind": "oneToMany" },
+        { "to": "Tournament", "kind": "oneToMany" },
+        { "to": "Team", "kind": "oneToMany" },
+        { "to": "Match", "kind": "oneToMany" },
+        { "to": "Leaderboard", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "PlayerProfile",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "userId", "type": "guid" },
+        { "name": "nickname", "type": "string" },
+        { "name": "ranking", "type": "int" },
+        { "name": "level", "type": "int" }
+      ]
+    },
+    {
+      "name": "Achievement",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "gameId", "type": "guid" },
+        { "name": "title", "type": "string" },
+        { "name": "description", "type": "text", "nullable": true }
+      ],
+      "relations": [
+        { "to": "UserAchievement", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "UserAchievement",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "userId", "type": "guid" },
+        { "name": "achievementId", "type": "guid" },
+        { "name": "unlockedAt", "type": "datetime" }
+      ]
+    },
+    {
+      "name": "Tournament",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "gameId", "type": "guid" },
+        { "name": "organizerId", "type": "guid" },
+        { "name": "startDate", "type": "datetime" },
+        { "name": "prizePool", "type": "decimal", "nullable": true }
+      ]
+    },
+    {
+      "name": "Team",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "gameId", "type": "guid" },
+        { "name": "name", "type": "string" },
+        { "name": "ownerId", "type": "guid" }
+      ],
+      "relations": [
+        { "to": "TeamMember", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "TeamMember",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "teamId", "type": "guid" },
+        { "name": "userId", "type": "guid" },
+        { "name": "role", "type": "string" }
+      ]
+    },
+    {
+      "name": "Match",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "gameId", "type": "guid" },
+        { "name": "tournamentId", "type": "guid", "nullable": true },
+        { "name": "status", "type": "string" }
+      ]
+    },
+    {
+      "name": "Leaderboard",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "gameId", "type": "guid" },
+        { "name": "seasonId", "type": "guid", "nullable": true }
+      ]
+    }
+  ],
+  "publishes": ["TournamentCreated", "MatchCompleted", "AchievementUnlocked"],
+  "consumes": ["UserDeleted"]
+}

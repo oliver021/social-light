@@ -1,0 +1,85 @@
+@* Generated (entity scope, category-1 immutable): a CRUD grid for Organizations.OrganizationMember,
+   one per entity across every module. A list page IS a direct projection of the spec
+   (DESIGN-STRATEGY.md §6), so it is generated, never hand-edited. It consumes the typed
+   OrganizationsClient exactly as a hand-built page would — the seam rides on the contract. *@
+@page "/admin/organizations/organization-members"
+@inject OrganizationsClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Admin · OrganizationMembers</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">OrganizationMembers</MudText>
+    <MudChip T="string" Size="Size.Small" Color="Color.Default">Organizations</MudChip>
+    <MudSpacer />
+    <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="_loading">Refresh</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="CreateSampleAsync" Disabled="_loading">New sample</MudButton>
+</MudStack>
+
+<MudDataGrid T="OrganizationMemberDto" Items="_items" Loading="_loading" Dense="true" Hover="true"
+             Filterable="true" SortMode="SortMode.Multiple" QuickFilter="_quickFilter">
+    <ToolBarContent>
+        <MudTextField @bind-Value="_search" Placeholder="Search" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium"
+                      Immediate="true" Class="mt-0" />
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Id" Title="Id" />
+        <PropertyColumn Property="x => x.OrganizationId" Title="OrganizationId" />
+        <PropertyColumn Property="x => x.UserId" Title="UserId" />
+        <PropertyColumn Property="x => x.Role" Title="Role" />
+    </Columns>
+    <NoRecordsContent>
+        <MudText Class="pa-4" Color="Color.Secondary">No organizationMembers yet.</MudText>
+    </NoRecordsContent>
+</MudDataGrid>
+
+@code {
+    private IReadOnlyList<OrganizationMemberDto> _items = [];
+    private bool _loading;
+    private string _search = string.Empty;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _items = await Client.GetOrganizationMembersAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load organizationMembers: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task CreateSampleAsync()
+    {
+        _loading = true;
+        try
+        {
+            // Deterministic sample built from the spec (the same data the generated
+            // functional tests use) — no inference. Replace with a real form (category-3).
+            await Client.CreateOrganizationMemberAsync(new CreateOrganizationMemberRequest(Guid.NewGuid(), Guid.NewGuid(), "sample Role"));
+            Snackbar.Add("Created a sample OrganizationMember.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Create failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Func<OrganizationMemberDto, bool> _quickFilter => x =>
+        string.IsNullOrWhiteSpace(_search) || x.ToString()!.Contains(_search, StringComparison.OrdinalIgnoreCase);
+}

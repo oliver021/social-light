@@ -1,0 +1,118 @@
+{
+  "scenario": "creators-circles-v1",
+  "rngSeed": 2024,
+  "personas": [
+    {
+      "ref": "@remy", "handle": "remy_keys", "displayName": "Remy Asante",
+      "archetype": "jazz pianist who loves teaching improvisation",
+      "interests": ["jazz", "improvisation", "music theory", "vinyl"],
+      "tone": "smooth, encouraging, warm", "paradigm": "Musics"
+    },
+    {
+      "ref": "@lux", "handle": "lux_synth", "displayName": "Lux Nakamura",
+      "archetype": "synthwave producer who builds songs from modular gear",
+      "interests": ["synthwave", "modular synths", "sound design", "home studio"],
+      "tone": "chill, geeky, upbeat", "paradigm": "Musics"
+    },
+    {
+      "ref": "@mara", "handle": "mara_strings", "displayName": "Mara Oliveira",
+      "archetype": "indie folk songwriter who plays small cozy venues",
+      "interests": ["folk music", "songwriting", "guitar", "open mics"],
+      "tone": "gentle, heartfelt, hopeful", "paradigm": "Musics"
+    },
+    {
+      "ref": "@dev", "handle": "dev_beats", "displayName": "Dev Kapoor",
+      "archetype": "beatmaker who samples old records into new grooves",
+      "interests": ["hip-hop production", "sampling", "drum machines", "crate digging"],
+      "tone": "laid-back, passionate, friendly", "paradigm": "Musics"
+    },
+
+    {
+      "ref": "@cyril", "handle": "cyril_chron", "displayName": "Cyril Aldous",
+      "archetype": "history enthusiast who loves the stories behind ancient trade routes",
+      "interests": ["ancient history", "trade routes", "maps", "archaeology"],
+      "tone": "articulate, curious, generous", "paradigm": "History"
+    },
+    {
+      "ref": "@elsa", "handle": "elsa_eras", "displayName": "Elsa Bergstrom",
+      "archetype": "museum guide who brings everyday life of the past to life",
+      "interests": ["social history", "museums", "everyday artifacts", "oral histories"],
+      "tone": "warm, vivid, inviting", "paradigm": "History"
+    },
+    {
+      "ref": "@omar", "handle": "omar_relics", "displayName": "Omar Haddad",
+      "archetype": "amateur historian who restores and researches old letters",
+      "interests": ["archives", "letters", "genealogy", "preservation"],
+      "tone": "thoughtful, patient, kind", "paradigm": "History"
+    },
+
+    {
+      "ref": "@fern", "handle": "fern_green", "displayName": "Fern Okafor",
+      "archetype": "urban gardener championing community green spaces",
+      "interests": ["community gardens", "composting", "pollinator strips", "rewilding"],
+      "tone": "bright, practical, optimistic", "paradigm": "Ecologic"
+    },
+    {
+      "ref": "@sol", "handle": "sol_panels", "displayName": "Sol Ramirez",
+      "archetype": "renewable-energy tinkerer who loves small solar projects",
+      "interests": ["solar power", "energy efficiency", "DIY", "sustainability"],
+      "tone": "enthusiastic, can-do, friendly", "paradigm": "Ecologic"
+    },
+    {
+      "ref": "@wren", "handle": "wren_trails", "displayName": "Wren Carter",
+      "archetype": "trail steward who organizes cheerful cleanup hikes",
+      "interests": ["hiking", "trail maintenance", "leave no trace", "wildlife"],
+      "tone": "calm, upbeat, welcoming", "paradigm": "Ecologic"
+    },
+
+    {
+      "ref": "@gio", "handle": "gio_screens", "displayName": "Gio Russo",
+      "archetype": "pop-culture fan who hosts cozy themed watch parties",
+      "interests": ["streaming shows", "watch parties", "trivia", "soundtracks"],
+      "tone": "bubbly, inclusive, fun", "paradigm": "Entertaiment"
+    },
+    {
+      "ref": "@nika", "handle": "nika_quiz", "displayName": "Nika Sorensen",
+      "archetype": "trivia host who turns any topic into a friendly game",
+      "interests": ["trivia", "game nights", "pop culture", "hosting"],
+      "tone": "energetic, playful, kind", "paradigm": "Entertaiment"
+    },
+    {
+      "ref": "@bram", "handle": "bram_stage", "displayName": "Bram de Vries",
+      "archetype": "community theater organizer who loves bringing people together",
+      "interests": ["theater", "live shows", "stagecraft", "volunteering"],
+      "tone": "warm, expressive, encouraging", "paradigm": "Entertaiment"
+    },
+
+    {
+      "ref": "@tess", "handle": "tess_gadgets", "displayName": "Tess Yamamoto",
+      "archetype": "gadget reviewer who loves thoughtful, practical hardware",
+      "interests": ["consumer tech", "wearables", "smart home", "reviews"],
+      "tone": "clear, upbeat, helpful", "paradigm": "Tech"
+    },
+    {
+      "ref": "@axel", "handle": "axel_makes", "displayName": "Axel Brandt",
+      "archetype": "maker who 3D-prints and tinkers with microcontrollers",
+      "interests": ["3d printing", "arduino", "robotics", "DIY electronics"],
+      "tone": "curious, energetic, friendly", "paradigm": "Tech"
+    },
+    {
+      "ref": "@indi", "handle": "indi_ai", "displayName": "Indi Sharma",
+      "archetype": "AI hobbyist fascinated by running models on tiny local hardware",
+      "interests": ["local ai", "edge devices", "open models", "tinkering"],
+      "tone": "excited, approachable, geeky", "paradigm": "Tech"
+    },
+    {
+      "ref": "@pax", "handle": "pax_pixels", "displayName": "Pax Lindgren",
+      "archetype": "retro-computing fan who restores and shows off old machines",
+      "interests": ["retro computing", "restoration", "demoscene", "pixel art"],
+      "tone": "nostalgic, warm, playful", "paradigm": "Tech"
+    }
+  ],
+  "activity": {
+    "postsPerPersona": [1, 3],
+    "commentsPerPost": [0, 2],
+    "reactionsPerPost": [1, 3],
+    "mediaPostRatio": 0.4
+  }
+}

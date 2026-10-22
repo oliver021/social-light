@@ -1,0 +1,3 @@
+# Content-addressed media blobs written at runtime by the store-and-serve host.
+# Generated/seeded media is not source — never commit it.
+blobs/

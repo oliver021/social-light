@@ -1,0 +1,25 @@
+global using System.Security.Claims;
+global using Asp.Versioning;
+global using Asp.Versioning.Builder;
+global using Asp.Versioning.Conventions;
+global using Microsoft.AspNetCore.Http.HttpResults;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.EntityFrameworkCore.Metadata.Builders;
+global using SocialLight.EventBus.Abstractions;
+global using SocialLight.EventBus.Events;
+global using SocialLight.ServiceDefaults;
+global using {{ contractsNamespace }};
+{% if publishes.length %}
+global using {{ contractsNamespace }}.IntegrationEvents;
+{% endif %}
+{% if consumes.length %}
+global using {{ namespace }}.IntegrationEvents;
+{% endif %}
+global using {{ domainNamespace }};
+global using {{ namespace }};
+global using {{ namespace }}.Api;
+global using {{ namespace }}.Application;
+global using {{ namespace }}.Infrastructure;
+{% if realtime %}
+global using {{ namespace }}.Realtime;
+{% endif %}

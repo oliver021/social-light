@@ -1,0 +1,13 @@
+@* Generated (aggregate / fan-in): one nav group per module, one link per entity —
+   converged from ALL {{ modules.length }} module specs. This file is the headline
+   aggregator artifact: many specs → one navigation. Regenerated, never hand-edited. *@
+<MudNavMenu>
+    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+{% for m in modules %}
+    <MudNavGroup Title="{{ m.module }}" Icon="@Icons.Material.Filled.Folder" Expanded="false">
+{% for e in m.entities %}
+        <MudNavLink Href="admin/{{ m.moduleKebab }}/{{ e.entityPluralKebab }}" Icon="@Icons.Material.Filled.TableRows">{{ e.EntityPlural }}</MudNavLink>
+{% endfor %}
+    </MudNavGroup>
+{% endfor %}
+</MudNavMenu>

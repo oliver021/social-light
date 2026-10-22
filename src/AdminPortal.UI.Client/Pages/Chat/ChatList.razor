@@ -1,0 +1,85 @@
+@* Generated (entity scope, category-1 immutable): a CRUD grid for Chat.Chat,
+   one per entity across every module. A list page IS a direct projection of the spec
+   (DESIGN-STRATEGY.md §6), so it is generated, never hand-edited. It consumes the typed
+   ChatClient exactly as a hand-built page would — the seam rides on the contract. *@
+@page "/admin/chat/chats"
+@inject ChatClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Admin · Chats</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Chats</MudText>
+    <MudChip T="string" Size="Size.Small" Color="Color.Default">Chat</MudChip>
+    <MudSpacer />
+    <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="_loading">Refresh</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="CreateSampleAsync" Disabled="_loading">New sample</MudButton>
+</MudStack>
+
+<MudDataGrid T="ChatDto" Items="_items" Loading="_loading" Dense="true" Hover="true"
+             Filterable="true" SortMode="SortMode.Multiple" QuickFilter="_quickFilter">
+    <ToolBarContent>
+        <MudTextField @bind-Value="_search" Placeholder="Search" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium"
+                      Immediate="true" Class="mt-0" />
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Id" Title="Id" />
+        <PropertyColumn Property="x => x.Type" Title="Type" />
+        <PropertyColumn Property="x => x.Title" Title="Title" />
+        <PropertyColumn Property="x => x.CreatedBy" Title="CreatedBy" />
+    </Columns>
+    <NoRecordsContent>
+        <MudText Class="pa-4" Color="Color.Secondary">No chats yet.</MudText>
+    </NoRecordsContent>
+</MudDataGrid>
+
+@code {
+    private IReadOnlyList<ChatDto> _items = [];
+    private bool _loading;
+    private string _search = string.Empty;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _items = await Client.GetChatsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load chats: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task CreateSampleAsync()
+    {
+        _loading = true;
+        try
+        {
+            // Deterministic sample built from the spec (the same data the generated
+            // functional tests use) — no inference. Replace with a real form (category-3).
+            await Client.CreateChatAsync(new CreateChatRequest("sample Type", "sample Title", Guid.NewGuid()));
+            Snackbar.Add("Created a sample Chat.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Create failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Func<ChatDto, bool> _quickFilter => x =>
+        string.IsNullOrWhiteSpace(_search) || x.ToString()!.Contains(_search, StringComparison.OrdinalIgnoreCase);
+}

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Recommendation.Contracts — the module's PUBLIC contract (DESIGN-STRATEGY.md §3, §9):
+    integration events (publishes/consumes) + the wire DTOs/requests. It references
+    only the shared EventBus abstractions, never EF or Npgsql, so any other module
+    or client can depend on the contract without dragging in the backend.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\EventBus\EventBus.csproj" />
+  </ItemGroup>
+
+</Project>

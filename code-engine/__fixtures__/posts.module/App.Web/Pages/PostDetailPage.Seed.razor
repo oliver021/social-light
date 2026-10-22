@@ -1,0 +1,28 @@
+@page "/posts/{Id}"
+@using SocialLight.Posts.Client
+@using SocialLight.Posts.Contracts
+@inject PostsClient Client
+
+@*
+  Seed (category 2, DESIGN-STRATEGY.md §6): generated once, then yours to own — the
+  generator never overwrites it again. Product decisions (layout, narrative,
+  composition with other modules) belong here, not in the generated list page.
+*@
+<h3>Post detail</h3>
+
+@if (item is not null)
+{
+    <p><strong>Id:</strong> @item.Id</p>
+    <p><strong>Title:</strong> @item.Title</p>
+    <p><strong>Body:</strong> @item.Body</p>
+    <p><strong>AuthorId:</strong> @item.AuthorId</p>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private PostDto? item;
+
+    protected override async Task OnParametersSetAsync()
+        => item = await Client.GetPostAsync(Id);
+}

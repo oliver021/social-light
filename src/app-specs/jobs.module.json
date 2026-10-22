@@ -1,0 +1,46 @@
+{
+  "module": "Jobs",
+  "schema": "jobs",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "JobCategory",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "name", "type": "string" }
+      ],
+      "relations": [
+        { "to": "JobPosition", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "JobPosition",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "jobCategoryId", "type": "guid", "nullable": true },
+        { "name": "organizationId", "type": "guid" },
+        { "name": "title", "type": "string" },
+        { "name": "description", "type": "text" },
+        { "name": "salaryRange", "type": "string", "nullable": true },
+        { "name": "location", "type": "string", "nullable": true },
+        { "name": "employmentType", "type": "string" }
+      ],
+      "relations": [
+        { "to": "JobApplication", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "JobApplication",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "applicantId", "type": "guid" },
+        { "name": "jobPositionId", "type": "guid" },
+        { "name": "resumeId", "type": "guid", "nullable": true },
+        { "name": "coverLetter", "type": "text", "nullable": true },
+        { "name": "status", "type": "string" }
+      ]
+    }
+  ],
+  "publishes": ["JobPositionPublished", "JobApplicationSubmitted", "JobApplicationStatusChanged"],
+  "consumes": ["UserDeleted", "OrganizationDeleted"]
+}

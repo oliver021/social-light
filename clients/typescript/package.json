@@ -1,0 +1,20 @@
+{
+  "name": "@sociallight/clients",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Generated TypeScript types/clients for the socialLight HTTP APIs (from each service's OpenAPI document).",
+  "scripts": {
+    "generate": "node generate.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "openapi-typescript": "^7.4.0",
+    "typescript": "^5.6.0"
+  }
+}

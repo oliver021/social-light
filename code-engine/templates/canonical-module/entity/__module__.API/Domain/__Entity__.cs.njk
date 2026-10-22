@@ -1,0 +1,34 @@
+namespace {{ domainNamespace }};
+
+/// <summary>
+/// <c>{{ Entity }}</c> — single canonical module form (DESIGN-STRATEGY.md §1):
+/// ceremony is proportional to domain complexity, the shape is invariant.
+/// Properties have private setters; state changes go through the constructor (and,
+/// for a rich domain, through behavior methods that raise domain events).
+/// </summary>
+public class {{ Entity }}
+{
+{% for f in fields %}
+    public {{ f.csType }}{{ '?' if f.nullable }} {{ f.Name }} { get; private set; }{{ ' = Guid.NewGuid();' if f.key and f.csType == 'Guid' }}{{ ' = default!;' if f.required and f.csType == 'string' and not f.key }}
+{% endfor %}
+{% for r in relations %}
+    public ICollection<{{ r.ToRef }}> {{ r.To }}s { get; private set; } = [];
+{% endfor %}
+
+    /// <summary>Parameterless constructor required by EF Core materialization.</summary>
+    protected {{ Entity }}() { }
+
+    public {{ Entity }}(
+{% for f in nonKeyFields %}
+        {{ f.csType }}{{ '?' if f.nullable }} {{ f.camel }}{{ "," if not loop.last }}
+{% endfor %}
+    )
+    {
+{% for f in requiredStringFields %}
+        ArgumentException.ThrowIfNullOrWhiteSpace({{ f.camel }});
+{% endfor %}
+{% for f in nonKeyFields %}
+        {{ f.Name }} = {{ f.camel }};
+{% endfor %}
+    }
+}

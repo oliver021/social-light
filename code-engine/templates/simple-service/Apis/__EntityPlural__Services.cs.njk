@@ -1,0 +1,21 @@
+using {{ namespace }}.Infrastructure;
+{% if events | length %}
+using {{ namespace }}.IntegrationEvents;
+{% endif %}
+
+namespace {{ namespace }}.Apis;
+
+// [AsParameters] DI bundle injected into the {{ EntityPlural }} endpoints (mirrors eShop's CatalogServices).
+public class {{ EntityPlural }}Services(
+    {{ contextName }} context,
+{% if events | length %}
+    I{{ Entity }}IntegrationEventService eventService,
+{% endif %}
+    ILogger<{{ EntityPlural }}Services> logger)
+{
+    public {{ contextName }} Context { get; } = context;
+{% if events | length %}
+    public I{{ Entity }}IntegrationEventService EventService { get; } = eventService;
+{% endif %}
+    public ILogger<{{ EntityPlural }}Services> Logger { get; } = logger;
+}

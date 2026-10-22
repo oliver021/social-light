@@ -1,0 +1,36 @@
+using System.Net.Http.Json;
+using {{ contractsNamespace }};
+
+namespace {{ clientNamespace }};
+
+/// <summary>
+/// Typed client for the "{{ module }}" module API (DESIGN-STRATEGY.md §5). A
+/// generated CRUD page and a hand-built page (feed, profile, ...) both consume
+/// this; neither knows whether the other exists. The seam between generated and
+/// manual code rides on this contract — it does not break decoupling, it relies
+/// on it (§6).
+/// </summary>
+public class {{ module }}Client(HttpClient httpClient)
+{
+{% for e in entities %}
+    /// <summary>Lists all <c>{{ e.Entity }}</c> items.</summary>
+    public async Task<IReadOnlyList<{{ e.Entity }}Dto>> Get{{ e.EntityPlural }}Async(CancellationToken cancellationToken = default)
+        => await httpClient.GetFromJsonAsync<IReadOnlyList<{{ e.Entity }}Dto>>(
+            "{{ routePrefix }}/{{ e.entityPluralKebab }}?api-version=1.0", cancellationToken) ?? [];
+
+    /// <summary>Gets a single <c>{{ e.Entity }}</c> by id, or <c>null</c> if absent.</summary>
+    public async Task<{{ e.Entity }}Dto?> Get{{ e.Entity }}Async({{ e.keyType }} id, CancellationToken cancellationToken = default)
+        => await httpClient.GetFromJsonAsync<{{ e.Entity }}Dto>(
+            $"{{ routePrefix }}/{{ e.entityPluralKebab }}/{id}?api-version=1.0", cancellationToken);
+
+    /// <summary>Creates a <c>{{ e.Entity }}</c> and returns the created resource.</summary>
+    public async Task<{{ e.Entity }}Dto?> Create{{ e.Entity }}Async(Create{{ e.Entity }}Request request, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync(
+            "{{ routePrefix }}/{{ e.entityPluralKebab }}?api-version=1.0", request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<{{ e.Entity }}Dto>(cancellationToken);
+    }
+
+{% endfor %}
+}

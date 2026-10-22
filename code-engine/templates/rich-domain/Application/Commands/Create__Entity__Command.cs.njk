@@ -1,0 +1,9 @@
+using MediatR;
+
+namespace {{ namespace }}.Application.Commands;
+
+public record Create{{ Entity }}Command(
+{% for f in nonKeyFields %}
+    {{ f.csType }}{{ '?' if f.nullable }} {{ f.Name }}{{ "," if not loop.last }}
+{% endfor %}
+) : IRequest<bool>;

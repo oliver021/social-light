@@ -1,0 +1,116 @@
+{
+  "module": "Chat",
+  "schema": "chat",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Chat",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "type", "type": "string" },
+        { "name": "title", "type": "string", "nullable": true },
+        { "name": "createdBy", "type": "guid" }
+      ],
+      "relations": [
+        { "to": "ChatParticipant", "kind": "oneToMany" },
+        { "to": "Message", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "ChatParticipant",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "chatId", "type": "guid" },
+        { "name": "userId", "type": "guid" },
+        { "name": "role", "type": "string" }
+      ]
+    },
+    {
+      "name": "Message",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "chatId", "type": "guid" },
+        { "name": "senderId", "type": "guid" },
+        { "name": "contentType", "type": "string" },
+        { "name": "content", "type": "text" },
+        { "name": "editedAt", "type": "datetime", "nullable": true }
+      ],
+      "relations": [
+        { "to": "MessageReaction", "kind": "oneToMany" },
+        { "to": "MessageReadReceipt", "kind": "oneToMany" },
+        { "to": "MessageAttachment", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "MessageReaction",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "messageId", "type": "guid" },
+        { "name": "userId", "type": "guid" },
+        { "name": "reactionType", "type": "string" }
+      ]
+    },
+    {
+      "name": "MessageReadReceipt",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "messageId", "type": "guid" },
+        { "name": "userId", "type": "guid" },
+        { "name": "readAt", "type": "datetime" }
+      ]
+    },
+    {
+      "name": "MessageAttachment",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "messageId", "type": "guid" },
+        { "name": "fileUrl", "type": "string" },
+        { "name": "mediaType", "type": "string" }
+      ]
+    },
+    {
+      "name": "ChatBlock",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "chatId", "type": "guid" },
+        { "name": "blockerId", "type": "guid" },
+        { "name": "blockedId", "type": "guid" }
+      ]
+    },
+    {
+      "name": "ChatRequest",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "requesterId", "type": "guid" },
+        { "name": "recipientId", "type": "guid" },
+        { "name": "status", "type": "string" }
+      ]
+    },
+    {
+      "name": "ChatMute",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "chatId", "type": "guid" },
+        { "name": "userId", "type": "guid" },
+        { "name": "mutedUntil", "type": "datetime", "nullable": true }
+      ]
+    },
+    {
+      "name": "ChatPin",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "chatId", "type": "guid" },
+        { "name": "messageId", "type": "guid" }
+      ]
+    }
+  ],
+  "publishes": ["ChatCreated", "MessageSent", "MessageEdited"],
+  "consumes": ["UserDeleted"],
+  "realtime": {
+    "hub": "ChatHub",
+    "route": "/hubs/chat",
+    "messageEntity": "Message",
+    "groupField": "chatId",
+    "senderField": "senderId"
+  }
+}

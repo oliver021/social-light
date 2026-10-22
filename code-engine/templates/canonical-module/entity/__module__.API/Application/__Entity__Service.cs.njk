@@ -1,0 +1,54 @@
+using Microsoft.Extensions.Logging;
+
+namespace {{ namespace }}.Application;
+
+/// <summary>
+/// Application service for <c>{{ Entity }}</c> — ceremony proportional to domain
+/// complexity (DESIGN-STRATEGY.md §1): a thin orchestration over the repository
+/// port{{ ", publishing the module's integration events on state change" if hasEvents }}.
+/// </summary>
+public class {{ Entity }}Service(
+    I{{ Entity }}Repository repository,
+{% if hasEvents %}
+    IEventBus eventBus,
+{% endif %}
+    ILogger<{{ Entity }}Service> logger)
+{
+    public Task<{{ TypeRef }}?> GetAsync({{ keyType }} id, CancellationToken cancellationToken = default)
+        => repository.GetAsync(id, cancellationToken);
+
+    public Task<IReadOnlyList<{{ TypeRef }}>> ListAsync(CancellationToken cancellationToken = default)
+        => repository.ListAsync(cancellationToken);
+
+    public async Task<{{ TypeRef }}> CreateAsync(
+{% for f in nonKeyFields %}
+        {{ f.csType }}{{ '?' if f.nullable }} {{ f.camel }},
+{% endfor %}
+        CancellationToken cancellationToken = default)
+    {
+        var {{ entity }} = new {{ TypeRef }}(
+{% for f in nonKeyFields %}
+            {{ f.camel }}{{ "," if not loop.last }}
+{% endfor %}
+        );
+
+        await repository.AddAsync({{ entity }}, cancellationToken);
+        logger.LogInformation("Created {Entity} {Id}", nameof({{ TypeRef }}), {{ entity }}.{{ keyField.Name }});
+{% if createdEvent %}
+        await eventBus.PublishAsync(new {{ createdEvent.Name }}());
+{% endif %}
+        return {{ entity }};
+    }
+
+    public async Task<bool> DeleteAsync({{ keyType }} id, CancellationToken cancellationToken = default)
+    {
+        var deleted = await repository.DeleteAsync(id, cancellationToken);
+{% if deletedEvent %}
+        if (deleted)
+        {
+            await eventBus.PublishAsync(new {{ deletedEvent.Name }}());
+        }
+{% endif %}
+        return deleted;
+    }
+}

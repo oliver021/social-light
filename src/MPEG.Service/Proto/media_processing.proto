@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+option csharp_namespace = "SocialLight.MPEG.Service.Grpc";
+
+package MediaProcessingApi;
+
+service MediaProcessing {
+    rpc ConvertVideo (ConvertVideoRequest) returns (MediaJobResponse);
+    rpc ResizeImage (ResizeImageRequest) returns (MediaJobResponse);
+    rpc GetJobStatus (GetJobStatusRequest) returns (JobStatusResponse);
+}
+
+enum VideoFormat {
+    VIDEO_FORMAT_UNSPECIFIED = 0;
+    VIDEO_FORMAT_MP4 = 1;
+    VIDEO_FORMAT_WEBM = 2;
+}
+
+enum VideoQualityPreset {
+    VIDEO_QUALITY_UNSPECIFIED = 0;
+    VIDEO_QUALITY_LOW = 1;
+    VIDEO_QUALITY_MEDIUM = 2;
+    VIDEO_QUALITY_HIGH = 3;
+    VIDEO_QUALITY_ULTRA = 4;
+}
+
+enum ImageFormat {
+    IMAGE_FORMAT_UNSPECIFIED = 0;
+    IMAGE_FORMAT_WEBP = 1;
+    IMAGE_FORMAT_JPEG = 2;
+    IMAGE_FORMAT_PNG = 3;
+}
+
+enum ImageResizeMode {
+    IMAGE_RESIZE_MODE_UNSPECIFIED = 0;
+    IMAGE_RESIZE_MODE_MAX = 1;
+    IMAGE_RESIZE_MODE_PAD = 2;
+    IMAGE_RESIZE_MODE_CROP = 3;
+    IMAGE_RESIZE_MODE_STRETCH = 4;
+}
+
+message ConvertVideoRequest {
+    bytes file_data = 1;
+    VideoFormat target_format = 2;
+    VideoQualityPreset quality_preset = 3;
+    int32 max_width = 4;
+    int32 max_height = 5;
+    int32 fps = 6;
+    string callback_address = 7;
+}
+
+message ResizeImageRequest {
+    bytes file_data = 1;
+    int32 width = 2;
+    int32 height = 3;
+    ImageFormat target_format = 4;
+    int32 quality = 5; // 1-100
+    ImageResizeMode resize_mode = 6;
+    string callback_address = 7;
+}
+
+message MediaJobResponse {
+    string job_id = 1;
+}
+
+message GetJobStatusRequest {
+    string job_id = 1;
+}
+
+enum JobStatus {
+    JOB_STATUS_UNSPECIFIED = 0;
+    JOB_STATUS_QUEUED = 1;
+    JOB_STATUS_PROCESSING = 2;
+    JOB_STATUS_COMPLETED = 3;
+    JOB_STATUS_FAILED = 4;
+}
+
+message JobStatusResponse {
+    string job_id = 1;
+    JobStatus status = 2;
+    bytes result_data = 3;
+    string error_message = 4;
+}
+
+service MediaProcessingCallback {
+    rpc OnJobCompleted (JobStatusResponse) returns (CallbackResponse);
+}
+
+message CallbackResponse {
+    bool success = 1;
+}

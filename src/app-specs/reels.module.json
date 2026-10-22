@@ -1,0 +1,33 @@
+{
+  "module": "Reels",
+  "schema": "reels",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Reel",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "creatorId", "type": "guid" },
+        { "name": "videoUrl", "type": "string" },
+        { "name": "caption", "type": "string", "nullable": true },
+        { "name": "duration", "type": "int" },
+        { "name": "visibility", "type": "string" },
+        { "name": "musicTrackId", "type": "guid", "nullable": true }
+      ],
+      "relations": [
+        { "to": "ReelView", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "ReelView",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "reelId", "type": "guid" },
+        { "name": "viewerId", "type": "guid" },
+        { "name": "viewedAt", "type": "datetime" }
+      ]
+    }
+  ],
+  "publishes": ["ReelCreated"],
+  "consumes": ["UserDeleted"]
+}

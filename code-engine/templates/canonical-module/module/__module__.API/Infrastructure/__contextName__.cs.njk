@@ -1,0 +1,22 @@
+namespace {{ namespace }}.Infrastructure;
+
+/// <summary>
+/// DbContext for the "{{ module }}" module — owns the "{{ schema }}" schema only
+/// (DESIGN-STRATEGY.md §4). No cross-module foreign keys, JOINs, or queries:
+/// anything outside this module is reached via publishes/consumes, never here.
+/// Entity configuration lives in the per-entity IEntityTypeConfiguration classes,
+/// applied below.
+/// </summary>
+public class {{ contextName }}(DbContextOptions<{{ contextName }}> options) : DbContext(options)
+{
+{% for e in entities %}
+    public DbSet<{{ e.TypeRef }}> {{ e.EntityPlural }} => Set<{{ e.TypeRef }}>();
+{% endfor %}
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        builder.HasDefaultSchema("{{ schema }}");
+        builder.ApplyConfigurationsFromAssembly(typeof({{ contextName }}).Assembly);
+        base.OnModelCreating(builder);
+    }
+}

@@ -1,0 +1,52 @@
+@* Seed (category-2 → category-3 territory): the dashboard is a cross-module
+   composition, so the generator only lays the rails. The live feed below is real
+   (broker → hub → SignalR). Add cross-module counters/charts as you own it. *@
+@page "/"
+@implements IDisposable
+@inject AdminHubClient Hub
+
+<PageTitle>Admin · Dashboard</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Dashboard</MudText>
+<MudText Class="mb-6" Color="Color.Secondary">
+    Live activity relayed from the message broker over SignalR — no polling.
+</MudText>
+
+<MudPaper Class="pa-4" Elevation="2" Style="max-width: 620px">
+    <MudText Typo="Typo.h6" GutterBottom="true">Live events</MudText>
+    @if (_recent.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Waiting for activity on the event bus…</MudText>
+    }
+    else
+    {
+        <MudList T="AdminEvent" Dense="true">
+            @foreach (var e in _recent)
+            {
+                <MudListItem T="AdminEvent" Icon="@Icons.Material.Filled.Bolt"
+                             Text="@e.Name" SecondaryText="@Time(e.At)" />
+            }
+        </MudList>
+    }
+</MudPaper>
+
+@code {
+    private IReadOnlyList<AdminEvent> _recent = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Hub.Changed += OnChanged;
+        await Hub.StartAsync();
+        _recent = Hub.Recent;
+    }
+
+    private void OnChanged() => InvokeAsync(() =>
+    {
+        _recent = [.. Hub.Recent];
+        StateHasChanged();
+    });
+
+    private static string Time(DateTimeOffset at) => at.LocalDateTime.ToString("HH:mm:ss");
+
+    public void Dispose() => Hub.Changed -= OnChanged;
+}

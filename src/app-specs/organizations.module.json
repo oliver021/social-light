@@ -1,0 +1,32 @@
+{
+  "module": "Organizations",
+  "schema": "organizations",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Organization",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "ownerId", "type": "guid" },
+        { "name": "name", "type": "string" },
+        { "name": "description", "type": "text", "nullable": true },
+        { "name": "logo", "type": "string", "nullable": true },
+        { "name": "verificationStatus", "type": "string" }
+      ],
+      "relations": [
+        { "to": "OrganizationMember", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "OrganizationMember",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "organizationId", "type": "guid" },
+        { "name": "userId", "type": "guid" },
+        { "name": "role", "type": "string" }
+      ]
+    }
+  ],
+  "publishes": ["OrganizationCreated", "OrganizationMemberAdded", "OrganizationMemberRemoved"],
+  "consumes": ["UserDeleted"]
+}

@@ -1,0 +1,14 @@
+namespace {{ namespace }}.Model;
+
+// Request DTOs for {{ Entity }}. The key field is server-assigned and omitted.
+public record Create{{ Entity }}Request(
+{% for f in nonKeyFields %}
+    {{ f.csType }}{{ '?' if f.nullable }} {{ f.Name }}{{ "," if not loop.last }}
+{% endfor %}
+);
+
+public record Update{{ Entity }}Request(
+{% for f in nonKeyFields %}
+    {{ f.csType }}{{ '?' if f.nullable }} {{ f.Name }}{{ "," if not loop.last }}
+{% endfor %}
+);

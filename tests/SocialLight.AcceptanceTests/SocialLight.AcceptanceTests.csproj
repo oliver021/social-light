@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    End-to-end acceptance test — the LOCKED backend definition-of-done gate
+    (memory project-acceptance-gate). It boots the REAL SocialLight.AppHost via
+    Aspire's testing host (Identity + modules + Profile + Feed + the social-bff
+    gateway, on real Postgres/RabbitMQ containers) and drives the journey over HTTP
+    through the gateway's single origin — no in-process WebApplicationFactory, no DB
+    seeding. Needs Docker.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPublishable>false</IsPublishable>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Testing" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SocialLight.AppHost\SocialLight.AppHost.csproj" />
+  </ItemGroup>
+
+</Project>

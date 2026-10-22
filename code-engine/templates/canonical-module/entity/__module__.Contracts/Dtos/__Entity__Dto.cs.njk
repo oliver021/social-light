@@ -1,0 +1,12 @@
+namespace {{ contractsNamespace }};
+
+/// <summary>
+/// Read DTO for <c>{{ Entity }}</c> — the wire shape returned by the API and
+/// consumed by every typed client (DESIGN-STRATEGY.md §5). Decoupled from the
+/// domain aggregate so persistence concerns never leak across the boundary.
+/// </summary>
+public record {{ Entity }}Dto(
+{% for f in fields %}
+    {{ f.csType }}{{ '?' if f.nullable }} {{ f.Name }}{{ "," if not loop.last }}
+{% endfor %}
+);

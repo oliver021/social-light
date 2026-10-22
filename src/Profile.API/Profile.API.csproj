@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    Profile.API — HAND-WRITTEN, not generated (the deliberate generated-vs-handwritten
+    contrast in the thesis; see CLAUDE.md §0 / DESIGN-STRATEGY.md category 3). It owns
+    the rich social profile keyed by the user's Identity `sub`, on its own "profile"
+    schema. It follows the same eShop/canonical conventions as the generated modules
+    (ServiceDefaults, JWT auth, EF/Postgres, versioned minimal APIs) so it plugs into
+    the same rails — it's just written by a human, not the engine.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Http" />
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EventBusRabbitMQ\EventBusRabbitMQ.csproj" />
+    <ProjectReference Include="..\SocialLight.ServiceDefaults\SocialLight.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

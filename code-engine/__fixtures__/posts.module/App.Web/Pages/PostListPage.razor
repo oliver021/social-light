@@ -1,0 +1,26 @@
+@page "/posts"
+@using SocialLight.Posts.Client
+@using SocialLight.Posts.Contracts
+@inject PostsClient Client
+
+@*
+  Generated CRUD page (category 1, DESIGN-STRATEGY.md §6/§7) — a direct projection
+  of the spec's `ui:` intent. Native-per-platform: this is the WEB render of the
+  same neutral intent a MAUI template renders as a CollectionView. It is wired into
+  a web host by hand; until then it is inert scaffolding (this task is API-only).
+*@
+<h3>Posts</h3>
+
+<ul>
+@foreach (var item in items)
+{
+    <li>@item.Title</li>
+}
+</ul>
+
+@code {
+    private IReadOnlyList<PostDto> items = [];
+
+    protected override async Task OnInitializedAsync()
+        => items = await Client.GetPostsAsync();
+}

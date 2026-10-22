@@ -1,0 +1,17 @@
+# Build context: the socialLight repo root.
+#   docker build -f deploy/Dockerfile.frontend -t sociallight/web:demo <repo-root>
+FROM node:22-slim AS build
+WORKDIR /repo
+COPY clients/typescript/generated clients/typescript/generated
+COPY src/main_fronted src/main_fronted
+WORKDIR /repo/src/main_fronted
+RUN npm ci && npm run build
+
+FROM node:22-slim
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=build /repo/src/main_fronted/package*.json ./
+RUN npm ci --omit=dev
+COPY --from=build /repo/src/main_fronted/dist ./dist
+EXPOSE 3000
+CMD ["node", "dist/server.cjs"]

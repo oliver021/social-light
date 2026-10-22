@@ -1,0 +1,10 @@
+using {{ domainNamespace }}.SeedWork;
+
+namespace {{ domainNamespace }}.AggregatesModel.{{ Entity }}Aggregate;
+
+public interface I{{ Entity }}Repository : IRepository<{{ Entity }}>
+{
+    {{ Entity }} Add({{ Entity }} {{ entity }});
+    void Update({{ Entity }} {{ entity }});
+    Task<{{ Entity }}?> GetAsync({{ keyType }} id);
+}

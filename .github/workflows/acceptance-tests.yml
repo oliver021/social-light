@@ -1,0 +1,88 @@
+name: Acceptance & Integration Tests
+
+# End-to-end acceptance gate + hand-written service tests (Profile, Feed).
+# The acceptance test boots the REAL SocialLight.AppHost (Identity + modules +
+# Profile + Feed + YARP gateway) on real Postgres/RabbitMQ Docker containers
+# and drives the 3-user journey over HTTP through the gateway. Needs Docker.
+# See tests/SocialLight.AcceptanceTests and memory/project-acceptance-gate.md.
+
+on:
+  pull_request:
+    paths:
+      - 'tests/SocialLight.AcceptanceTests/**'
+      - 'tests/Profile.FunctionalTests/**'
+      - 'tests/Feed.UnitTests/**'
+      - 'src/SocialLight.AppHost/**'
+      - 'src/Identity.API/**'
+      - 'src/Profile.API/**'
+      - 'src/Feed.API/**'
+      - 'src/Modules/**'
+      - 'Directory.Packages.props'
+      - 'Directory.Build.props'
+      - '.github/workflows/acceptance-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tests/**'
+      - 'src/SocialLight.AppHost/**'
+      - 'src/Identity.API/**'
+      - 'src/Profile.API/**'
+      - 'src/Feed.API/**'
+      - 'src/Modules/**'
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET (global.json)
+        uses: actions/setup-dotnet@v4
+
+      # Feed.UnitTests — pure composer, no Docker needed (fast gate first).
+      - name: Build and test Feed (unit)
+        run: >-
+          dotnet test tests/Feed.UnitTests/Feed.UnitTests.csproj
+          --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results
+
+      # Profile.FunctionalTests — Aspire + Testcontainers Postgres.
+      - name: Build and test Profile (functional)
+        run: >-
+          dotnet test tests/Profile.FunctionalTests/Profile.FunctionalTests.csproj
+          --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results
+
+      # Acceptance gate — boots the full AppHost. This is the locked
+      # definition-of-done: 3 users, signup → login → profile → post → comment,
+      # entirely over HTTP through the social-bff YARP gateway (no DB seeding).
+      - name: Build acceptance test
+        run: dotnet build tests/SocialLight.AcceptanceTests/SocialLight.AcceptanceTests.csproj
+
+      - name: Run acceptance gate (3-user journey, full host, ~2 min)
+        timeout-minutes: 10
+        run: >-
+          dotnet test tests/SocialLight.AcceptanceTests/SocialLight.AcceptanceTests.csproj
+          --no-build --no-progress
+          --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results
+
+      - name: Publish test report
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          check_name: Acceptance & integration tests
+          comment_mode: always
+          files: |
+            artifacts/test-results/**/*.trx
+
+      - name: Upload raw results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: acceptance-test-results
+          path: artifacts/test-results
+          if-no-files-found: warn

@@ -1,0 +1,35 @@
+{
+  "module": "Notifications",
+  "schema": "notifications",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Notification",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "recipientId", "type": "guid" },
+        { "name": "actorId", "type": "guid" },
+        { "name": "type", "type": "string" },
+        { "name": "entityType", "type": "string" },
+        { "name": "entityId", "type": "guid" },
+        { "name": "isRead", "type": "bool" }
+      ]
+    }
+  ],
+  "publishes": [],
+  "consumes": [
+    "PostPublished",
+    "CommentAdded",
+    "ReactionAdded",
+    "ContentShared",
+    "UserFollowed",
+    "FriendRequested",
+    "FriendAccepted",
+    "MessageSent",
+    "GroupMemberJoined",
+    "EventAttendanceChanged",
+    "JobApplicationStatusChanged",
+    "AchievementUnlocked",
+    "ThreadReplyAdded"
+  ]
+}

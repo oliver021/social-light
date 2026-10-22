@@ -1,0 +1,74 @@
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
+using {{ namespace }}.Model;
+
+namespace {{ namespace }}.Apis;
+
+// Minimal-API endpoint group for {{ EntityPlural }} (Catalog-style slice).
+public static class {{ EntityPlural }}Api
+{
+    public static IEndpointRouteBuilder Map{{ EntityPlural }}Api(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("api/{{ entityPluralKebab }}")
+                       .HasApiVersion(1.0);
+
+        group.MapGet("/", Get{{ EntityPlural }});
+        group.MapGet("/{id}", Get{{ Entity }}ById);
+        group.MapPost("/", Create{{ Entity }});
+        group.MapPut("/{id}", Update{{ Entity }});
+        group.MapDelete("/{id}", Delete{{ Entity }});
+
+        return app;
+    }
+
+    public static async Task<Ok<List<{{ Entity }}>>> Get{{ EntityPlural }}([AsParameters] {{ EntityPlural }}Services services)
+    {
+        var items = await services.Context.{{ EntityPlural }}.AsNoTracking().ToListAsync();
+        return TypedResults.Ok(items);
+    }
+
+    public static async Task<Results<Ok<{{ Entity }}>, NotFound>> Get{{ Entity }}ById({{ keyType }} id, [AsParameters] {{ EntityPlural }}Services services)
+    {
+        var item = await services.Context.{{ EntityPlural }}.FindAsync(id);
+        return item is null ? TypedResults.NotFound() : TypedResults.Ok(item);
+    }
+
+    public static async Task<Created<{{ Entity }}>> Create{{ Entity }}(Create{{ Entity }}Request request, [AsParameters] {{ EntityPlural }}Services services)
+    {
+        var entity = new {{ Entity }}
+        {
+{% for f in nonKeyFields %}
+            {{ f.Name }} = request.{{ f.Name }},
+{% endfor %}
+        };
+
+        services.Context.{{ EntityPlural }}.Add(entity);
+        await services.Context.SaveChangesAsync();
+{% if createdEvent %}
+        await services.EventService.Publish{{ createdEvent.Name }}Async(entity);
+{% endif %}
+        return TypedResults.Created($"/api/{{ entityPluralKebab }}/{entity.{{ keyField.Name }}}", entity);
+    }
+
+    public static async Task<Results<Ok, NotFound>> Update{{ Entity }}({{ keyType }} id, Update{{ Entity }}Request request, [AsParameters] {{ EntityPlural }}Services services)
+    {
+        var entity = await services.Context.{{ EntityPlural }}.FindAsync(id);
+        if (entity is null) return TypedResults.NotFound();
+
+{% for f in nonKeyFields %}
+        entity.{{ f.Name }} = request.{{ f.Name }};
+{% endfor %}
+        await services.Context.SaveChangesAsync();
+        return TypedResults.Ok();
+    }
+
+    public static async Task<Results<NoContent, NotFound>> Delete{{ Entity }}({{ keyType }} id, [AsParameters] {{ EntityPlural }}Services services)
+    {
+        var entity = await services.Context.{{ EntityPlural }}.FindAsync(id);
+        if (entity is null) return TypedResults.NotFound();
+
+        services.Context.{{ EntityPlural }}.Remove(entity);
+        await services.Context.SaveChangesAsync();
+        return TypedResults.NoContent();
+    }
+}

@@ -1,0 +1,49 @@
+{
+  "module": "SocialGraph",
+  "schema": "social_graph",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Follow",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "followerId", "type": "guid" },
+        { "name": "followingId", "type": "guid" },
+        { "name": "status", "type": "string" },
+        { "name": "createdAt", "type": "datetime" }
+      ]
+    },
+    {
+      "name": "Friend",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "requesterId", "type": "guid" },
+        { "name": "recipientId", "type": "guid" },
+        { "name": "status", "type": "string" },
+        { "name": "acceptedAt", "type": "datetime", "nullable": true }
+      ]
+    },
+    {
+      "name": "Block",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "blockerId", "type": "guid" },
+        { "name": "blockedId", "type": "guid" },
+        { "name": "reason", "type": "string", "nullable": true }
+      ]
+    },
+    {
+      "name": "UserPreference",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "userId", "type": "guid" },
+        { "name": "entityType", "type": "string" },
+        { "name": "entityId", "type": "guid" },
+        { "name": "preferenceType", "type": "string" },
+        { "name": "expiresAt", "type": "datetime", "nullable": true }
+      ]
+    }
+  ],
+  "publishes": ["UserFollowed", "UserUnfollowed", "FriendRequested", "FriendAccepted", "UserBlocked"],
+  "consumes": ["UserDeleted"]
+}

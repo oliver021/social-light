@@ -1,0 +1,12 @@
+namespace {{ contractsNamespace }};
+
+/// <summary>
+/// Write DTO for creating a <c>{{ Entity }}</c>. The key is assigned by the
+/// domain/server, so it is intentionally absent from the request body{% if principalFields.length %}, as are
+/// owner fields ({% for f in principalFields %}{{ f.Name }}{{ ", " if not loop.last }}{% endfor %}) — bound server-side from the authenticated principal{% endif %}.
+/// </summary>
+public record Create{{ Entity }}Request(
+{% for f in createFields %}
+    {{ f.csType }}{{ '?' if f.nullable }} {{ f.Name }}{{ "," if not loop.last }}
+{% endfor %}
+);

@@ -1,0 +1,91 @@
+name: Generated Module Tests
+
+# Builds and tests the code-engine-generated social modules (SocialLight.Modules.slnf)
+# plus the code-engine generator's own Node tests, then publishes a single
+# test-report summary to the PR / job summary. The module functional tests are
+# Aspire + Testcontainers integration tests, so they need Docker (ubuntu-latest
+# ships it). See SKILL.md / DESIGN-STRATEGY.md for the generation pipeline.
+
+on:
+  pull_request:
+    paths:
+      - 'src/Modules/**'
+      - 'code-engine/**'
+      - 'src/app-specs/**'
+      - 'src/SocialLight.AppHost/**'
+      - 'Directory.Packages.props'
+      - 'Directory.Build.props'
+      - 'SocialLight.Modules.slnf'
+      - '.github/workflows/module-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/Modules/**'
+      - 'code-engine/**'
+      - 'src/app-specs/**'
+      - '.github/workflows/module-tests.yml'
+
+# Required for the test-report action to publish a check run + PR annotations.
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET (global.json)
+        uses: actions/setup-dotnet@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # --- code-engine: the generator must be green before its output counts ---
+      - name: Install code-engine deps
+        run: npm ci
+        working-directory: code-engine
+
+      - name: Test code-engine (Node)
+        working-directory: code-engine
+        run: >-
+          node --test
+          --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=junit --test-reporter-destination=${{ github.workspace }}/artifacts/test-results/code-engine.junit.xml
+
+      # Optional but on-thesis: prove the committed modules still equal f(spec, engine).
+      - name: Verify generation is idempotent
+        run: node src/index.js verify
+        working-directory: code-engine
+
+      # --- generated modules: build, then run the Aspire/Postgres functional tests ---
+      - name: Build modules
+        run: dotnet build SocialLight.Modules.slnf
+
+      - name: Test modules (TRX report per project)
+        run: >-
+          dotnet test --solution SocialLight.Modules.slnf --no-build --no-progress
+          --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results
+
+      # --- single, showable report: TRX (.NET) + JUnit (Node) -> PR summary ---
+      - name: Publish test report
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          check_name: Module & engine tests
+          comment_mode: always
+          files: |
+            artifacts/test-results/**/*.trx
+            artifacts/test-results/**/*.xml
+
+      - name: Upload raw results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: artifacts/test-results
+          if-no-files-found: warn

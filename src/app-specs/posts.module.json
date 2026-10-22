@@ -1,0 +1,47 @@
+{
+  "module": "Posts",
+  "schema": "posts",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Post",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "authorId", "type": "guid", "fromPrincipal": true },
+        { "name": "contentType", "type": "string" },
+        { "name": "visibility", "type": "string" },
+        { "name": "status", "type": "string" },
+        { "name": "body", "type": "text", "nullable": true },
+        { "name": "location", "type": "string", "nullable": true },
+        { "name": "scheduledAt", "type": "datetime", "nullable": true },
+        { "name": "publishedAt", "type": "datetime", "nullable": true },
+        { "name": "archivedAt", "type": "datetime", "nullable": true }
+      ],
+      "relations": [
+        { "to": "PostMedia", "kind": "oneToMany" },
+        { "to": "PostFeed", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "PostMedia",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "postId", "type": "guid" },
+        { "name": "fileUrl", "type": "string" },
+        { "name": "mediaType", "type": "string" },
+        { "name": "position", "type": "int" }
+      ]
+    },
+    {
+      "name": "PostFeed",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "postId", "type": "guid" },
+        { "name": "feedType", "type": "string" },
+        { "name": "targetId", "type": "guid" }
+      ]
+    }
+  ],
+  "publishes": ["PostPublished", "PostArchived", "PostRemoved"],
+  "consumes": ["UserDeleted"]
+}

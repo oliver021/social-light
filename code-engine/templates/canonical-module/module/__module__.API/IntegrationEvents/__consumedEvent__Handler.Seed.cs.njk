@@ -1,0 +1,16 @@
+namespace {{ namespace }}.IntegrationEvents;
+
+/// <summary>
+/// Handles "{{ consumedEvent.Name }}" — cascades the lifecycle event to the
+/// {{ module }} module's data. Written once (category-2 seed); customise the
+/// deletion/anonymisation logic below.
+/// </summary>
+public sealed class {{ consumedEvent.Name }}Handler : IIntegrationEventHandler<{{ consumedEvent.Name }}>
+{
+    public async Task Handle({{ consumedEvent.Name }} @event)
+    {
+        // TODO: implement. Inject the DbContext to act on module data, e.g.:
+        //   public {{ consumedEvent.Name }}Handler({{ contextName }} db) { ... }
+        await Task.CompletedTask;
+    }
+}

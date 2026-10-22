@@ -1,0 +1,31 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.2.0">
+
+  <!--
+    Functional tests for the hand-written Profile.API — HTTP end-to-end against a
+    real Postgres container (Aspire), with a test auth scheme standing in for
+    Identity. Mirrors the generated modules' functional-test setup so the
+    hand-written service is held to the same bar.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPublishable>false</IsPublishable>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Http.Client" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\EventBus\EventBus.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="..\..\src\Profile.API\Profile.API.csproj" IsAspireProjectResource="false" />
+  </ItemGroup>
+
+</Project>

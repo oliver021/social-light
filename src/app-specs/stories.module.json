@@ -1,0 +1,43 @@
+{
+  "module": "Stories",
+  "schema": "stories",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Story",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "authorId", "type": "guid" },
+        { "name": "mediaType", "type": "string" },
+        { "name": "mediaUrl", "type": "string" },
+        { "name": "caption", "type": "string", "nullable": true },
+        { "name": "visibility", "type": "string" },
+        { "name": "expiresAt", "type": "datetime" }
+      ],
+      "relations": [
+        { "to": "StoryView", "kind": "oneToMany" },
+        { "to": "StoryReply", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "StoryView",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "storyId", "type": "guid" },
+        { "name": "viewerId", "type": "guid" },
+        { "name": "viewedAt", "type": "datetime" }
+      ]
+    },
+    {
+      "name": "StoryReply",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "storyId", "type": "guid" },
+        { "name": "userId", "type": "guid" },
+        { "name": "body", "type": "text" }
+      ]
+    }
+  ],
+  "publishes": ["StoryCreated", "StoryExpired"],
+  "consumes": ["UserDeleted"]
+}

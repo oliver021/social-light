@@ -1,0 +1,17 @@
+namespace {{ domainNamespace }};
+
+/// <summary>
+/// Repository PORT for <c>{{ Entity }}</c> (DESIGN-STRATEGY.md §4). It lives in the
+/// module's domain; the module depends on this abstraction, never on the EF adapter
+/// or the Postgres binding. Decoupling is by dependency inversion, not folders.
+/// </summary>
+public interface I{{ Entity }}Repository
+{
+    Task<{{ TypeRef }}> AddAsync({{ TypeRef }} {{ entity }}, CancellationToken cancellationToken = default);
+
+    Task<{{ TypeRef }}?> GetAsync({{ keyType }} id, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<{{ TypeRef }}>> ListAsync(CancellationToken cancellationToken = default);
+
+    Task<bool> DeleteAsync({{ keyType }} id, CancellationToken cancellationToken = default);
+}

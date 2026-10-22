@@ -1,0 +1,43 @@
+{
+  "scenario": "tech-friends-v1",
+  "rngSeed": 42,
+  "personas": [
+    {
+      "ref": "@alice",
+      "handle": "alice_dev",
+      "displayName": "Alice Chen",
+      "archetype": ".NET backend engineer who loves clean architecture",
+      "interests": ["aspire", "ddd", "postgres", "code generation"],
+      "tone": "upbeat, precise, a little nerdy"
+    },
+    {
+      "ref": "@bob",
+      "handle": "bob_makes",
+      "displayName": "Bob Ruiz",
+      "archetype": "full-stack maker who ships side projects every weekend",
+      "interests": ["indie hacking", "blazor", "ux", "coffee"],
+      "tone": "casual, enthusiastic, lots of energy"
+    },
+    {
+      "ref": "@cara",
+      "handle": "cara_codes",
+      "displayName": "Cara Okoye",
+      "archetype": "platform engineer focused on observability and reliability",
+      "interests": ["opentelemetry", "kubernetes", "incident response", "hiking"],
+      "tone": "dry, thoughtful, occasionally funny"
+    }
+  ],
+  "activity": {
+    "postsPerPersona": [1, 3],
+    "commentsPerPost": [0, 2],
+    "reactionsPerPost": [1, 3],
+    "mediaPostRatio": 0.5,
+    "conversations": [
+      {
+        "between": ["@alice", "@bob"],
+        "turns": 6,
+        "topic": "pairing on the new feed module over the weekend"
+      }
+    ]
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "module": "Recommendation",
+  "schema": "recommendation",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "UserInterest",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "userId", "type": "guid" },
+        { "name": "topicId", "type": "guid" },
+        { "name": "weight", "type": "double" }
+      ]
+    },
+    {
+      "name": "ContentScore",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "targetType", "type": "string" },
+        { "name": "targetId", "type": "guid" },
+        { "name": "score", "type": "double" },
+        { "name": "computedAt", "type": "datetime" }
+      ]
+    },
+    {
+      "name": "FeedRanking",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "userId", "type": "guid" },
+        { "name": "targetType", "type": "string" },
+        { "name": "targetId", "type": "guid" },
+        { "name": "rank", "type": "int" }
+      ]
+    },
+    {
+      "name": "RecommendationCandidate",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "userId", "type": "guid" },
+        { "name": "targetType", "type": "string" },
+        { "name": "targetId", "type": "guid" },
+        { "name": "source", "type": "string" }
+      ]
+    },
+    {
+      "name": "TrendingTopic",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "topicId", "type": "guid" },
+        { "name": "region", "type": "string", "nullable": true },
+        { "name": "score", "type": "double" }
+      ]
+    },
+    {
+      "name": "Hashtag",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "tag", "type": "string" }
+      ]
+    },
+    {
+      "name": "Topic",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "name", "type": "string" }
+      ]
+    }
+  ],
+  "publishes": [],
+  "consumes": ["PostPublished", "ReactionAdded", "CommentAdded", "ReelCreated", "UserFollowed"]
+}

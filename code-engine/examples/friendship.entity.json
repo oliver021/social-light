@@ -1,0 +1,14 @@
+{
+  "entity": "Friendship",
+  "module": "Social",
+  "service": "Social.API",
+  "kind": "rich",
+  "fields": [
+    { "name": "Id", "type": "guid", "key": true },
+    { "name": "RequesterId", "type": "guid" },
+    { "name": "AddresseeId", "type": "guid" },
+    { "name": "Status", "type": "string" },
+    { "name": "CreatedAt", "type": "datetime" }
+  ],
+  "events": ["FriendshipRequested", "FriendshipAccepted"]
+}

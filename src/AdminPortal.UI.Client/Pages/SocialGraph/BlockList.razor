@@ -1,0 +1,85 @@
+@* Generated (entity scope, category-1 immutable): a CRUD grid for SocialGraph.Block,
+   one per entity across every module. A list page IS a direct projection of the spec
+   (DESIGN-STRATEGY.md §6), so it is generated, never hand-edited. It consumes the typed
+   SocialGraphClient exactly as a hand-built page would — the seam rides on the contract. *@
+@page "/admin/social-graph/blocks"
+@inject SocialGraphClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Admin · Blocks</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Blocks</MudText>
+    <MudChip T="string" Size="Size.Small" Color="Color.Default">SocialGraph</MudChip>
+    <MudSpacer />
+    <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="_loading">Refresh</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="CreateSampleAsync" Disabled="_loading">New sample</MudButton>
+</MudStack>
+
+<MudDataGrid T="BlockDto" Items="_items" Loading="_loading" Dense="true" Hover="true"
+             Filterable="true" SortMode="SortMode.Multiple" QuickFilter="_quickFilter">
+    <ToolBarContent>
+        <MudTextField @bind-Value="_search" Placeholder="Search" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium"
+                      Immediate="true" Class="mt-0" />
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Id" Title="Id" />
+        <PropertyColumn Property="x => x.BlockerId" Title="BlockerId" />
+        <PropertyColumn Property="x => x.BlockedId" Title="BlockedId" />
+        <PropertyColumn Property="x => x.Reason" Title="Reason" />
+    </Columns>
+    <NoRecordsContent>
+        <MudText Class="pa-4" Color="Color.Secondary">No blocks yet.</MudText>
+    </NoRecordsContent>
+</MudDataGrid>
+
+@code {
+    private IReadOnlyList<BlockDto> _items = [];
+    private bool _loading;
+    private string _search = string.Empty;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _items = await Client.GetBlocksAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load blocks: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task CreateSampleAsync()
+    {
+        _loading = true;
+        try
+        {
+            // Deterministic sample built from the spec (the same data the generated
+            // functional tests use) — no inference. Replace with a real form (category-3).
+            await Client.CreateBlockAsync(new CreateBlockRequest(Guid.NewGuid(), Guid.NewGuid(), "sample Reason"));
+            Snackbar.Add("Created a sample Block.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Create failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Func<BlockDto, bool> _quickFilter => x =>
+        string.IsNullOrWhiteSpace(_search) || x.ToString()!.Contains(_search, StringComparison.OrdinalIgnoreCase);
+}

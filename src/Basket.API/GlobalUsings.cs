@@ -1,0 +1,13 @@
+﻿global using System.ComponentModel.DataAnnotations;
+global using System.Security.Claims;
+global using Asp.Versioning;
+global using Asp.Versioning.Conventions;
+global using System.Text.Json;
+global using Grpc.Core;
+global using Microsoft.AspNetCore.Authorization;
+global using SocialLight.Basket.API.Extensions;
+global using SocialLight.Basket.API.Grpc;
+global using SocialLight.EventBus.Abstractions;
+global using SocialLight.EventBus.Events;
+global using SocialLight.ServiceDefaults;
+global using StackExchange.Redis;

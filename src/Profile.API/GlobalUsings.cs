@@ -1,0 +1,13 @@
+global using System.Security.Claims;
+global using Asp.Versioning;
+global using Asp.Versioning.Builder;
+global using Asp.Versioning.Conventions;
+global using Microsoft.AspNetCore.Http.HttpResults;
+global using Microsoft.EntityFrameworkCore;
+global using SocialLight.Profile.API;
+global using SocialLight.Profile.API.Api;
+global using SocialLight.Profile.API.Application;
+global using SocialLight.Profile.API.Domain;
+global using SocialLight.Profile.API.Dtos;
+global using SocialLight.Profile.API.Infrastructure;
+global using SocialLight.ServiceDefaults;

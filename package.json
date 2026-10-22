@@ -1,0 +1,17 @@
+{
+  "name": "sociallight",
+  "version": "1.0.0",
+  "description": "socialLight - a social network plus store, built on the dotnet/eShop architecture. This package hosts the Playwright e2e tests.",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.42.1",
+    "@types/node": "^20.11.25",
+    "dotenv": "^16.4.5"
+  }
+}

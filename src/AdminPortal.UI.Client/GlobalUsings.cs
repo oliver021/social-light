@@ -1,0 +1,37 @@
+// Generated (aggregate scope) — WASM client usings, including every module's typed
+// client + contract namespace so the generated grid pages compile.
+global using SocialLight.AdminPortal.UI.Client;
+global using SocialLight.AdminPortal.UI.Client.Realtime;
+global using MudBlazor;
+global using SocialLight.Chat.Client;
+global using SocialLight.Chat.Contracts;
+global using SocialLight.Engagement.Client;
+global using SocialLight.Engagement.Contracts;
+global using SocialLight.Events.Client;
+global using SocialLight.Events.Contracts;
+global using SocialLight.Gaming.Client;
+global using SocialLight.Gaming.Contracts;
+global using SocialLight.Groups.Client;
+global using SocialLight.Groups.Contracts;
+global using SocialLight.Jobs.Client;
+global using SocialLight.Jobs.Contracts;
+global using SocialLight.Moderation.Client;
+global using SocialLight.Moderation.Contracts;
+global using SocialLight.Notifications.Client;
+global using SocialLight.Notifications.Contracts;
+global using SocialLight.Organizations.Client;
+global using SocialLight.Organizations.Contracts;
+global using SocialLight.Pages.Client;
+global using SocialLight.Pages.Contracts;
+global using SocialLight.Posts.Client;
+global using SocialLight.Posts.Contracts;
+global using SocialLight.Recommendation.Client;
+global using SocialLight.Recommendation.Contracts;
+global using SocialLight.Reels.Client;
+global using SocialLight.Reels.Contracts;
+global using SocialLight.SocialGraph.Client;
+global using SocialLight.SocialGraph.Contracts;
+global using SocialLight.Stories.Client;
+global using SocialLight.Stories.Contracts;
+global using SocialLight.Threads.Client;
+global using SocialLight.Threads.Contracts;

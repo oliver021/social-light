@@ -1,0 +1,64 @@
+{
+  "module": "Moderation",
+  "schema": "moderation",
+  "routePrefix": "/api",
+  "entities": [
+    {
+      "name": "Report",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "reporterId", "type": "guid" },
+        { "name": "targetType", "type": "string" },
+        { "name": "targetId", "type": "guid" },
+        { "name": "category", "type": "string" },
+        { "name": "status", "type": "string" }
+      ]
+    },
+    {
+      "name": "ModerationCase",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "targetType", "type": "string" },
+        { "name": "targetId", "type": "guid" },
+        { "name": "status", "type": "string" },
+        { "name": "openedAt", "type": "datetime" }
+      ],
+      "relations": [
+        { "to": "ModerationAction", "kind": "oneToMany" },
+        { "to": "ModerationNote", "kind": "oneToMany" },
+        { "to": "Appeal", "kind": "oneToMany" }
+      ]
+    },
+    {
+      "name": "ModerationAction",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "moderationCaseId", "type": "guid" },
+        { "name": "moderatorId", "type": "guid" },
+        { "name": "actionType", "type": "string" },
+        { "name": "createdAt", "type": "datetime" }
+      ]
+    },
+    {
+      "name": "ModerationNote",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "moderationCaseId", "type": "guid" },
+        { "name": "moderatorId", "type": "guid" },
+        { "name": "note", "type": "text" }
+      ]
+    },
+    {
+      "name": "Appeal",
+      "fields": [
+        { "name": "id", "type": "guid", "key": true },
+        { "name": "moderationCaseId", "type": "guid" },
+        { "name": "appellantId", "type": "guid" },
+        { "name": "reason", "type": "text" },
+        { "name": "status", "type": "string" }
+      ]
+    }
+  ],
+  "publishes": ["ContentReported", "ModerationCaseOpened", "ModerationActionTaken", "AppealSubmitted"],
+  "consumes": ["UserDeleted"]
+}
