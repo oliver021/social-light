@@ -10,6 +10,7 @@ import {
   Divider, 
   Grid,
   Chip,
+  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -28,39 +29,80 @@ import {
   Cpu
 } from 'lucide-react';
 import { MediaPicker } from './MediaPicker';
-import { mediaUrl, unMediaUrl } from '../api/gateway';
+import { mediaUrl, unMediaUrl, messageOf } from '../api/gateway';
+
+/** A handle is 3 to 30 letters, digits, dots or underscores (the API stores up to 50). */
+const HANDLE_PATTERN = /^[A-Za-z0-9_.]{3,30}$/;
+
+interface FieldErrors {
+  name?: string;
+  handle?: string;
+}
 
 export const ProfileTab: React.FC = () => {
-  const { currentUser, updateProfile, addNotification } = useApp();
+  const { currentUser, updateProfile, showToast } = useApp();
 
   // Local edit states. editedAvatar holds the backend url (root-relative after an upload).
   const [editOpen, setEditOpen] = useState(false);
-  const [editedName, setEditedName] = useState(currentUser.name);
-  const [editedBio, setEditedBio] = useState(currentUser.bio);
-  const [editedHandle, setEditedHandle] = useState(currentUser.handle);
-  const [editedAvatar, setEditedAvatar] = useState(unMediaUrl(currentUser.avatar) ?? '');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [editedName, setEditedName] = useState('');
+  const [editedBio, setEditedBio] = useState('');
+  const [editedHandle, setEditedHandle] = useState('');
+  const [editedAvatar, setEditedAvatar] = useState('');
 
   // Interest Tag input
   const [newTag, setNewTag] = useState('');
 
-  const handleProfileUpdate = (e: React.FormEvent) => {
+  // Start every edit from the saved profile, not from whatever was typed last time.
+  const openEditor = () => {
+    setEditedName(currentUser.name);
+    setEditedBio(currentUser.bio);
+    setEditedHandle(currentUser.username);
+    setEditedAvatar(unMediaUrl(currentUser.avatar) ?? '');
+    setFieldErrors({});
+    setSaveError(null);
+    setEditOpen(true);
+  };
+
+  const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    // updateProfile expects the display form (/bff-prefixed); the mapper strips it again on save.
-    updateProfile({
-      name: editedName,
-      bio: editedBio,
-      handle: editedHandle,
-      avatar: mediaUrl(editedAvatar) ?? currentUser.avatar,
-    });
-    setEditOpen(false);
-    addNotification('mention', 'Config dispatcher', "successfully synchronized your user profile. Grid nodes updated.");
+    const name = editedName.trim();
+    const handle = editedHandle.trim().replace(/^@/, '');
+    const errors: FieldErrors = {};
+    if (!name) errors.name = 'Enter a display name.';
+    if (handle && !HANDLE_PATTERN.test(handle)) {
+      errors.handle = '3 to 30 letters, numbers, dots or underscores. Leave empty for no handle.';
+    }
+    setFieldErrors(errors);
+    if (errors.name || errors.handle) return;
+
+    setSaving(true);
+    setSaveError(null);
+    try {
+      // The handle is sent exactly as typed (without '@'); an empty one clears it.
+      await updateProfile({
+        name,
+        bio: editedBio.trim(),
+        username: handle,
+        avatar: mediaUrl(editedAvatar) ?? undefined,
+      });
+      setEditOpen(false);
+      showToast('Profile saved.', 'success');
+    } catch (err) {
+      // Stay in the dialog and show why, so nothing is reported as saved when it was not.
+      setSaveError(messageOf(err, 'Your profile was not saved'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleAddTag = () => {
     if (newTag.trim() && !currentUser.interests.includes(newTag.trim())) {
       updateProfile({
         interests: [...currentUser.interests, newTag.trim()]
-      });
+      }).catch(() => {});
       setNewTag('');
     }
   };
@@ -68,7 +110,7 @@ export const ProfileTab: React.FC = () => {
   const handleRemoveTag = (tag: string) => {
     updateProfile({
       interests: currentUser.interests.filter(i => i !== tag)
-    });
+    }).catch(() => {});
   };
 
   return (
@@ -99,7 +141,7 @@ export const ProfileTab: React.FC = () => {
                 <CheckCircle className="w-4 h-4 text-violet-500 fill-current" />
               </Typography>
               <Typography variant="caption" className="font-mono text-zinc-600 dark:text-zinc-400 block text-xs mt-0.5">
-                {currentUser.handle} • Developer node aligned
+                {currentUser.handle}
               </Typography>
             </Box>
           </Box>
@@ -107,11 +149,11 @@ export const ProfileTab: React.FC = () => {
           <Button
             size="small"
             variant="outlined"
-            onClick={() => setEditOpen(true)}
+            onClick={openEditor}
             className="normal-case text-xs font-semibold font-display border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl flex items-center gap-1.5 py-1.5 px-3 min-h-[44px] md:min-h-8 self-start md:self-end"
           >
             <Edit3 className="w-3.5 h-3.5" />
-            Customize Profile
+            Edit profile
           </Button>
         </Box>
       </Card>
@@ -123,7 +165,7 @@ export const ProfileTab: React.FC = () => {
             <Box className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-violet-600 dark:text-violet-400" />
               <Typography variant="subtitle2" className="font-display font-semibold text-zinc-800 dark:text-zinc-200">
-                User Bio
+                About
               </Typography>
             </Box>
 
@@ -147,13 +189,6 @@ export const ProfileTab: React.FC = () => {
                 </Typography>
                 <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 text-xs uppercase font-bold tracking-wider block mt-0.5">Following</Typography>
               </Box>
-              <Box className="w-[1px] h-8 bg-zinc-200 dark:bg-zinc-800" />
-              <Box>
-                <Typography variant="subtitle2" className="font-bold font-mono text-zinc-800 dark:text-zinc-100">
-                  42
-                </Typography>
-                <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 text-xs uppercase font-bold tracking-wider block mt-0.5">Nodes Published</Typography>
-              </Box>
             </Box>
           </Card>
         </Grid>
@@ -165,7 +200,7 @@ export const ProfileTab: React.FC = () => {
               <Box className="flex items-center gap-2">
                 <Tag className="w-4 h-4 text-emerald-500" />
                 <Typography variant="subtitle2" className="font-display font-semibold text-zinc-800 dark:text-zinc-200">
-                  Grid Interests Focus
+                  Interests
                 </Typography>
               </Box>
             </Box>
@@ -190,11 +225,11 @@ export const ProfileTab: React.FC = () => {
               <TextField
                 size="small"
                 fullWidth
-                placeholder="Lookup new technology interest..."
+                placeholder="Add an interest"
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
                 variant="outlined"
-                className="bg-zinc-50/50 dark:bg-zinc-90 w-10 text-xs"
+                className="bg-zinc-50/50 dark:bg-zinc-900 text-xs min-w-0"
                 slotProps={{
                   input: {
                     className: 'text-xs pr-1 py-1'
@@ -219,7 +254,7 @@ export const ProfileTab: React.FC = () => {
       {/* DISPATCH EDIT PROFILE POP DIALOG */}
       <Dialog 
         open={editOpen} 
-        onClose={() => setEditOpen(false)}
+        onClose={() => { if (!saving) setEditOpen(false); }}
         slotProps={{
           paper: {
             className: 'w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2'
@@ -227,16 +262,19 @@ export const ProfileTab: React.FC = () => {
         }}
       >
         <DialogTitle className="font-display font-bold text-sm text-zinc-800 dark:text-zinc-200 pb-2">
-          Customize Node Parameters
+          Edit profile
         </DialogTitle>
-        <form onSubmit={handleProfileUpdate}>
+        <form onSubmit={handleProfileUpdate} noValidate>
           <DialogContent className="space-y-3.5 pt-2">
+            {saveError && <Alert severity="error" className="text-xs">{saveError}</Alert>}
             <TextField
               size="small"
               fullWidth
               label="Display Name"
               value={editedName}
               onChange={(e) => setEditedName(e.target.value)}
+              error={!!fieldErrors.name}
+              helperText={fieldErrors.name}
               slotProps={{ input: { className: 'text-xs' }, inputLabel: { className: 'text-xs' } }}
             />
             <TextField
@@ -245,6 +283,8 @@ export const ProfileTab: React.FC = () => {
               label="Unique Handle"
               value={editedHandle}
               onChange={(e) => setEditedHandle(e.target.value)}
+              error={!!fieldErrors.handle}
+              helperText={fieldErrors.handle}
               slotProps={{ input: { className: 'text-xs' }, inputLabel: { className: 'text-xs' } }}
             />
             <TextField
@@ -266,14 +306,15 @@ export const ProfileTab: React.FC = () => {
             />
           </DialogContent>
           <DialogActions className="pr-4 pb-4">
-            <Button size="small" onClick={() => setEditOpen(false)} className="text-xs text-zinc-600 dark:text-zinc-400 normal-case">Cancel</Button>
+            <Button size="small" onClick={() => setEditOpen(false)} disabled={saving} className="text-xs text-zinc-600 dark:text-zinc-400 normal-case">Cancel</Button>
             <Button 
               size="small" 
               type="submit"
               variant="contained" 
+              disabled={saving}
               className="bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs normal-case px-4.5"
             >
-              Update Config
+              {saving ? 'Saving…' : 'Save profile'}
             </Button>
           </DialogActions>
         </form>

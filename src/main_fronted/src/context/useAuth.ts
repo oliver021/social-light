@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { login as apiLogin, register as apiRegister } from '../api/auth';
 import { profileApi, setAccessToken, getAccessToken, clearProfileCache } from '../api/gateway';
 import { profileToUser } from '../api/mappers';
-import { type SessionState } from './session';
+import { type SessionState, tokenSubject } from './session';
+import { OWNER_KEY, readStored, writeStored } from './usePersistentState';
 
 interface Loaders {
   loadFeed: () => Promise<void>;
@@ -16,6 +17,11 @@ interface Loaders {
   loadMarketplace: () => Promise<void>;
   /** Tear down the chat hub + peer maps (from useChat) on logout. */
   teardownChat: () => void;
+  /**
+   * Clear every cached per-user value (storage and in-memory state) and seed the
+   * current-user view with `ownerId` (null on logout). Provided by the app composition.
+   */
+  resetUserData: (ownerId: string | null) => void;
 }
 
 /**
@@ -23,25 +29,42 @@ interface Loaders {
  * per-domain loaders. It owns `loadCurrentUser` (which sets our id + profile) and
  * sequences the rest on login / register / cold boot. The domain loaders are injected
  * so the dependency is one-directional and explicit.
+ *
+ * Cached data belongs to one account. Before any of it is shown for a user, the cache
+ * owner (`nexus_owner`) must match that user; otherwise the previous account's data is
+ * cleared first.
  */
 export function useAuth(session: SessionState, loaders: Loaders) {
   const { setCurrentUser, myUserId, setIsAuthenticated, setAuthReady } = session;
-  const { loadFeed, loadPeople, loadGroups, loadNotifications, loadStories, loadReels, loadEvents, loadMarketplace, teardownChat } = loaders;
+  const { loadFeed, loadPeople, loadGroups, loadNotifications, loadStories, loadReels, loadEvents, loadMarketplace, teardownChat, resetUserData } = loaders;
+
+  // Make sure the cache belongs to `userId`: if it belongs to someone else, wipe it first.
+  const claimOwner = (userId: string) => {
+    if (readStored(OWNER_KEY) === userId) return;
+    resetUserData(userId);
+    writeStored(OWNER_KEY, userId);
+  };
 
   // Pull the signed-in user's profile (auto-created on signup by the UserRegistered
   // event) and fold it into the view model, keeping UI-only fields. Sets myUserId
   // synchronously so engagement enrichment can match the current user's own reactions.
   const loadCurrentUser = async () => {
     const { data } = await profileApi.GET('/api/profiles/me');
-    if (data) {
-      myUserId.current = data.userId;
-      setCurrentUser((prev) => profileToUser(data, prev));
-    }
+    if (!data) return;
+    claimOwner(data.userId);
+    myUserId.current = data.userId;
+    setCurrentUser((prev) => profileToUser(data, prev));
   };
 
   // Hydrate every domain after we hold a valid session: id+profile first (awaited,
   // since enrichment needs the id), then the feed, then the rest in the background.
   const hydrate = async () => {
+    // Know whose session this is before any cached data is shown or loaded.
+    const sub = tokenSubject(getAccessToken());
+    if (sub) {
+      claimOwner(sub);
+      myUserId.current = sub;
+    }
     await loadCurrentUser();
     await loadFeed();
     loadPeople().catch(() => {});
@@ -78,8 +101,7 @@ export function useAuth(session: SessionState, loaders: Loaders) {
     setIsAuthenticated(false);
     clearProfileCache();
     teardownChat();
-    localStorage.removeItem('nexus_authenticated');
-    localStorage.removeItem('nexus_posts');
+    resetUserData(null);
   };
 
   // On mount with a stored token, confirm the session is still valid (profile fetch)
@@ -93,6 +115,7 @@ export function useAuth(session: SessionState, loaders: Loaders) {
       } catch {
         setAccessToken(null);
         setIsAuthenticated(false);
+        resetUserData(null);
       } finally {
         setAuthReady(true);
       }

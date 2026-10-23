@@ -60,7 +60,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
     posts,
     groups,
     marketItems,
-    setSelectedGroupId
+    setSelectedGroupId,
+    people,
   } = useApp();
 
   const [anchorElUser, setAnchorElUser] = useState<null | HTMLElement>(null);
@@ -116,9 +117,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
       ).slice(0, 3) 
     : [];
 
-  const hasAnyMatches = matchedGroups.length > 0 || matchedMarket.length > 0 || matchedPosts.length > 0;
+  // 4. Matches for people (opens a conversation with them, the only action they support)
+  const matchedPeople = query
+    ? people.filter(p =>
+        p.userId !== currentUser.id &&
+        (p.name.toLowerCase().includes(query) || p.handle.toLowerCase().includes(query))
+      ).slice(0, 3)
+    : [];
 
-  const handleSelectSuggestion = (type: 'post' | 'group' | 'market', item: any) => {
+  const hasAnyMatches = matchedPeople.length > 0 || matchedGroups.length > 0 || matchedMarket.length > 0 || matchedPosts.length > 0;
+
+  const handleSelectSuggestion = (type: 'post' | 'group' | 'market' | 'person', item: any) => {
     setSearchQuery('');
     setIsSearchFocused(false);
 
@@ -129,6 +138,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
       setActiveTab('marketplace');
     } else if (type === 'post') {
       setActiveTab('home');
+    } else if (type === 'person') {
+      openChatWithUser({ id: item.userId, name: item.name, avatar: item.avatar, handle: item.handle });
     }
   };
 
@@ -163,11 +174,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
   };
 
   const menuItems = [
-    { label: 'Feed Home', tab: 'home' as const, icon: Home },
+    { label: 'Home', tab: 'home' as const, icon: Home },
     { label: 'Communities', tab: 'groups' as const, icon: Users2 },
     { label: 'Marketplace', tab: 'marketplace' as const, icon: ShoppingBag },
     { label: 'Reels', tab: 'reels' as const, icon: Clapperboard },
-    { label: 'My Profile', tab: 'profile' as const, icon: User }
+    { label: 'My profile', tab: 'profile' as const, icon: User }
   ];
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -199,7 +210,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
             <Box className="p-1.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-500/10">
               <Zap className="w-5 h-5 fill-current animate-bounce" />
             </Box>
-            <Typography variant="h6" className="hidden min-[480px]:block font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-fuchsia-600 tracking-tight leading-none text-xl">
+            <Typography variant="h6" className="hidden min-[480px]:block font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-fuchsia-600 tracking-tight leading-none text-xl whitespace-nowrap shrink-0">
               socialLight
             </Typography>
           </Box>
@@ -208,13 +219,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
         {/* SEARCH BAR (HIDES ON MOBILE) WITH AUTOCOMPLETE */}
         <Box
           ref={searchContainerRef}
-          className={`${mobileSearchOpen ? 'flex order-last' : 'hidden'} sm:flex sm:order-none relative items-center max-w-sm w-full sm:mx-4 bg-zinc-100 dark:bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-200/50 dark:border-zinc-800/80`}
+          className={`${mobileSearchOpen ? 'flex order-last' : 'hidden'} sm:flex sm:order-none relative items-center max-w-sm w-full min-w-0 sm:flex-1 sm:mx-4 bg-zinc-100 dark:bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-200/50 dark:border-zinc-800/80`}
           id="search-container"
         >
           <Search className="w-4 h-4 text-zinc-600 dark:text-zinc-400 mr-2 shrink-0" />
           <input
             type="text"
-            aria-label="Search people, posts and products"
+            aria-label="Search people, posts and items"
             autoFocus={mobileSearchOpen}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -223,7 +234,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
               if (e.key === 'Escape') {
                 setIsSearchFocused(false);
               } else if (e.key === 'Enter') {
-                if (matchedGroups.length > 0) {
+                if (matchedPeople.length > 0) {
+                  handleSelectSuggestion('person', matchedPeople[0]);
+                } else if (matchedGroups.length > 0) {
                   handleSelectSuggestion('group', matchedGroups[0]);
                 } else if (matchedMarket.length > 0) {
                   handleSelectSuggestion('market', matchedMarket[0]);
@@ -232,7 +245,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
                 }
               }
             }}
-            placeholder="Search people, posts and products…"
+            placeholder="Search people, posts and items…"
             className="w-full bg-transparent text-xs outline-none text-zinc-700 dark:text-zinc-300 placeholder-zinc-500 dark:placeholder-zinc-400"
           />
 
@@ -275,8 +288,38 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
                       {!hasAnyMatches && (
                         <Box className="p-6 text-center">
                           <Typography variant="body2" className="text-zinc-600 dark:text-zinc-400 text-xs">
-                            No people, posts or products match &ldquo;{searchQuery}&rdquo;
+                            Nothing matches &ldquo;{searchQuery}&rdquo; yet.
                           </Typography>
+                        </Box>
+                      )}
+
+                      {/* 0. MATCHED PEOPLE */}
+                      {matchedPeople.length > 0 && (
+                        <Box className="mb-3">
+                          <Box className="px-2 py-1 flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 font-mono text-xs uppercase font-bold tracking-wider">
+                            <User className="w-3.5 h-3.5 text-emerald-500" />
+                            People
+                          </Box>
+                          <List className="p-0">
+                            {matchedPeople.map((person) => (
+                              <ListItem
+                                key={person.userId}
+                                disablePadding
+                                className="rounded-xl overflow-hidden hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer p-2 transition-colors mb-0.5"
+                                onClick={() => handleSelectSuggestion('person', person)}
+                              >
+                                <Avatar src={person.avatar} alt={person.name} className="w-8 h-8 mr-2.5" />
+                                <ListItemText
+                                  primary={person.name}
+                                  secondary={person.handle}
+                                  slotProps={{
+                                    primary: { className: 'text-xs font-semibold text-zinc-800 dark:text-zinc-200' },
+                                    secondary: { className: 'text-xs text-zinc-600 dark:text-zinc-400 font-mono truncate block' }
+                                  }}
+                                />
+                              </ListItem>
+                            ))}
+                          </List>
                         </Box>
                       )}
 
@@ -345,7 +388,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
                         <Box>
                           <Box className="px-2 py-1 flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 font-mono text-xs uppercase font-bold tracking-wider">
                             <Sparkles className="w-3.5 h-3.5 text-violet-500" />
-                            Post Nodes
+                            Posts
                           </Box>
                           <List className="p-0">
                             {matchedPosts.map((post) => (
@@ -431,7 +474,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
                 Messenger
               </Typography>
               <Typography variant="caption" className="font-mono text-zinc-600 dark:text-zinc-400 text-xs">
-                {chatThreads.length} active chats
+                {chatThreads.length} {chatThreads.length === 1 ? 'conversation' : 'conversations'}
               </Typography>
             </Box>
             <Divider />
@@ -452,7 +495,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
                     handleCloseMessengerMenu();
                   }}
                 >
-                  <Badge 
+                  <Badge invisible 
                     variant="dot" 
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     slotProps={{
@@ -473,7 +516,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
             {chatThreads.length === 0 ? (
               <Box className="p-6 text-center">
                 <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 block font-sans text-xs">
-                  No active threads. Start messaging!
+                  No conversations yet. Message someone from People you may know.
                 </Typography>
               </Box>
             ) : (
@@ -493,7 +536,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
                     }}
                   >
                     <ListItemAvatar className="min-w-0">
-                      <Badge 
+                      <Badge invisible 
                         variant="dot" 
                         overlap="circular" 
                         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
@@ -540,7 +583,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
                 onClick={handleCloseMessengerMenu}
                 className="text-blue-500 dark:text-blue-400 font-display text-xs normal-case"
               >
-                Close Messenger
+                Close
               </Button>
             </Box>
           </Popover>
@@ -573,17 +616,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
             <Box className="p-2 flex items-center justify-between">
               <Typography variant="subtitle2" className="font-display font-semibold flex items-center gap-1 text-zinc-800 dark:text-zinc-200">
                 <Bell className="w-4 h-4 text-violet-500" />
-                Network Actions
+                Notifications
               </Typography>
               <Typography variant="caption" className="font-mono text-zinc-600 dark:text-zinc-400">
-                {notifications.length} alerts
+                {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
               </Typography>
             </Box>
             <Divider />
             {notifications.length === 0 ? (
               <Box className="p-6 text-center">
                 <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 block">
-                  Peaceful grid alignment. No new notices.
+                  No notifications yet.
                 </Typography>
               </Box>
             ) : (
@@ -626,7 +669,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
                 onClick={handleCloseNotifMenu} 
                 className="text-violet-600 dark:text-violet-400 font-display text-xs normal-case"
               >
-                Close Panel
+                Close
               </Button>
             </Box>
           </Popover>
@@ -634,8 +677,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
           {/* USER ACCOUNT SHORTCUT */}
           {isAuthenticated ? (
             <Box>
-              <Tooltip title="Account Panel">
-                <IconButton onClick={handleOpenUserMenu} aria-label="Account panel" className="w-11 h-11 p-0 border-2 border-transparent hover:border-violet-500/50 rounded-full">
+              <Tooltip title="Account">
+                <IconButton onClick={handleOpenUserMenu} aria-label="Account menu" className="w-11 h-11 p-0 border-2 border-transparent hover:border-violet-500/50 rounded-full">
                   <Avatar 
                     src={currentUser.avatar} 
                     alt={currentUser.name} 
@@ -665,10 +708,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
                 </Box>
                 <Divider className="my-1" />
                 <MenuItem onClick={() => { handleCloseUserMenu(); setActiveTab('profile'); }} className="gap-2 text-xs rounded-lg text-zinc-700 dark:text-zinc-300">
-                  <User className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" /> My Profile
+                  <User className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" /> My profile
                 </MenuItem>
                 <MenuItem onClick={handleLogoutClick} className="gap-2 text-xs text-rose-600 rounded-lg dark:text-rose-400">
-                  <LogOut className="w-3.5 h-3.5" /> Log Out
+                  <LogOut className="w-3.5 h-3.5" /> Log out
                 </MenuItem>
               </Menu>
             </Box>

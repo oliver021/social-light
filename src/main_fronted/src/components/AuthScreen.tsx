@@ -42,13 +42,13 @@ export const AuthScreen: React.FC = () => {
           <Box className="p-1.5 bg-gradient-to-tr from-violet-600 to-fuchsia-600 rounded text-white">
             <Zap className="w-5 h-5 fill-current" />
           </Box>
-          <Typography variant="h5" className="font-display font-bold text-zinc-100">
+          <Typography variant="h5" component="h1" className="font-display font-bold" sx={{ color: '#fafafa !important', fontWeight: 700 }}>
             socialLight
           </Typography>
           <Chip label="live" size="small" color="success" className="ml-auto scale-90" />
         </Box>
 
-        <Typography variant="body2" className="text-zinc-400 mb-6">
+        <Typography variant="body2" className="mb-6" sx={{ color: '#d4d4d8 !important' }}>
           {mode === 'signin' ? 'Sign in to your account.' : 'Create an account to get started.'}
         </Typography>
 
@@ -98,7 +98,7 @@ export const AuthScreen: React.FC = () => {
 
         <Divider className="my-5" />
 
-        <Typography variant="caption" className="text-zinc-500 block text-center">
+        <Typography variant="caption" className="block text-center" sx={{ color: '#a1a1aa !important' }}>
           {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
           <Button
             size="small"

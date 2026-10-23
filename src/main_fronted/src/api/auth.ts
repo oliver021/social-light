@@ -36,8 +36,12 @@ export async function register(email: string, password: string, displayName: str
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, displayName }),
   });
-  // 201 created, or 409 if the user already exists — both are fine to proceed to login.
-  if (!res.ok && res.status !== 409) {
+  // 201 created. A 409 means the email is already registered: say so, rather than
+  // logging in with a password that may be wrong for that account.
+  if (res.status === 409) {
+    throw new Error('An account with this email already exists. Sign in instead.');
+  }
+  if (!res.ok) {
     let detail = '';
     try {
       const body = await res.json();

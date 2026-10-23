@@ -13,6 +13,7 @@ export interface UserProfile {
 
 export interface Comment {
   id: string;
+  authorId?: string; // backend user id of the commenter, used to open a chat with them
   author: {
     name: string;
     handle: string;

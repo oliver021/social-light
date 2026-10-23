@@ -70,5 +70,8 @@ export function useNotifications({ myUserId }: Deps) {
     setNotifications((prev) => [newNotif, ...prev]);
   };
 
-  return { notifications, loadNotifications, notify, addNotification, markNotificationsAsRead };
+  // Forget the previous account's notifications (used when the signed-in user changes).
+  const reset = () => setNotifications([]);
+
+  return { notifications, loadNotifications, notify, addNotification, markNotificationsAsRead, reset };
 }

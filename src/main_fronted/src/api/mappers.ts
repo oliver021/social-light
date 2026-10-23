@@ -36,33 +36,49 @@ type CatalogItemDto = CatalogComponents['schemas']['CatalogItem'];
 const FALLBACK_AVATAR =
   'https://api.dicebear.com/7.x/identicon/svg?seed=';
 
-function withHandle(handle: string | null | undefined, fallback: string): string {
-  if (!handle) return fallback;
-  return handle.startsWith('@') ? handle : `@${handle}`;
+/** A handle as shown in the UI, or '' when there is none. Never a made-up id. */
+export function withHandle(handle: string | null | undefined): string {
+  const bare = (handle ?? '').trim().replace(/^@/, '');
+  return bare ? `@${bare}` : '';
 }
 
-/** ProfileDto -> the UI's UserProfile, preserving UI-only fields from `prev`. */
+/** Identicon used when a user has no avatar; seeded by the stable user id. */
+export function defaultAvatar(seed: string): string {
+  return `${FALLBACK_AVATAR}${encodeURIComponent(seed || 'user')}`;
+}
+
+/**
+ * ProfileDto -> the UI's UserProfile. The server is the source of truth for every field
+ * it models: a null there clears the value, it never falls back to a cached value from
+ * a previous session. Only display name falls back, because the API rejects an empty name.
+ */
 export function profileToUser(p: ProfileDto, prev: UserProfile): UserProfile {
+  const bare = (p.handle ?? '').trim();
   return {
     ...prev,
     id: p.userId,
-    username: p.handle ?? prev.username,
+    username: bare,
     name: p.displayName || prev.name,
-    handle: withHandle(p.handle, prev.handle),
-    avatar: mediaUrl(p.avatarUrl) ?? prev.avatar,
-    bio: p.bio ?? prev.bio,
+    handle: withHandle(bare),
+    avatar: mediaUrl(p.avatarUrl) ?? defaultAvatar(p.userId),
+    bio: p.bio ?? '',
     // coverPhoto / followersCount / followingCount / interests: no backend yet → keep prev.
   };
 }
 
-/** UserProfile edits -> the Profile API's UpdateProfileRequest body. */
+/**
+ * UserProfile edits -> the Profile API's UpdateProfileRequest body. `username` is the
+ * bare handle the user typed (no '@'); it is sent as-is, never replaced by an older value.
+ */
 export function userToUpdateRequest(u: Partial<UserProfile>): ProfileComponents['schemas']['UpdateProfileRequest'] {
+  const bio = (u.bio ?? '').trim();
+  const handle = (u.username ?? '').trim().replace(/^@/, '');
   return {
-    displayName: u.name ?? '',
-    bio: u.bio ?? null,
+    displayName: (u.name ?? '').trim(),
+    bio: bio || null,
     avatarUrl: unMediaUrl(u.avatar),
     location: null,
-    handle: u.username ?? (u.handle ? u.handle.replace(/^@/, '') : null),
+    handle: handle || null,
   };
 }
 
@@ -89,8 +105,9 @@ export function feedItemToPost(f: FeedItemDto): Post {
     authorId: f.authorId ?? undefined,
     author: {
       name: authorName,
-      handle: `@${(f.authorId ?? '').slice(0, 8) || 'user'}`,
-      avatar: mediaUrl(f.author?.avatarUrl) ?? `${FALLBACK_AVATAR}${encodeURIComponent(f.authorId ?? authorName)}`,
+      // The feed DTO has no handle; the feed hook fills it from Profile when available.
+      handle: '',
+      avatar: mediaUrl(f.author?.avatarUrl) ?? defaultAvatar(f.authorId ?? authorName),
     },
     content: f.body ?? '',
     createdAt: timeAgo(f.publishedAt),
@@ -109,10 +126,11 @@ export function commentDtoToComment(c: CommentDto, author: ProfileDto | null): C
   const name = author?.displayName || 'Unknown User';
   return {
     id: c.id,
+    authorId: c.authorId || undefined,
     author: {
       name,
-      handle: withHandle(author?.handle, `@${(c.authorId ?? '').slice(0, 8) || 'user'}`),
-      avatar: mediaUrl(author?.avatarUrl) ?? `${FALLBACK_AVATAR}${encodeURIComponent(c.authorId || name)}`,
+      handle: withHandle(author?.handle),
+      avatar: mediaUrl(author?.avatarUrl) ?? defaultAvatar(c.authorId || name),
     },
     content: c.body,
     createdAt: 'recently', // CommentDto has no timestamp in the v0 engagement schema.
@@ -140,7 +158,7 @@ export function notificationToItem(n: NotificationDto, actor: ProfileDto | null)
   return {
     id: n.id,
     type,
-    actor: { name, avatar: mediaUrl(actor?.avatarUrl) ?? `${FALLBACK_AVATAR}${encodeURIComponent(n.actorId || name)}` },
+    actor: { name, avatar: mediaUrl(actor?.avatarUrl) ?? defaultAvatar(n.actorId || name) },
     text,
     createdAt: 'recently', // NotificationDto has no timestamp in the v0 schema.
     read: n.isRead,

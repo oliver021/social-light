@@ -48,7 +48,8 @@ export function useMarketplace({ currentUser, addNotification }: Deps) {
   // throws by design). Do not wire this to the backend without resuming the payment work.
   const buyMarketItem = (itemId: string) => {
     setMarketItems((prevItems) => prevItems.filter((i) => i.id !== itemId));
-    addNotification('mention', 'Market Dispatcher', `successfully processed your reservation order for item #${itemId}. Meet client in localized workspace.`);
+    // Honest copy: nothing was ordered, the item is only removed from this list.
+    addNotification('mention', 'Marketplace', `Removed item #${itemId} from your list. Checkout is not available yet, so no order was placed.`);
   };
 
   // Listing creation: NOT connected to the catalog. POST /api/catalog/items exists but is
@@ -70,5 +71,8 @@ export function useMarketplace({ currentUser, addNotification }: Deps) {
     setMarketItems((prev) => [newItem, ...prev]);
   };
 
-  return { marketItems, marketCategories, loadMarketplace, buyMarketItem, createMarketItem };
+  // Forget the previous account's local drafts (used when the signed-in user changes).
+  const reset = () => setMarketItems([]);
+
+  return { marketItems, marketCategories, loadMarketplace, buyMarketItem, createMarketItem, reset };
 }

@@ -5,6 +5,8 @@ import { Clapperboard, Plus, Play, Pause, Volume2, VolumeX, Music2 } from 'lucid
 import { MediaPicker } from './MediaPicker';
 import { mediaUrl } from '../api/gateway';
 import type { Reel } from '../context/useReels';
+import { EmptyState } from './ui/EmptyState';
+import { cardSx, mutedSx, sectionTitleSx, touchTargetSx } from './ui/tokens';
 
 const MAX_REEL_SECONDS = 90;
 const MAX_CAPTION = 200;
@@ -129,11 +131,11 @@ const ReelPlayer: React.FC<{
 
         <Box className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white pointer-events-none">
           <Box className="flex items-center gap-2 min-w-0">
-            <Avatar src={reel.creatorAvatar} className="w-8 h-8 shrink-0" />
-            <Typography variant="body2" className="font-semibold text-white text-sm break-words min-w-0">
+            <Avatar src={reel.creatorAvatar} alt={reel.creatorName} sx={{ width: 32, height: 32, flexShrink: 0 }} />
+            <Typography className="font-semibold text-white text-sm break-words min-w-0">
               {reel.creatorName}
             </Typography>
-            <Typography variant="caption" className="text-white/80 text-xs font-mono shrink-0">{reel.duration}s</Typography>
+            <Typography className="text-white/80 text-xs font-mono shrink-0">{reel.duration}s</Typography>
           </Box>
           {reel.caption && (
             <Box className="mt-2 flex items-start gap-1.5">
@@ -192,20 +194,22 @@ export const ReelsTab: React.FC = () => {
 
   return (
     <Box className="relative">
-      <Card variant="outlined" className="mb-3 p-3 border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950 flex items-center justify-between">
+      <Card variant="outlined" component="section" aria-label="Reels" sx={{ ...cardSx, mb: 1.5, p: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
         <Box className="flex items-center gap-2">
-          <Clapperboard className="w-5 h-5 text-violet-500" />
-          <Typography variant="subtitle1" className="font-display font-bold text-zinc-800 dark:text-zinc-200">Reels</Typography>
+          <Clapperboard aria-hidden="true" className="w-5 h-5 text-violet-500" />
+          <Typography component="h2" sx={sectionTitleSx}>Reels</Typography>
         </Box>
-        <Button size="small" variant="contained" onClick={() => setOpen(true)} className="min-h-[44px] bg-gradient-to-r from-violet-600 to-fuchsia-600 normal-case text-xs shrink-0">
-          <Plus className="w-4 h-4 mr-1" /> New Reel
+        <Button variant="contained" onClick={() => setOpen(true)} sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, borderRadius: 999, px: 2, background: 'linear-gradient(to right, #7c3aed, #c026d3)' }}>
+          <Plus aria-hidden="true" className="w-4 h-4 mr-1" /> New reel
         </Button>
       </Card>
 
       {reels.length === 0 ? (
-        <Card variant="outlined" className="p-8 border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950 text-center">
-          <Typography variant="body2" className="text-zinc-600 dark:text-zinc-400 text-sm">No reels yet. Publish the first short.</Typography>
-        </Card>
+        <EmptyState
+          title="No reels yet"
+          body="Short vertical videos show up here. Be the first to post one."
+          action={{ label: 'New reel', onClick: () => setOpen(true) }}
+        />
       ) : (
         // Phone: leave room for the app header, the Reels bar and the bottom nav.
         <Box className="h-[calc(100dvh-13.5rem)] sm:h-[calc(100dvh-8.5rem)] overflow-y-auto snap-y snap-mandatory overscroll-contain">
@@ -228,7 +232,7 @@ export const ReelsTab: React.FC = () => {
         maxWidth="xs"
         slotProps={{ paper: { className: 'rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950' } }}
       >
-        <DialogTitle className="font-display font-bold text-sm text-zinc-800 dark:text-zinc-200">New Reel</DialogTitle>
+        <DialogTitle sx={{ ...sectionTitleSx, fontSize: '1rem' }}>New reel</DialogTitle>
         <DialogContent className="flex flex-col gap-3 pt-2">
           <MediaPicker
             kind="video"
@@ -254,16 +258,16 @@ export const ReelsTab: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions className="px-6 pb-4">
-          <Button size="small" onClick={() => { setOpen(false); resetDialog(); }} disabled={publishing} className="normal-case text-xs text-zinc-600 dark:text-zinc-400">
+          <Button onClick={() => { setOpen(false); resetDialog(); }} disabled={publishing} sx={{ ...touchTargetSx, textTransform: 'none', color: 'var(--ui-muted)' }}>
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={handlePublish}
             disabled={!videoUrl || publishing}
-            className="min-h-[44px] bg-gradient-to-r from-violet-600 to-fuchsia-600 normal-case"
+            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, background: 'linear-gradient(to right, #7c3aed, #c026d3)' }}
           >
-            {publishing ? 'Publishing…' : 'Publish Reel'}
+            {publishing ? 'Publishing…' : 'Publish'}
           </Button>
         </DialogActions>
       </Dialog>

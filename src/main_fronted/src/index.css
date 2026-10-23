@@ -38,6 +38,51 @@
   --color-fuchsia-700: #6d28d9;
 }
 
+/*
+ * Shared surface tokens. Every tab uses these so cards, borders and muted text look
+ * the same across Home, Communities, Marketplace and Reels. MUI components read them
+ * through `components/ui/tokens.ts` (sx), plain elements through the utilities below.
+ * Contrast: muted text is >= 4.5:1 on the surface in both themes.
+ */
+:root {
+  --ui-surface: #ffffff;
+  --ui-page: #fafafa;
+  --ui-border: #e4e4e7;
+  --ui-text: #18181b;
+  --ui-muted: #52525b;
+  --ui-radius: 1rem;
+  --ui-card-pad: 1rem;
+}
+.dark {
+  --ui-surface: #0a0a0a;
+  --ui-page: #0a0a0a;
+  --ui-border: #2a2a2a;
+  --ui-text: #e4e4e7;
+  --ui-muted: #a1a1aa;
+}
+
+@utility ui-card {
+  background-color: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+}
+@utility ui-section-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--ui-text);
+}
+@utility ui-muted {
+  color: var(--ui-muted);
+}
+
+/* Visible keyboard focus everywhere (MUI and native controls). */
+:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 body {
   font-family: var(--font-sans);
   margin: 0;

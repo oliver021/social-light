@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Box, Card, Typography, Button, Collapse, TextField, IconButton } from '@mui/material';
+import { Box, Button, Card, Collapse, IconButton, TextField, Typography } from '@mui/material';
 import { CalendarDays, MapPin, Plus, Check } from 'lucide-react';
+import { EmptyState } from './ui/EmptyState';
+import { cardSx, mutedSx, sectionTitleSx, touchTargetSx } from './ui/tokens';
 
 const fmtDate = (iso: string) => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-// "Upcoming Events" sidebar widget, backed by the generated Events module.
+// "Upcoming events" sidebar widget, backed by the generated Events module.
 export const EventsWidget: React.FC = () => {
   const { events, createEvent, rsvpEvent } = useApp();
   const [open, setOpen] = useState(false);
@@ -25,54 +27,72 @@ export const EventsWidget: React.FC = () => {
   };
 
   return (
-    <Card variant="outlined" className="p-4 border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950">
-      <Box className="flex items-center justify-between mb-3">
-        <Box className="flex items-center gap-2">
-          <CalendarDays className="w-4 h-4 text-violet-500" />
-          <Typography variant="subtitle2" className="font-display font-bold text-zinc-800 dark:text-zinc-200 text-sm">
-            Upcoming Events
-          </Typography>
-        </Box>
-        <IconButton size="small" aria-label={open ? "Close event form" : "Add event"} onClick={() => setOpen((o) => !o)} className="text-violet-500 w-11 h-11">
-          <Plus className="w-4 h-4" />
+    <Card variant="outlined" component="section" aria-labelledby="upcoming-events-title" sx={cardSx}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+        <Typography id="upcoming-events-title" component="h2" sx={{ ...sectionTitleSx, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <CalendarDays aria-hidden="true" className="w-4 h-4 text-violet-500" />
+          Upcoming events
+        </Typography>
+        <IconButton
+          aria-label={open ? 'Close event form' : 'Add event'}
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+          sx={{ ...touchTargetSx, color: 'var(--color-violet-500)' }}
+        >
+          <Plus aria-hidden="true" className="w-4 h-4" />
         </IconButton>
       </Box>
 
       <Collapse in={open}>
-        <Box className="flex flex-col gap-2 mb-3 p-2 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl">
-          <TextField size="small" placeholder="Event title" value={title} onChange={(e) => setTitle(e.target.value)} fullWidth />
-          <TextField size="small" placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} fullWidth />
-          <TextField size="small" type="date" value={date} onChange={(e) => setDate(e.target.value)} fullWidth />
-          <Button size="small" variant="contained" onClick={handleCreate} className="bg-gradient-to-r from-violet-600 to-fuchsia-600">Create</Button>
+        <Box component="form" onSubmit={(e) => { e.preventDefault(); handleCreate(); }} sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1.5, p: 1.5, bgcolor: 'var(--ui-page)', borderRadius: 2, border: '1px solid var(--ui-border)' }}>
+          <TextField size="small" label="Event name" value={title} onChange={(e) => setTitle(e.target.value)} fullWidth />
+          <TextField size="small" label="Place (optional)" value={location} onChange={(e) => setLocation(e.target.value)} fullWidth />
+          <TextField size="small" type="date" label="Date" slotProps={{ inputLabel: { shrink: true } }} value={date} onChange={(e) => setDate(e.target.value)} fullWidth />
+          <Button type="submit" variant="contained" disabled={!title.trim()} sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600 }}>
+            Create event
+          </Button>
         </Box>
       </Collapse>
 
-      <Box className="flex flex-col gap-2">
-        {events.length === 0 && (
-          <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 block py-1">No events yet — create one.</Typography>
-        )}
-        {events.map((ev) => (
-          <Box key={ev.id} className="flex items-center justify-between gap-2 p-2 rounded-xl border border-zinc-100 dark:border-zinc-850">
-            <Box className="min-w-0">
-              <Typography variant="body2" className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs truncate">{ev.title}</Typography>
-              <Box className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400 font-mono">
-                <span>{fmtDate(ev.startDate)}</span>
-                {ev.location && (<span className="flex items-center gap-0.5 truncate"><MapPin className="w-2.5 h-2.5" />{ev.location}</span>)}
-                <span>{ev.attendeeCount} going</span>
+      {events.length === 0 ? (
+        <EmptyState
+          compact
+          title="No upcoming events"
+          action={{ label: 'Create an event', onClick: () => setOpen(true) }}
+        />
+      ) : (
+        <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {events.map((ev) => (
+            <Box component="li" key={ev.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, p: 1.25, borderRadius: 2, border: '1px solid var(--ui-border)' }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ui-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {ev.title}
+                </Typography>
+                <Box sx={{ ...mutedSx, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <span>{fmtDate(ev.startDate)}</span>
+                  {ev.location && (
+                    <span className="flex items-center gap-0.5 min-w-0 truncate">
+                      <MapPin aria-hidden="true" className="w-2.5 h-2.5 shrink-0" />
+                      {ev.location}
+                    </span>
+                  )}
+                  <span>{ev.attendeeCount} going</span>
+                </Box>
               </Box>
+              <Button
+                size="small"
+                variant={ev.attending ? 'outlined' : 'contained'}
+                aria-label={ev.attending ? `Going to ${ev.title}` : `I'm going to ${ev.title}`}
+                aria-pressed={ev.attending}
+                onClick={() => rsvpEvent(ev.id)}
+                sx={{ ...touchTargetSx, minWidth: 96, px: 1.5, borderRadius: 999, textTransform: 'none', fontWeight: 600, fontSize: '0.8125rem', flexShrink: 0 }}
+              >
+                {ev.attending ? <><Check aria-hidden="true" className="w-3 h-3 mr-1" />Going</> : "I'm going"}
+              </Button>
             </Box>
-            <Button
-              size="small"
-              variant={ev.attending ? 'outlined' : 'contained'}
-              color={ev.attending ? 'inherit' : 'primary'}
-              onClick={() => rsvpEvent(ev.id)}
-              className={`text-xs min-w-0 px-2 ${ev.attending ? '' : 'bg-violet-600'}`}
-            >
-              {ev.attending ? <><Check className="w-3 h-3 mr-0.5" />Going</> : 'RSVP'}
-            </Button>
-          </Box>
-        ))}
-      </Box>
+          ))}
+        </Box>
+      )}
     </Card>
   );
 };

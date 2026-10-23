@@ -1,14 +1,16 @@
 import { useRef, type MutableRefObject } from 'react';
 import { UserProfile, Post, Reactions } from '../types';
-import { postsApi, engagementApi, feedApi, getProfile, mediaUrl } from '../api/gateway';
-import { feedItemToPost, newPostToPost, commentDtoToComment, toReactionKey, emptyReactions } from '../api/mappers';
+import { postsApi, engagementApi, feedApi, getProfile, mediaUrl, describeApiError, messageOf } from '../api/gateway';
+import { feedItemToPost, newPostToPost, commentDtoToComment, toReactionKey, emptyReactions, withHandle } from '../api/mappers';
 import { usePersistentState } from './usePersistentState';
+import { type ToastSeverity } from './useToast';
 
 interface Deps {
   myUserId: MutableRefObject<string>;
   currentUser: UserProfile;
   /** Record a notification for another user (from useNotifications). */
   notify: (recipientId: string | undefined, type: string, entityType: string, entityId: string) => void;
+  showToast: (message: string, severity?: ToastSeverity) => void;
 }
 
 /**
@@ -17,7 +19,7 @@ interface Deps {
  * counts/threads/own-reactions are folded in afterwards from the Engagement module
  * (which has no per-target query in v0, so each is a fetch-all + group-by-post).
  */
-export function useFeed({ myUserId, currentUser, notify }: Deps) {
+export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
   const [posts, setPosts] = usePersistentState<Post[]>('nexus_posts', () => []);
   // Maps a postId -> the current user's reaction id on it, so a toggle can DELETE it.
   const myReactionIds = useRef<Map<string, string>>(new Map());
@@ -30,10 +32,24 @@ export function useFeed({ myUserId, currentUser, notify }: Deps) {
     // Fold real comment threads + reaction tallies in afterwards so the feed paints
     // immediately and the (slower) engagement + author-profile resolution happens in
     // the background.
+    enrichAuthors(mapped).catch(() => {});
     enrichComments(mapped).catch(() => {});
     enrichReactions(mapped).catch(() => {});
     enrichShares(mapped).catch(() => {});
     enrichMedia(mapped).catch(() => {});
+  };
+
+  // The feed DTO carries names and avatars but no handle; take the handle from Profile
+  // (cached per author). Authors without a handle keep an empty one, which the UI hides.
+  const enrichAuthors = async (forPosts: Post[]) => {
+    const authorIds = [...new Set(forPosts.map((p) => p.authorId).filter((id): id is string => !!id))];
+    const profiles = await Promise.all(authorIds.map((id) => getProfile(id).catch(() => null)));
+    const handleById = new Map(authorIds.map((id, i) => [id, withHandle(profiles[i]?.handle)]));
+    setPosts((prev) =>
+      prev.map((p) => (p.authorId && handleById.has(p.authorId)
+        ? { ...p, author: { ...p.author, handle: handleById.get(p.authorId)! } }
+        : p)),
+    );
   };
 
   // The feed DTO carries no media; attachments are a separate Posts resource
@@ -133,7 +149,15 @@ export function useFeed({ myUserId, currentUser, notify }: Deps) {
   // Create through Posts API (authorId bound from the JWT, not the body), prepend
   // optimistically, then refresh the composed feed in the background.
   const addPost = async (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', _extraData?: any) => {
-    const { data } = await postsApi.POST('/api/posts', {
+    try {
+      await createPost(content, type, _extraData);
+    } catch (err) {
+      showToast(messageOf(err, 'Your post was not published'));
+    }
+  };
+
+  const createPost = async (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', _extraData?: any) => {
+    const { data, error, response } = await postsApi.POST('/api/posts', {
       body: {
         contentType: type,
         visibility: 'public',
@@ -145,27 +169,29 @@ export function useFeed({ myUserId, currentUser, notify }: Deps) {
         archivedAt: null,
       },
     });
-    if (data) {
-      let created = newPostToPost(data, currentUser);
-      const attachment: { mediaType: 'image' | 'video'; url: string } | null =
-        type === 'image' && _extraData?.imageUrl ? { mediaType: 'image', url: _extraData.imageUrl }
-        : type === 'video' && _extraData?.videoUrl ? { mediaType: 'video', url: _extraData.videoUrl }
-        : null;
-      if (attachment) {
-        // Persist the upload as a post-media row, then show it on the optimistic post.
-        const res = await postsApi.POST('/api/post-medias', {
-          body: { postId: data.id, fileUrl: attachment.url, mediaType: attachment.mediaType, position: 0 },
-        });
-        if (res.data) {
-          created = attachment.mediaType === 'video'
-            ? { ...created, type: 'video', videoUrl: mediaUrl(attachment.url) }
-            : { ...created, type: 'image', imageUrl: mediaUrl(attachment.url) };
-        }
+    if (!data) throw new Error(describeApiError(error, response, 'Your post was not published'));
+
+    let created = newPostToPost(data, currentUser);
+    const attachment: { mediaType: 'image' | 'video'; url: string } | null =
+      type === 'image' && _extraData?.imageUrl ? { mediaType: 'image', url: _extraData.imageUrl }
+      : type === 'video' && _extraData?.videoUrl ? { mediaType: 'video', url: _extraData.videoUrl }
+      : null;
+    if (attachment) {
+      // Persist the upload as a post-media row, then show it on the optimistic post.
+      const res = await postsApi.POST('/api/post-medias', {
+        body: { postId: data.id, fileUrl: attachment.url, mediaType: attachment.mediaType, position: 0 },
+      });
+      if (res.response.ok && res.data) {
+        created = attachment.mediaType === 'video'
+          ? { ...created, type: 'video', videoUrl: mediaUrl(attachment.url) }
+          : { ...created, type: 'image', imageUrl: mediaUrl(attachment.url) };
+      } else {
+        showToast(describeApiError(res.error, res.response, 'Your post was saved without its media'));
       }
-      setPosts((prev) => [created, ...prev]);
-      // Reconcile with the server's composed view (ordering, counts) without blocking the UI.
-      loadFeed().catch(() => {});
     }
+    setPosts((prev) => [created, ...prev]);
+    // Reconcile with the server's composed view (ordering, counts) without blocking the UI.
+    loadFeed().catch(() => {});
   };
 
   // Persist through the Engagement API (userId bound from the JWT) and keep the
@@ -199,8 +225,10 @@ export function useFeed({ myUserId, currentUser, notify }: Deps) {
           });
           if (data) myReactionIds.current.set(postId, data.id);
         }
-      } catch {
-        /* leave optimistic state; a feed reload reconciles */
+      } catch (err) {
+        showToast(messageOf(err, 'Your reaction was not saved'));
+        // Re-read the server's tallies so the optimistic count does not stay wrong.
+        loadFeed().catch(() => {});
       }
     })();
   };
@@ -211,11 +239,13 @@ export function useFeed({ myUserId, currentUser, notify }: Deps) {
     setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, sharesCount: p.sharesCount + 1 } : p)));
     (async () => {
       try {
-        await engagementApi.POST('/api/shares', {
+        const { error, response } = await engagementApi.POST('/api/shares', {
           body: { targetType: 'Post', targetId: postId, commentary: null },
         });
-      } catch {
+        if (!response.ok) throw new Error(describeApiError(error, response, 'The post was not shared'));
+      } catch (err) {
         setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, sharesCount: Math.max(0, p.sharesCount - 1) } : p)));
+        showToast(messageOf(err, 'The post was not shared'));
       }
     })();
   };
@@ -251,13 +281,16 @@ export function useFeed({ myUserId, currentUser, notify }: Deps) {
 
   // Comment through the Engagement API (polymorphic target: a Post), then append
   // optimistically to the thread. authorId is bound from the JWT on the server.
-  const addComment = async (postId: string, content: string) => {
-    const { data } = await engagementApi.POST('/api/comments', {
+  // Rejects with a readable message when the server does not accept the comment, so the
+  // composer keeps the text.
+  const addComment = async (postId: string, content: string): Promise<void> => {
+    const { data, error, response } = await engagementApi.POST('/api/comments', {
       body: { targetType: 'Post', targetId: postId, parentCommentId: null, body: content },
     });
-    if (!data) return;
+    if (!data) throw new Error(describeApiError(error, response, 'Your comment was not posted'));
     const newComment = {
       id: data.id,
+      authorId: currentUser.id,
       author: { name: currentUser.name, handle: currentUser.handle, avatar: currentUser.avatar },
       content,
       createdAt: 'Just now',
@@ -271,5 +304,11 @@ export function useFeed({ myUserId, currentUser, notify }: Deps) {
     notify(posts.find((p) => p.id === postId)?.authorId, 'comment', 'Post', postId);
   };
 
-  return { posts, loadFeed, addPost, reactToPost, sharePost, votePoll, addComment };
+  // Forget the previous account's cached posts (used when the signed-in user changes).
+  const reset = () => {
+    myReactionIds.current.clear();
+    setPosts([]);
+  };
+
+  return { posts, loadFeed, addPost, reactToPost, sharePost, votePoll, addComment, reset };
 }

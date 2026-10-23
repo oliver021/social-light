@@ -1,26 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { messageOf } from '../api/gateway';
 import { 
   Box, 
-  Card, 
   Typography, 
   Avatar, 
   IconButton, 
-  InputBase, 
-  Button, 
-  Badge 
+  InputBase 
 } from '@mui/material';
 import { 
   X, 
   Minus, 
   Send, 
   ThumbsUp, 
-  Smile, 
-  MessageSquare, 
-  Circle,
-  MoreHorizontal
+  Smile
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+/** Phones get a full-screen chat; anything wider keeps floating windows. */
+const PHONE_QUERY = '(max-width: 639px)';
 
 export const Messenger: React.FC = () => {
   const { 
@@ -29,20 +27,39 @@ export const Messenger: React.FC = () => {
     sendMessage, 
     closeChat, 
     minimizeChat, 
-    currentUser 
+    currentUser,
+    showToast
   } = useApp();
 
   const [inputStates, setInputStates] = useState<Record<string, string>>({});
+
+  // A chat restored from the last visit should not take over a phone screen on load:
+  // on phones, chats start minimized and open full-screen only when the user opens them.
+  const startedMinimized = useRef(false);
+  useEffect(() => {
+    if (startedMinimized.current) return;
+    startedMinimized.current = true;
+    if (typeof window === 'undefined' || !window.matchMedia?.(PHONE_QUERY).matches) return;
+    activeChats.filter((c) => !c.isMinimized).forEach((c) => minimizeChat(c.userId));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleInputChange = (userId: string, val: string) => {
     setInputStates(prev => ({ ...prev, [userId]: val }));
   };
 
-  const handleSendClick = (userId: string) => {
+  // The composer is cleared only after the message is accepted. On failure the text stays
+  // and the reason is shown.
+  const handleSendClick = async (userId: string) => {
     const text = inputStates[userId] || '';
     if (!text.trim()) return;
-    sendMessage(userId, text);
-    setInputStates(prev => ({ ...prev, [userId]: '' }));
+    try {
+      await sendMessage(userId, text);
+      // Clear only if the user has not typed something new in the meantime.
+      setInputStates(prev => (prev[userId] === text ? { ...prev, [userId]: '' } : prev));
+    } catch (err) {
+      showToast(messageOf(err, 'Your message was not sent'));
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, userId: string) => {
@@ -53,11 +70,11 @@ export const Messenger: React.FC = () => {
   };
 
   const handleLikeClick = (userId: string) => {
-    sendMessage(userId, '👍');
+    sendMessage(userId, '👍').catch((err) => showToast(messageOf(err, 'Your message was not sent')));
   };
 
   return (
-    <Box className="fixed bottom-0 left-0 right-0 sm:left-auto sm:right-10 z-50 flex flex-row-reverse items-end gap-4 pointer-events-none sm:max-w-[95%] overflow-visible">
+    <Box className="fixed bottom-0 top-14 left-0 right-0 sm:top-auto sm:left-auto sm:right-10 z-50 flex flex-row-reverse items-end gap-4 pointer-events-none sm:max-w-[95%] overflow-visible">
       <AnimatePresence>
         {activeChats.map((chat, idx) => {
           const messages = chatMessages[chat.userId] || [];
@@ -130,7 +147,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       transition={{ type: 'spring', damping: 20, stiffness: 150 }}
       id={`facebook-chat-box-${chat.userId}`}
       className={`pointer-events-auto ${showOnMobile ? 'flex' : 'hidden sm:flex'} flex-col w-full sm:w-[310px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-none sm:rounded-t-2xl shadow-2xl ${
-        chat.isMinimized ? 'h-11 mb-14 sm:mb-0' : 'h-[100dvh] sm:h-[400px] sm:max-h-[440px]'
+        chat.isMinimized ? 'h-11 mb-14 sm:mb-0' : 'h-full sm:h-[400px] sm:max-h-[440px]'
       }`}
     >
       {/* CHAT HEADER */}
@@ -138,26 +155,18 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         onClick={onMinimize}
         className="h-11 shrink-0 px-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between cursor-pointer rounded-none sm:rounded-t-2xl select-none"
       >
-        <Box className="flex items-center gap-2">
-          <Badge 
-            variant="dot" 
-            overlap="circular" 
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            slotProps={{
-              badge: {
-                className: 'bg-green-500 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-zinc-900'
-              }
-            }}
-          >
-            <Avatar src={chat.avatar} className="w-6.5 h-6.5 scale-90" />
-          </Badge>
-          <Box className="leading-tight">
+        <Box className="flex items-center gap-2 min-w-0">
+          <Avatar src={chat.avatar} alt={chat.name} className="w-6.5 h-6.5 scale-90" />
+          <Box className="leading-tight min-w-0">
             <Typography variant="caption" className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs block truncate max-w-[130px]">
               {chat.name}
             </Typography>
-            <Typography variant="caption" className="text-xs text-green-500 font-mono block">
-              Active Now
-            </Typography>
+            {/* No presence is tracked yet, so the header shows the handle, never a status. */}
+            {chat.handle && (
+              <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 font-mono block truncate max-w-[130px]">
+                {chat.handle}
+              </Typography>
+            )}
           </Box>
         </Box>
 
@@ -180,27 +189,29 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           >
             {messages.length === 0 ? (
               <Box className="flex flex-col items-center justify-center py-8 text-center px-4">
-                <Avatar src={chat.avatar} className="w-14 h-14 mb-2 shadow-md border-2 border-zinc-100 dark:border-zinc-800" />
+                <Avatar src={chat.avatar} alt={chat.name} className="w-14 h-14 mb-2 shadow-md border-2 border-zinc-100 dark:border-zinc-800" />
                 <Typography variant="body2" className="font-bold text-zinc-800 dark:text-zinc-200 text-xs">
                   {chat.name}
                 </Typography>
-                <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 font-mono">
-                  {chat.handle}
-                </Typography>
+                {chat.handle && (
+                  <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 font-mono">
+                    {chat.handle}
+                  </Typography>
+                )}
                 <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 block italic">
-                  Say hello! This secure connection is ready for fast grid messages.
+                  Say hello to start the conversation.
                 </Typography>
               </Box>
             ) : (
               messages.map((msg, i) => {
-                const isMe = msg.senderId === 'current-user-1';
+                const isMe = msg.senderId === currentUser.id;
                 return (
                   <Box 
                     key={msg.id || i}
                     className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
                   >
                     {!isMe && (
-                      <Avatar src={chat.avatar} className="w-5.5 h-5.5 scale-90 mb-0.5 shrink-0" />
+                      <Avatar src={chat.avatar} alt={chat.name} className="w-5.5 h-5.5 scale-90 mb-0.5 shrink-0" />
                     )}
                     <Box 
                       className={`max-w-[72%] rounded-2xl px-3 py-1.5 text-xs shadow-sm ${

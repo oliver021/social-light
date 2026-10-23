@@ -1,11 +1,14 @@
 import React, { createContext, useContext } from 'react';
+import { Alert, Snackbar } from '@mui/material';
 import { UserProfile, Post, Group, MarketItem, NotificationItem, Reactions, ChatMessage, ChatBoxState, ChatThread } from '../types';
+import { INITIAL_USER } from '../data';
 import { type ActiveTab, useUiPreferences } from './useUiPreferences';
 import { useSessionState } from './session';
+import { useToast, type ToastSeverity } from './useToast';
 import { useNotifications } from './useNotifications';
 import { useFeed } from './useFeed';
 import { useSocial, type Person } from './useSocial';
-import { useGroups } from './useGroups';
+import { useGroups, type NewGroup } from './useGroups';
 import { useMarketplace } from './useMarketplace';
 import { useProfile } from './useProfile';
 import { useChat } from './useChat';
@@ -13,6 +16,7 @@ import { useStories, type Story } from './useStories';
 import { useReels, type Reel } from './useReels';
 import { useEvents, type EventItem } from './useEvents';
 import { useAuth } from './useAuth';
+import { clearUserScopedStorage } from './usePersistentState';
 
 // Re-exported for any consumer that wants these view shapes.
 export type { Person, Story, Reel, EventItem };
@@ -47,11 +51,18 @@ interface AppContextType {
   reactToPost: (postId: string, reactionType: keyof Reactions) => void;
   sharePost: (postId: string) => void;
   votePoll: (postId: string, optionId: string) => void;
-  addComment: (postId: string, content: string) => void;
-  toggleJoinGroup: (groupId: string) => void;
+  /** Rejects with a readable message when the comment is not saved. */
+  addComment: (postId: string, content: string) => Promise<void>;
+  /** Resolves true when the membership changed on the server. */
+  toggleJoinGroup: (groupId: string) => Promise<boolean>;
+  /** Creates a community and makes the creator a member. Rejects with a readable message. */
+  createGroup: (input: NewGroup) => Promise<void>;
   buyMarketItem: (itemId: string) => void;
   createMarketItem: (title: string, description: string, price: number, category: string, location: string, imageUrl: string) => void;
-  updateProfile: (updated: Partial<UserProfile>) => void;
+  /** Rejects with a readable message when the server does not accept the change. */
+  updateProfile: (updated: Partial<UserProfile>) => Promise<void>;
+  /** Show a transient message (errors, confirmed saves). */
+  showToast: (message: string, severity?: ToastSeverity) => void;
   // Social graph (M3): real people to discover + follow, backed by Profile + SocialGraph.
   people: Person[];
   followUser: (userId: string) => void;
@@ -66,7 +77,8 @@ interface AppContextType {
   openChatWithUser: (user: { id: string; name: string; avatar: string; handle: string }) => void;
   closeChat: (userId: string) => void;
   minimizeChat: (userId: string) => void;
-  sendMessage: (userId: string, text: string) => void;
+  /** Rejects with a readable message when the message could not be sent (text is kept by the caller). */
+  sendMessage: (userId: string, text: string) => Promise<void>;
 
   // Generated modules (Stories / Reels / Events): real CRUD over the gateway.
   stories: Story[];
@@ -88,26 +100,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // every loader → auth's login/bootstrap orchestration).
   const ui = useUiPreferences();
   const session = useSessionState();
+  const { toast, showToast, closeToast } = useToast();
 
   const notifications = useNotifications({ myUserId: session.myUserId });
   const feed = useFeed({
     myUserId: session.myUserId,
     currentUser: session.currentUser,
     notify: notifications.notify,
+    showToast,
   });
   const social = useSocial({
     myUserId: session.myUserId,
     setCurrentUser: session.setCurrentUser,
     loadFeed: feed.loadFeed,
     notify: notifications.notify,
+    showToast,
   });
-  const groups = useGroups({ myUserId: session.myUserId });
-  const chat = useChat({ currentUser: session.currentUser, isAuthenticated: session.isAuthenticated });
+  const groups = useGroups({ myUserId: session.myUserId, showToast });
+  const chat = useChat({
+    myUserId: session.myUserId,
+    currentUserId: session.currentUser.id,
+    isAuthenticated: session.isAuthenticated,
+    showToast,
+  });
   const marketplace = useMarketplace({ currentUser: session.currentUser, addNotification: notifications.addNotification });
   const profile = useProfile({ currentUser: session.currentUser, setCurrentUser: session.setCurrentUser });
   const storiesState = useStories({ myUserId: session.myUserId });
   const reelsState = useReels({ myUserId: session.myUserId });
   const eventsState = useEvents({ myUserId: session.myUserId });
+
+  // Everything cached for one account is dropped here: on logout, on a failed session
+  // probe, and whenever the signed-in user is not the owner of the local cache.
+  const resetUserData = (ownerId: string | null) => {
+    clearUserScopedStorage();
+    feed.reset();
+    social.reset();
+    groups.reset();
+    notifications.reset();
+    chat.reset();
+    marketplace.reset();
+    session.myUserId.current = ownerId ?? '';
+    session.setCurrentUser(() => ({ ...INITIAL_USER, id: ownerId ?? INITIAL_USER.id }));
+  };
 
   const auth = useAuth(session, {
     loadFeed: feed.loadFeed,
@@ -119,6 +153,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadEvents: eventsState.loadEvents,
     loadMarketplace: marketplace.loadMarketplace,
     teardownChat: chat.teardown,
+    resetUserData,
   });
 
   const value: AppContextType = {
@@ -145,6 +180,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     votePoll: feed.votePoll,
     addComment: feed.addComment,
     toggleJoinGroup: groups.toggleJoinGroup,
+    createGroup: groups.createGroup,
+    showToast,
     buyMarketItem: marketplace.buyMarketItem,
     createMarketItem: marketplace.createMarketItem,
     updateProfile: profile.updateProfile,
@@ -171,7 +208,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     rsvpEvent: eventsState.rsvpEvent,
   };
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={value}>
+      {children}
+      <Snackbar
+        key={toast?.key}
+        open={!!toast}
+        autoHideDuration={toast?.severity === 'error' ? 8000 : 4000}
+        onClose={(_, reason) => { if (reason !== 'clickaway') closeToast(); }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{ bottom: { xs: 80, md: 24 } }}
+      >
+        <Alert onClose={closeToast} severity={toast?.severity ?? 'info'} variant="filled" className="w-full max-w-md">
+          {toast?.message}
+        </Alert>
+      </Snackbar>
+    </AppContext.Provider>
+  );
 };
 
 export const useApp = () => {

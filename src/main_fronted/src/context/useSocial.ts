@@ -1,6 +1,8 @@
 import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import { UserProfile } from '../types';
-import { profileApi, socialGraphApi } from '../api/gateway';
+import { profileApi, socialGraphApi, describeApiError, messageOf, mediaUrl } from '../api/gateway';
+import { withHandle, defaultAvatar } from '../api/mappers';
+import { type ToastSeverity } from './useToast';
 
 /** A discoverable person (a real backend profile) + this user's follow state for them. */
 export interface Person {
@@ -19,6 +21,7 @@ interface Deps {
   /** Refresh the home feed after a follow/unfollow so the author's posts fan in/out. */
   loadFeed: () => Promise<void>;
   notify: (recipientId: string | undefined, type: string, entityType: string, entityId: string) => void;
+  showToast: (message: string, severity?: ToastSeverity) => void;
 }
 
 /**
@@ -26,7 +29,7 @@ interface Deps {
  * endpoint), this user's follow edges (from the SocialGraph module), and the real
  * follower/following counts folded back onto the current user's profile.
  */
-export function useSocial({ myUserId, setCurrentUser, loadFeed, notify }: Deps) {
+export function useSocial({ myUserId, setCurrentUser, loadFeed, notify, showToast }: Deps) {
   const [people, setPeople] = useState<Person[]>([]);
 
   // The social graph has no user directory, so people to follow come from Profile's
@@ -51,8 +54,8 @@ export function useSocial({ myUserId, setCurrentUser, loadFeed, notify }: Deps) 
       profiles.map((p) => ({
         userId: p.userId,
         name: p.displayName || 'Unknown User',
-        handle: p.handle ? (p.handle.startsWith('@') ? p.handle : `@${p.handle}`) : `@${p.userId.slice(0, 8)}`,
-        avatar: p.avatarUrl ?? `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(p.userId)}`,
+        handle: withHandle(p.handle),
+        avatar: mediaUrl(p.avatarUrl) ?? defaultAvatar(p.userId),
         bio: p.bio ?? '',
         followed: followByTarget.has(p.userId),
         followId: followByTarget.get(p.userId),
@@ -61,12 +64,13 @@ export function useSocial({ myUserId, setCurrentUser, loadFeed, notify }: Deps) 
   };
 
   // Create the edge (followerId from my id; the v0 social-graph module doesn't bind
-  // it from the JWT yet), flip optimistic state, then refresh the feed.
+  // it from the JWT yet), flip optimistic state, then refresh the feed. A failed call
+  // reverts the button and says why.
   const followUser = (userId: string) => {
     setPeople((prev) => prev.map((p) => (p.userId === userId ? { ...p, followed: true } : p)));
     (async () => {
       try {
-        const { data } = await socialGraphApi.POST('/api/follows', {
+        const { data, error, response } = await socialGraphApi.POST('/api/follows', {
           body: {
             followerId: myUserId.current,
             followingId: userId,
@@ -74,12 +78,14 @@ export function useSocial({ myUserId, setCurrentUser, loadFeed, notify }: Deps) 
             createdAt: new Date().toISOString(),
           },
         });
-        if (data) setPeople((prev) => prev.map((p) => (p.userId === userId ? { ...p, followId: data.id } : p)));
+        if (!response.ok || !data) throw new Error(describeApiError(error, response, 'Could not follow this person'));
+        setPeople((prev) => prev.map((p) => (p.userId === userId ? { ...p, followId: data.id } : p)));
         notify(userId, 'follow', 'User', myUserId.current); // tell them I followed
         await loadFeed();
         loadPeople().catch(() => {}); // refresh real following/follower counts
-      } catch {
+      } catch (err) {
         setPeople((prev) => prev.map((p) => (p.userId === userId ? { ...p, followed: false } : p)));
+        showToast(messageOf(err, 'Could not follow this person'));
       }
     })();
   };
@@ -89,14 +95,21 @@ export function useSocial({ myUserId, setCurrentUser, loadFeed, notify }: Deps) 
     setPeople((prev) => prev.map((p) => (p.userId === userId ? { ...p, followed: false, followId: undefined } : p)));
     (async () => {
       try {
-        if (followId) await socialGraphApi.DELETE('/api/follows/{id}', { params: { path: { id: followId } } });
+        if (followId) {
+          const { error, response } = await socialGraphApi.DELETE('/api/follows/{id}', { params: { path: { id: followId } } });
+          if (!response.ok) throw new Error(describeApiError(error, response, 'Could not unfollow this person'));
+        }
         await loadFeed();
         loadPeople().catch(() => {}); // refresh real following/follower counts
-      } catch {
+      } catch (err) {
         setPeople((prev) => prev.map((p) => (p.userId === userId ? { ...p, followed: true, followId } : p)));
+        showToast(messageOf(err, 'Could not unfollow this person'));
       }
     })();
   };
 
-  return { people, loadPeople, followUser, unfollowUser };
+  // Forget the previous account's follow edges (used when the signed-in user changes).
+  const reset = () => setPeople([]);
+
+  return { people, loadPeople, followUser, unfollowUser, reset };
 }

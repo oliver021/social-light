@@ -42,19 +42,44 @@ interface PostCardProps {
   post: Post;
 }
 
+/**
+ * Open a chat with a real user. Anonymous entries (no backend id) and the signed-in user
+ * themselves are not chat targets.
+ */
+function canChatWith(userId: string | undefined, myId: string): userId is string {
+  return !!userId && userId !== myId;
+}
+
 export const PostCard: React.FC<PostCardProps> = ({ post }) => {
-  const { reactToPost, sharePost, votePoll, addComment, openChatWithUser } = useApp();
+  const { currentUser, reactToPost, sharePost, votePoll, addComment, openChatWithUser, showToast } = useApp();
   const [commentOpen, setCommentOpen] = useState(false);
   const [newCommentText, setNewCommentText] = useState('');
+  const [posting, setPosting] = useState(false);
   const [hoverReactionsOpen, setHoverReactionsOpen] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const handleCommentSubmit = (e: React.FormEvent) => {
+  // Enter in the field submits this form. The text is cleared only once the server has
+  // accepted the comment; otherwise it stays so nothing typed is lost.
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCommentText.trim()) return;
-    addComment(post.id, newCommentText.trim());
-    setNewCommentText('');
+    const text = newCommentText.trim();
+    if (!text || posting) return;
+    setPosting(true);
+    try {
+      await addComment(post.id, text);
+      setNewCommentText('');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Your comment was not posted');
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const chatWith = (userId: string | undefined, name: string, avatar: string, handle: string) => {
+    if (canChatWith(userId, currentUser.id)) {
+      openChatWithUser({ id: userId, name, avatar, handle });
+    }
   };
 
   const handleToggleVideo = () => {
@@ -89,22 +114,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
     >
       {/* AUTHOR HEADER */}
       <Box className="flex items-center justify-between gap-2 min-w-0">
-        <Tooltip title={`Chat with ${post.author.name}`} placement="top-start">
+        <Tooltip title={canChatWith(post.authorId, currentUser.id) ? `Chat with ${post.author.name}` : post.author.name} placement="top-start">
           <Box 
-            onClick={() => {
-              if (post.author.handle !== '@oliverdev') {
-                openChatWithUser({
-                  id: post.author.handle === '@sarahcore' ? 'sarah-1' :
-                      post.author.handle === '@elena_r' ? 'elena-1' :
-                      post.author.handle === '@dmorrison' ? 'dave-1' :
-                      post.author.handle === '@linusedu' ? 'linus-1' :
-                      `user-${post.author.name.replace(/\s+/g, '-').toLowerCase()}`,
-                  name: post.author.name,
-                  avatar: post.author.avatar,
-                  handle: post.author.handle
-                });
-              }
-            }}
+            onClick={() => chatWith(post.authorId, post.author.name, post.author.avatar, post.author.handle)}
             className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity min-w-0"
           >
             <Avatar src={post.author.avatar} alt={post.author.name} className="w-10 h-10 border border-zinc-100 dark:border-zinc-90 w-10 shrink-0 animate-fade-in" />
@@ -113,7 +125,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                 {post.author.name}
               </Typography>
               <Typography variant="caption" className="font-mono text-zinc-600 dark:text-zinc-400 block text-xs -mt-0.5 break-all">
-                {post.author.handle} • {post.createdAt}
+                {[post.author.handle, post.createdAt].filter(Boolean).join(' • ')}
               </Typography>
             </Box>
           </Box>
@@ -196,6 +208,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
         <Box className="relative rounded-xl overflow-hidden border border-zinc-200/60 dark:border-zinc-850 bg-black aspect-video flex items-center justify-center">
           <video 
             ref={videoRef}
+            aria-label={post.content ? `Video attached to post: ${post.content.slice(0, 80)}` : 'Video attached to post'}
             src={post.videoUrl}
             loop
             muted
@@ -231,7 +244,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
           {post.linkImage && (
             <img 
               src={post.linkImage}
-              alt={post.linkTitle}
+              alt={post.linkTitle ? `Preview image for ${post.linkTitle}` : 'Link preview image'}
               className="w-full md:w-32 h-24 object-cover shrink-0"
               referrerPolicy="no-referrer"
             />
@@ -379,8 +392,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
               size="small"
               fullWidth
               variant="outlined"
-              placeholder="Join node thread..."
+              placeholder="Write a comment..."
               value={newCommentText}
+              disabled={posting}
               onChange={(e) => setNewCommentText(e.target.value)}
               className="bg-white dark:bg-zinc-950/80 rounded-lg text-xs"
               slotProps={{
@@ -393,7 +407,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
             <IconButton
               type="submit"
               aria-label="Post comment"
-              disabled={!newCommentText.trim()}
+              disabled={!newCommentText.trim() || posting}
               className="bg-violet-605 text-white hover:bg-violet-700 w-11 h-11 shrink-0 text-zinc-700 dark:text-zinc-300"
               size="small"
               style={{ borderRadius: '8px' }}
@@ -411,21 +425,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     <Tooltip title={`Chat with ${comment.author.name}`} placement="top-start">
                       <Avatar 
                         src={comment.author.avatar} 
+                        alt={comment.author.name}
                         className="w-7 h-7 cursor-pointer hover:opacity-85 transition-opacity" 
-                        onClick={() => {
-                          if (comment.author.handle !== '@oliverdev') {
-                            openChatWithUser({
-                              id: comment.author.handle === '@sarahcore' ? 'sarah-1' :
-                                  comment.author.handle === '@elena_r' ? 'elena-1' :
-                                  comment.author.handle === '@dmorrison' ? 'dave-1' :
-                                  comment.author.handle === '@linusedu' ? 'linus-1' :
-                                  `user-${comment.author.name.replace(/\s+/g, '-').toLowerCase()}`,
-                              name: comment.author.name,
-                              avatar: comment.author.avatar,
-                              handle: comment.author.handle
-                            });
-                          }
-                        }}
+                        onClick={() => chatWith(comment.authorId, comment.author.name, comment.author.avatar, comment.author.handle)}
                       />
                     </Tooltip>
                     <Box className="bg-white dark:bg-zinc-900/60 px-3 py-1.5 border border-zinc-200/40 dark:border-zinc-850/40 rounded-xl max-w-[85%] min-w-0 break-words">
@@ -433,25 +435,12 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                         <Typography 
                           variant="caption" 
                           className="font-bold text-zinc-800 dark:text-zinc-200 text-xs cursor-pointer hover:text-blue-500 hover:underline"
-                          onClick={() => {
-                            if (comment.author.handle !== '@oliverdev') {
-                              openChatWithUser({
-                                id: comment.author.handle === '@sarahcore' ? 'sarah-1' :
-                                    comment.author.handle === '@elena_r' ? 'elena-1' :
-                                    comment.author.handle === '@dmorrison' ? 'dave-1' :
-                                    comment.author.handle === '@linusedu' ? 'linus-1' :
-                                    `user-${comment.author.name.replace(/\s+/g, '-').toLowerCase()}`,
-                                name: comment.author.name,
-                                avatar: comment.author.avatar,
-                                handle: comment.author.handle
-                              });
-                            }
-                          }}
+                          onClick={() => chatWith(comment.authorId, comment.author.name, comment.author.avatar, comment.author.handle)}
                         >
                           {comment.author.name}
                         </Typography>
                         <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 font-mono">
-                          {comment.author.handle} • {comment.createdAt}
+                          {[comment.author.handle, comment.createdAt].filter(Boolean).join(' • ')}
                         </Typography>
                       </Box>
                       <Typography variant="caption" className="text-zinc-600 dark:text-zinc-300 text-xs block leading-normal leading-relaxed break-words whitespace-pre-wrap">

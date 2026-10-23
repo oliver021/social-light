@@ -41,6 +41,9 @@ const AppContent: React.FC = () => {
 
   // Dynamic Material UI design theme customization
   const theme = createTheme({
+    // Same breakpoints as Tailwind (sm 640, md 768). Without this, MUI's md (900px) and
+    // Tailwind's md (768px) disagree, so the sidebar and the bottom nav clashed at 768.
+    breakpoints: { values: { xs: 0, sm: 640, md: 768, lg: 1200, xl: 1536 } },
     palette: {
       mode: darkMode ? 'dark' : 'light',
       primary: {
@@ -156,7 +159,7 @@ const AppContent: React.FC = () => {
           className="md:hidden"
           slotProps={{
             paper: {
-              className: 'w-64 p-4 bg-zinc-55 dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800'
+              className: 'w-64 p-4 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800'
             }
           }}
         >
@@ -180,20 +183,24 @@ const AppContent: React.FC = () => {
         {/* CORE GRID WRAPPER */}
         <Container maxWidth="lg" className="py-5" id="major-contentgrid-system">
           <Grid container spacing={3}>
-            {/* DESKTOP SIDEBAR COLUMN: 3 of 12 (HIDDEN ON TAB/MOB) */}
-            <Grid size={{ xs: 0, md: 3 }} className="hidden md:block">
+            {/* LEFT COLUMN (tablet and up): profile + menu. On tablets the widgets sit under it,
+                because there is no room for a third column between 768 and 1200 px. */}
+            <Grid size={{ xs: 12, md: 4, lg: 3 }} sx={{ display: { xs: 'none', md: 'block' } }}>
               <Sidebar />
+              <Box sx={{ display: { xs: 'none', md: 'block', lg: 'none' }, mt: 2 }}>
+                <Widgets />
+              </Box>
             </Grid>
 
-            {/* CENTRAL FEED COLUMN: 6 of 12 (stretch to 12 if mobile, 9 if tablet) */}
-            <Grid size={{ xs: 12, sm: 8, md: 6 }}>
+            {/* CENTRAL FEED COLUMN */}
+            <Grid size={{ xs: 12, md: 8, lg: 6 }}>
               <Box className="flex flex-col gap-4 min-h-[70dvh] min-w-0">
                 {renderActiveGridTab()}
               </Box>
             </Grid>
 
-            {/* RIGHT WIDGETS COLUMN: 3 of 12 (HI_COLLAPSE ON SMALL SCREEN) */}
-            <Grid size={{ xs: 12, sm: 4, md: 3 }} className="space-y-4">
+            {/* RIGHT WIDGETS COLUMN (phones and desktop; tablets get the copy in the left column) */}
+            <Grid size={{ xs: 12, lg: 3 }} sx={{ display: { xs: 'block', md: 'none', lg: 'block' } }} className="space-y-4">
               <Widgets />
             </Grid>
           </Grid>
@@ -218,27 +225,27 @@ const AppContent: React.FC = () => {
             }}
           >
             <BottomNavigationAction 
-              label={<span className="text-xs font-medium scale-90">Home</span>}
-              value="home" 
-              icon={<Home className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />} 
-            />
-            <BottomNavigationAction 
-              label={<span className="text-xs font-medium scale-90">Groups</span>} 
-              value="groups" 
-              icon={<Users2 className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />} 
-            />
-            <BottomNavigationAction 
-              label={<span className="text-xs font-medium scale-90">Store</span>} 
-              value="marketplace" 
-              icon={<ShoppingBag className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />} 
+              label={<span className="text-xs font-medium">Home</span>}
+              value="home"
+              icon={<Home className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />}
             />
             <BottomNavigationAction
-              label={<span className="text-xs font-medium scale-90">Reels</span>}
+              label={<span className="text-xs font-medium">Groups</span>}
+              value="groups"
+              icon={<Users2 className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />}
+            />
+            <BottomNavigationAction
+              label={<span className="text-xs font-medium">Market</span>}
+              value="marketplace"
+              icon={<ShoppingBag className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />}
+            />
+            <BottomNavigationAction
+              label={<span className="text-xs font-medium">Reels</span>}
               value="reels"
               icon={<Clapperboard className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />}
             />
             <BottomNavigationAction
-              label={<span className="text-xs font-medium scale-90">Profile</span>}
+              label={<span className="text-xs font-medium">Profile</span>}
               value="profile"
               icon={<User className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />} 
             />

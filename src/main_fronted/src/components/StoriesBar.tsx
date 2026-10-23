@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { useApp, type Story } from '../context/AppContext';
-import { Box, Card, Avatar, Typography, IconButton, Dialog, DialogContent, TextField, Button } from '@mui/material';
+import { Box, Card, Avatar, Typography, IconButton, Dialog, DialogContent, TextField, Button, Skeleton } from '@mui/material';
 import { Plus, X } from 'lucide-react';
 import { MediaPicker } from './MediaPicker';
 import { mediaUrl } from '../api/gateway';
+import { EmptyState } from './ui/EmptyState';
+import { useSettled } from './ui/useSettled';
+import { cardSx, mutedSx, sectionTitleSx, touchTargetSx } from './ui/tokens';
+
+const AVATAR = { width: 56, height: 56 };
 
 // Stories strip atop the home feed, backed by the generated Stories module.
 export const StoriesBar: React.FC = () => {
@@ -12,6 +17,7 @@ export const StoriesBar: React.FC = () => {
   const [uploadedMedia, setUploadedMedia] = useState('');
   const [caption, setCaption] = useState('');
   const [viewing, setViewing] = useState<Story | null>(null);
+  const settled = useSettled();
 
   const handleCreate = () => {
     if (!uploadedMedia) return;
@@ -22,76 +28,83 @@ export const StoriesBar: React.FC = () => {
   const openStory = (s: Story) => { viewStory(s.id); setViewing(s); };
 
   return (
-    <Card variant="outlined" className="p-3 border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950">
-      <Box className="flex gap-3 overflow-x-auto scrollbar-none">
+    <Card variant="outlined" component="section" aria-label="Stories" sx={{ ...cardSx, p: 1.5 }}>
+      <Box sx={{ display: 'flex', gap: 1.5, overflowX: 'auto', alignItems: 'flex-start', pb: 0.5 }}>
         {/* Add story */}
         <Box
-          role="button"
-          tabIndex={0}
+          component="button"
+          type="button"
           aria-label="Add story"
-          className="flex flex-col items-center gap-1 shrink-0 cursor-pointer"
           onClick={() => setCreating(true)}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCreating(true); } }}
+          sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, flexShrink: 0, background: 'none', border: 0, p: 0.5, cursor: 'pointer', color: 'inherit', minWidth: 64 }}
         >
-          <Box className="relative">
-            <Avatar src={currentUser.avatar} className="w-14 h-14 border-2 border-dashed border-violet-400" />
-            <Box className="absolute -bottom-0.5 -right-0.5 bg-violet-600 rounded-full p-0.5 border-2 border-white dark:border-zinc-950">
-              <Plus className="w-3 h-3 text-white" />
+          <Box sx={{ position: 'relative' }}>
+            <Avatar src={currentUser.avatar} alt="" sx={{ ...AVATAR, border: '2px dashed var(--color-violet-400)' }} />
+            <Box sx={{ position: 'absolute', bottom: -2, right: -2, bgcolor: 'var(--color-violet-600)', borderRadius: '50%', p: 0.25, border: '2px solid var(--ui-surface)', display: 'flex' }}>
+              <Plus aria-hidden="true" className="w-3 h-3 text-white" />
             </Box>
           </Box>
-          <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">Add Story</Typography>
+          <Typography sx={{ ...mutedSx, fontSize: '0.75rem', fontWeight: 500 }}>Add story</Typography>
         </Box>
 
         {stories.map((s) => (
           <Box
+            component="button"
+            type="button"
             key={s.id}
-            role="button"
-            tabIndex={0}
             aria-label={`Open story from ${s.authorName}`}
-            className="flex flex-col items-center gap-1 shrink-0 cursor-pointer hover:opacity-85"
             onClick={() => openStory(s)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openStory(s); } }}
+            sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, flexShrink: 0, background: 'none', border: 0, p: 0.5, cursor: 'pointer', color: 'inherit', minWidth: 64 }}
           >
-            <Box className="rounded-full p-0.5 bg-gradient-to-tr from-violet-500 to-fuchsia-500">
-              <Avatar src={s.authorAvatar} className="w-14 h-14 border-2 border-white dark:border-zinc-950" />
+            <Box sx={{ borderRadius: '50%', p: '2px', background: 'linear-gradient(to top right, #8b5cf6, #d946ef)' }}>
+              <Avatar src={s.authorAvatar} alt="" sx={{ ...AVATAR, border: '2px solid var(--ui-surface)' }} />
             </Box>
-            <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 font-medium truncate w-16 text-center">
+            <Typography sx={{ ...mutedSx, fontSize: '0.75rem', fontWeight: 500, maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {s.authorName.split(' ')[0]}
             </Typography>
           </Box>
         ))}
 
-        {stories.length === 0 && (
-          <Box className="flex items-center px-3">
-            <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 italic">No stories yet — share the first one.</Typography>
+        {!settled && stories.length === 0 && [0, 1, 2].map((i) => (
+          <Box key={i} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, flexShrink: 0, p: 0.5 }}>
+            <Skeleton variant="circular" width={56} height={56} />
+            <Skeleton variant="text" width={40} />
+          </Box>
+        ))}
+
+        {settled && stories.length === 0 && (
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 180 }}>
+            <EmptyState compact title="No stories yet" body="Share the first one." />
           </Box>
         )}
       </Box>
 
       {/* Create dialog */}
-      <Dialog open={creating} onClose={() => setCreating(false)} fullWidth maxWidth="xs">
-        <DialogContent className="dark:bg-zinc-950 flex flex-col gap-3">
-          <Typography variant="subtitle2" className="font-display font-bold text-zinc-800 dark:text-zinc-200">New Story</Typography>
+      <Dialog open={creating} onClose={() => setCreating(false)} fullWidth maxWidth="xs" aria-labelledby="new-story-title">
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <Typography id="new-story-title" sx={sectionTitleSx}>New story</Typography>
           <MediaPicker kind="image" label="Image" value={uploadedMedia || undefined} onChange={(url) => setUploadedMedia(url ?? '')} />
           <TextField size="small" label="Caption (optional)" value={caption} onChange={(e) => setCaption(e.target.value)} fullWidth />
-          <Button variant="contained" onClick={handleCreate} disabled={!uploadedMedia} className="bg-gradient-to-r from-violet-600 to-fuchsia-600">Share Story</Button>
+          <Button variant="contained" onClick={handleCreate} disabled={!uploadedMedia} sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600 }}>
+            Share
+          </Button>
         </DialogContent>
       </Dialog>
 
       {/* Viewer dialog */}
-      <Dialog open={!!viewing} onClose={() => setViewing(null)} maxWidth="xs">
-        <DialogContent className="dark:bg-zinc-950 p-0 relative">
-          <IconButton size="small" aria-label="Close story" onClick={() => setViewing(null)} className="absolute top-2 right-2 z-10 w-11 h-11 bg-black/40 text-white">
-            <X className="w-4 h-4" />
+      <Dialog open={!!viewing} onClose={() => setViewing(null)} maxWidth="xs" aria-label="Story">
+        <DialogContent sx={{ p: 0, position: 'relative' }}>
+          <IconButton aria-label="Close story" onClick={() => setViewing(null)} sx={{ ...touchTargetSx, position: 'absolute', top: 8, right: 8, zIndex: 1, bgcolor: 'rgba(0,0,0,0.5)', color: '#fff', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }}>
+            <X aria-hidden="true" className="w-4 h-4" />
           </IconButton>
           {viewing && (
             <Box>
-              <Box className="flex items-center gap-2 p-3">
-                <Avatar src={viewing.authorAvatar} className="w-8 h-8" />
-                <Typography variant="caption" className="font-bold text-zinc-800 dark:text-zinc-200">{viewing.authorName}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5 }}>
+                <Avatar src={viewing.authorAvatar} alt={viewing.authorName} sx={{ width: 32, height: 32 }} />
+                <Typography sx={{ fontWeight: 700, fontSize: '0.8125rem', color: 'var(--ui-text)' }}>{viewing.authorName}</Typography>
               </Box>
               <img src={mediaUrl(viewing.mediaUrl)} alt={viewing.caption || `Story by ${viewing.authorName}`} className="w-full max-w-full max-h-[60vh] object-cover" referrerPolicy="no-referrer" />
-              {viewing.caption && <Typography variant="body2" className="p-3 text-xs text-zinc-700 dark:text-zinc-300">{viewing.caption}</Typography>}
+              {viewing.caption && <Typography sx={{ p: 1.5, fontSize: '0.875rem', color: 'var(--ui-text)' }}>{viewing.caption}</Typography>}
             </Box>
           )}
         </DialogContent>

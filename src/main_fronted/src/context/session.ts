@@ -25,6 +25,21 @@ export interface SessionState {
   setAuthReady: Dispatch<SetStateAction<boolean>>;
 }
 
+/** The `sub` claim of an access token (the signed-in user's id), or null if unreadable. */
+export function tokenSubject(token: string | null): string | null {
+  if (!token) return null;
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
+    const json = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='));
+    const sub = (JSON.parse(json) as { sub?: unknown }).sub;
+    return typeof sub === 'string' && sub ? sub : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useSessionState(): SessionState {
   // Authenticated iff we hold an access token (sessionStorage-backed in the api layer).
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!getAccessToken());

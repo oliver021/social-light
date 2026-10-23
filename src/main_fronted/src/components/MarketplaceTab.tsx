@@ -1,32 +1,31 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  Box, 
-  Card, 
-  Typography, 
-  Grid, 
-  Button, 
-  TextField, 
-  Divider, 
-  Collapse,
-  Badge,
-  InputAdornment,
+import {
+  Box,
+  Card,
+  Typography,
+  Grid,
+  Button,
+  TextField,
+  Divider,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Chip
+  Chip,
+  InputAdornment
 } from '@mui/material';
-import { ShoppingBag, Tag, MapPin, Search, PlusCircle, ShoppingCart, Check, X, LogIn, ImageOff } from 'lucide-react';
+import { ShoppingBag, MapPin, Search, PlusCircle, ShoppingCart, ImageOff } from 'lucide-react';
 import { MediaPicker } from './MediaPicker';
 import { mediaUrl } from '../api/gateway';
-import { motion, AnimatePresence } from 'motion/react';
+import { EmptyState } from './ui/EmptyState';
+import { cardSx, mutedSx, sectionTitleSx, touchTargetSx } from './ui/tokens';
 
 export const MarketplaceTab: React.FC = () => {
   const { marketItems, marketCategories, createMarketItem, addNotification } = useApp();
   const [activeCategory, setActiveCategory] = useState('All');
   const [search, setSearch] = useState('');
-  
+
   // Create listing form state
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -41,16 +40,23 @@ export const MarketplaceTab: React.FC = () => {
   const categories = ['All', ...(marketCategories.length ? marketCategories : ['General'])];
 
   const filteredItems = marketItems.filter((item) => {
-    const matchSearch = item.title.toLowerCase().includes(search.toLowerCase()) || 
+    const matchSearch = item.title.toLowerCase().includes(search.toLowerCase()) ||
                         item.description.toLowerCase().includes(search.toLowerCase());
     const matchCat = activeCategory === 'All' || item.category === activeCategory;
     return matchSearch && matchCat;
   });
 
+  const filtersActive = search.trim() !== '' || activeCategory !== 'All';
+
+  const clearFilters = () => {
+    setSearch('');
+    setActiveCategory('All');
+  };
+
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newPrice) return;
-    
+
     createMarketItem(
       newTitle.trim(),
       newDesc.trim(),
@@ -67,132 +73,157 @@ export const MarketplaceTab: React.FC = () => {
     setNewImage('');
     setCreateOpen(false);
 
-    addNotification('mention', 'Marketplace', `Saved "${newTitle}" as a local draft. It is not published to the catalog.`);
+    addNotification('mention', 'Marketplace', `Saved "${newTitle}" as a draft on this device. It is not published yet.`);
   };
 
   return (
     <Box id="marketplace-tab-page" className="space-y-4">
-      {/* FILTER BAR AND NEW LISTING BUTTON */}
-      <Card variant="outlined" className="p-4 border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950 flex flex-col gap-3">
-        <Box className="flex items-center justify-between">
-          <Typography variant="subtitle2" className="font-display font-bold text-zinc-800 dark:text-zinc-200 text-xs flex items-center gap-1.5">
-            <ShoppingBag className="w-4 h-4 text-amber-500 animate-pulse" />
+      {/* HEADER, SEARCH AND CATEGORY FILTERS */}
+      <Card variant="outlined" component="section" aria-label="Marketplace filters" sx={{ ...cardSx, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <Box className="flex items-center justify-between gap-2">
+          <Typography component="h2" sx={{ ...sectionTitleSx, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ShoppingBag aria-hidden="true" className="w-4 h-4 text-amber-500" />
             Marketplace
           </Typography>
 
           <Button
-            size="small"
             variant="contained"
             onClick={() => setCreateOpen(true)}
-            className="normal-case text-xs font-display bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center gap-1 py-1 px-2.5 min-h-[44px] shrink-0 shadow-md shadow-amber-500/15"
+            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, borderRadius: 999, px: 2, bgcolor: '#b45309', color: '#fff', '&:hover': { bgcolor: '#92400e' }, flexShrink: 0 }}
           >
-            <PlusCircle className="w-4 h-4" />
-            List an Item
+            <PlusCircle aria-hidden="true" className="w-4 h-4 mr-1" />
+            List an item
           </Button>
         </Box>
 
-        <Box className="flex gap-2">
-          <TextField
-            size="small"
-            fullWidth
-            placeholder="Search products, hardware, workspace items..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            variant="outlined"
-            className="bg-zinc-50/50 dark:bg-zinc-90 w-10 text-xs"
-            slotProps={{
-              input: {
-                className: 'text-xs',
-                startAdornment: <Search className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 mr-2 shrink-0" />
-              },
-              htmlInput: { 'aria-label': 'Search marketplace' }
-            }}
-          />
-        </Box>
+        <TextField
+          size="small"
+          fullWidth
+          placeholder="Search items"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          variant="outlined"
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search aria-hidden="true" className="w-3.5 h-3.5" />
+                </InputAdornment>
+              ),
+            },
+            htmlInput: { 'aria-label': 'Search items' }
+          }}
+        />
 
-        {/* HORIZONTAL CATEGORY CHIPS */}
-        <Box className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-          {categories.map((cat) => (
-            <Chip 
-              key={cat}
-              label={cat}
-              onClick={() => setActiveCategory(cat)}
-              size="small"
-              className={`text-xs font-medium transition shrink-0 ${
-                activeCategory === cat 
-                ? 'bg-amber-550 text-zinc-950 font-semibold bg-amber-500' 
-                : 'bg-zinc-100 dark:bg-zinc-90 w-10 hover:bg-zinc-200 dark:hover:bg-zinc-850'
-              }`}
-            />
-          ))}
+        {/* CATEGORY CHIPS (44 px touch targets on phones) */}
+        <Box role="group" aria-label="Categories" className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+          {categories.map((cat) => {
+            const selected = activeCategory === cat;
+            return (
+              <Chip
+                key={cat}
+                label={cat}
+                onClick={() => setActiveCategory(cat)}
+                aria-pressed={selected}
+                variant={selected ? 'filled' : 'outlined'}
+                sx={{
+                  height: { xs: 44, sm: 32 },
+                  px: 0.5,
+                  borderRadius: 999,
+                  fontSize: '0.8125rem',
+                  fontWeight: selected ? 600 : 500,
+                  flexShrink: 0,
+                  bgcolor: selected ? '#f59e0b' : 'transparent',
+                  color: selected ? '#18181b' : 'var(--ui-text)',
+                  borderColor: 'var(--ui-border)',
+                  '&:hover': { bgcolor: selected ? '#d97706' : 'action.hover' },
+                }}
+              />
+            );
+          })}
         </Box>
       </Card>
 
-      {/* PRODUCTS DISPLAY LIST GRID */}
+      {/* PRODUCTS */}
       {filteredItems.length === 0 ? (
-        <Card variant="outlined" className="p-8 text-center border-dashed border-zinc-200 dark:border-zinc-800">
-          <Typography variant="body2" className="text-zinc-600 dark:text-zinc-400 font-display">
-            No listing nodes matching search parameters. Help populate it!
-          </Typography>
-        </Card>
+        marketItems.length === 0 || !filtersActive ? (
+          <EmptyState
+            icon={ShoppingBag}
+            title="No listings yet"
+            body="Items people list for sale show up here. You can save a draft to try the form."
+            action={{ label: 'List an item', onClick: () => setCreateOpen(true) }}
+          />
+        ) : (
+          <EmptyState
+            icon={Search}
+            title="No items match your search"
+            body="Try another word or category."
+            action={{ label: 'Clear filters', onClick: clearFilters }}
+          />
+        )
       ) : (
         <Grid container spacing={2}>
           {filteredItems.map((item) => (
             <Grid size={{ xs: 12, sm: 6 }} key={item.id}>
-              <Card 
-                variant="outlined" 
-                className="h-full border-zinc-200 dark:border-zinc-850 hover:border-amber-300 dark:hover:border-amber-850 transition-all rounded-2xl bg-white dark:bg-zinc-950 flex flex-col justify-between overflow-hidden relative"
+              <Card
+                variant="outlined"
+                component="article"
+                aria-label={item.title}
+                sx={{ ...cardSx, p: 0, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'border-color 0.2s', '&:hover': { borderColor: '#fcd34d' } }}
               >
                 {item.imageUrl ? (
-                  <img 
-                    src={item.imageUrl} 
-                    alt={item.title} 
-                    className="w-full max-w-full h-40 object-cover border-b border-zinc-100 dark:border-zinc-900"
+                  <img
+                    src={item.imageUrl}
+                    alt={item.title}
+                    className="w-full max-w-full h-40 object-cover"
+                    style={{ borderBottom: '1px solid var(--ui-border)' }}
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <Box className="w-full h-40 flex flex-col items-center justify-center gap-1 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400">
-                    <ImageOff className="w-6 h-6" aria-hidden="true" />
-                    <Typography variant="caption" className="text-xs">No picture</Typography>
+                  <Box
+                    role="img"
+                    aria-label={`${item.title}: no picture`}
+                    sx={{ width: '100%', height: 160, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.5, borderBottom: '1px solid var(--ui-border)', bgcolor: 'var(--ui-page)', color: 'var(--ui-muted)' }}
+                  >
+                    <ImageOff aria-hidden="true" className="w-6 h-6" />
+                    <Typography sx={{ ...mutedSx, fontSize: '0.75rem' }}>No picture</Typography>
                   </Box>
                 )}
-                <Box className="p-4 flex flex-col justify-between h-full gap-3">
-                  <Box className="space-y-1.5">
-                    <Box className="flex items-center justify-between gap-1">
-                      <Typography variant="body2" className="font-display font-semibold text-zinc-900 dark:text-zinc-100 text-xs line-clamp-1">
+                <Box sx={{ p: 'var(--ui-card-pad)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 1.5, flex: 1 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--ui-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
                         {item.title}
                       </Typography>
-                      <Typography variant="body2" className="font-mono font-bold text-amber-600 dark:text-amber-500 text-xs whitespace-nowrap">
+                      <Typography sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.875rem', color: '#b45309', whiteSpace: 'nowrap' }}>
                         ${item.price}
                       </Typography>
                     </Box>
 
                     {item.id.startsWith('draft-') && (
-                      <Chip size="small" label="Local draft, not in catalog" className="text-[10px] h-5 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300" />
+                      <Chip size="small" label="Draft, this device only" sx={{ alignSelf: 'flex-start', fontSize: '0.6875rem', height: 22, bgcolor: '#fef3c7', color: '#92400e' }} />
                     )}
 
-                    <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 text-xs leading-relaxed line-clamp-2">
+                    <Typography sx={{ ...mutedSx, fontSize: '0.8125rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       {item.description}
                     </Typography>
                   </Box>
 
                   <Divider />
 
-                  <Box className="flex items-center justify-between">
-                    <Box className="flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400 font-mono">
-                      <MapPin className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 shrink-0" />
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+                    <Box sx={{ ...mutedSx, fontSize: '0.75rem', fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                      <MapPin aria-hidden="true" className="w-3.5 h-3.5 shrink-0" />
                       {item.location}
                     </Box>
 
                     <Button
                       size="small"
-                      variant="contained"
+                      variant="outlined"
                       disabled
-                      className="normal-case text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-zinc-900 pr-2.5 pl-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm"
-                      style={{ height: '24px' }}
-                      sx={{ '&.Mui-disabled': { color: 'text.secondary', bgcolor: 'action.disabledBackground' } }}
+                      startIcon={<ShoppingCart aria-hidden="true" className="w-3 h-3" />}
+                      sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', borderRadius: 999, minHeight: 32 }}
                     >
-                      <ShoppingCart className="w-3 h-3" />
                       Checkout unavailable in this demo
                     </Button>
                   </Box>
@@ -203,34 +234,35 @@ export const MarketplaceTab: React.FC = () => {
         </Grid>
       )}
 
-      {/* CREATE LISTING DIALOG MODAL */}
-      <Dialog 
-        open={createOpen} 
+      {/* CREATE LISTING DIALOG */}
+      <Dialog
+        open={createOpen}
         onClose={() => setCreateOpen(false)}
+        fullWidth
+        maxWidth="xs"
         slotProps={{
           paper: {
-            className: 'w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2'
+            sx: { borderRadius: 'var(--ui-radius)', border: '1px solid var(--ui-border)', bgcolor: 'var(--ui-surface)', backgroundImage: 'none' }
           }
         }}
       >
-        <DialogTitle className="font-display font-bold text-sm text-zinc-800 dark:text-zinc-200 pb-2">
+        <DialogTitle sx={{ ...sectionTitleSx, fontSize: '1rem', pb: 1 }}>
           New listing
         </DialogTitle>
-        <DialogContent className="space-y-3 pt-2">
-          <Typography role="note" className="text-amber-800 dark:text-amber-300 text-xs bg-amber-50 dark:bg-amber-950/40 rounded-lg p-2">
-            Local draft. Listings are kept in this browser and are not published to the catalog yet.
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <Typography role="note" sx={{ fontSize: '0.8125rem', color: '#92400e', bgcolor: '#fffbeb', borderRadius: 2, p: 1.25, border: '1px solid #fde68a', '.dark &': { color: '#fcd34d', bgcolor: 'rgba(120,53,15,0.25)', borderColor: 'rgba(146,64,14,0.5)' } }}>
+            Saved in this browser only. Listings are not published to the catalog yet.
           </Typography>
           <TextField
             size="small"
             fullWidth
-            label="Product Title"
+            label="Title"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="e.g., Cybernetic Keycap Puller"
-            slotProps={{ input: { className: 'text-xs' }, inputLabel: { className: 'text-xs' } }}
+            placeholder="What are you selling?"
           />
 
-          <Box className="flex flex-col sm:flex-row gap-2">
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
             <TextField
               size="small"
               label="Price (USD)"
@@ -238,13 +270,12 @@ export const MarketplaceTab: React.FC = () => {
               value={newPrice}
               onChange={(e) => setNewPrice(e.target.value)}
               placeholder="34"
-              slotProps={{ 
-                input: { 
-                  className: 'text-xs',
-                  startAdornment: <InputAdornment position="start"><span className="text-xs">$</span></InputAdornment>
-                }, 
-                inputLabel: { className: 'text-xs' } 
+              slotProps={{
+                input: {
+                  startAdornment: <InputAdornment position="start">$</InputAdornment>
+                }
               }}
+              sx={{ width: { xs: '100%', sm: 150 } }}
             />
             <TextField
               size="small"
@@ -252,8 +283,7 @@ export const MarketplaceTab: React.FC = () => {
               label="Location"
               value={newLocation}
               onChange={(e) => setNewLocation(e.target.value)}
-              placeholder="e.g., Austin, TX"
-              slotProps={{ input: { className: 'text-xs' }, inputLabel: { className: 'text-xs' } }}
+              placeholder="City, region"
             />
           </Box>
 
@@ -262,30 +292,28 @@ export const MarketplaceTab: React.FC = () => {
             fullWidth
             multiline
             rows={2}
-            label="Item Description"
+            label="Description"
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
-            placeholder="Introduce custom characteristics, hardware interface, condition..."
-            slotProps={{ input: { className: 'text-xs' }, inputLabel: { className: 'text-xs' } }}
+            placeholder="Condition, size, or anything buyers should know"
           />
 
           <MediaPicker
             kind="image"
-            label="Listing image (optional)"
+            label="Photo (optional)"
             value={newImage || undefined}
             onChange={(url) => setNewImage(url ?? '')}
           />
         </DialogContent>
-        <DialogActions className="pr-4 pb-4">
-          <Button size="small" onClick={() => setCreateOpen(false)} className="text-xs text-zinc-600 dark:text-zinc-400 normal-case">Cancel</Button>
-          <Button 
-            size="small" 
-            variant="contained" 
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setCreateOpen(false)} sx={{ ...touchTargetSx, textTransform: 'none', color: 'var(--ui-muted)' }}>Cancel</Button>
+          <Button
+            variant="contained"
             onClick={handleCreateSubmit}
             disabled={!newTitle.trim() || !newPrice}
-            className="bg-amber-500 hover:bg-amber-600 text-zinc-900 rounded-lg text-xs normal-case px-4.5 min-h-[44px]"
+            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, bgcolor: '#b45309', color: '#fff', '&:hover': { bgcolor: '#92400e' }, '&.Mui-disabled': { bgcolor: 'var(--ui-border)', color: 'var(--ui-muted)' } }}
           >
-            Save local draft
+            Save draft
           </Button>
         </DialogActions>
       </Dialog>

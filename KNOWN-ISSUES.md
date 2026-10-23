@@ -17,6 +17,11 @@
 
 > **Status note (added after the walkthrough).** F-4 and T-1 describe the *local* test stack, whose web image was older than the repo. The public demo (social.th3light.us) was rebuilt from the current source and now shows the password-policy and login error messages. Everything else below was confirmed against the same backend code that the public demo runs. S-1 (two different users receive byte-identical notification, follow, message and chat lists) and the profile `PUT` 500 on an empty display name were independently re-checked with curl.
 
+## Update log
+
+- Authorization (S-1, S-2, S-3) fixed in the generated modules via `readScope` / `fromPrincipal` (commit `b43b727`).
+- A UX pass fixed the client-side items marked **Status: Fixed** below. Entries without a status line were not re-tested after that pass.
+
 ## Summary
 
 | # | Use case | Status | Key evidence |
@@ -47,6 +52,8 @@ What worked well: registration validation on the server, session persistence, fo
 
 ### F-1. Profile save shows success when the server rejected it; typed handle is not what gets saved
 **Severity: High**
+
+> **Status: Fixed in the web client: success is shown only after a 2xx, server errors are shown, the typed handle is sent. A duplicate handle still returns 500 from the server (see F-2), now shown as a readable error.**
 
 - **Observed.** In "Customize Profile", changing the name, handle and bio and pressing Update Config closes the dialog, shows the new values and adds a notification "Config dispatcher: successfully synchronized your user profile". The browser's `PUT /bff/api/profiles/me` returned 500 three times in a row. The server kept the previous values. After reload, the sidebar showed the server name and handle plus a bio that existed only in localStorage (the server bio was null).
 - **How to reproduce.** Sign in as `qa-a`. My profile, Customize Profile, change Unique Handle to `qa_alice_02` and the bio, Update Config. Then `GET /bff/api/profiles/me` with that user's token: handle and bio are unchanged. Reload the page: the bio still shows.
@@ -86,6 +93,8 @@ What worked well: registration validation on the server, session persistence, fo
 ### F-6. Search does not find people
 **Severity: Low**
 
+> **Status: Fixed in the client: the header search matches people by name and handle.**
+
 - **Observed.** Search "Bob" shows "No people, posts or products match 'Bob'", although QA Bob appears in Nodes to Join. Search "Carol" shows only three posts, no person.
 - **Cause.** Verified from source: `components/Navbar.tsx` matches groups, local market items and posts. People are not searched, despite the placeholder "Search people, posts and products".
 - **Workaround.** Use the Nodes to Join list.
@@ -106,6 +115,8 @@ Marketplace cards show a disabled "Checkout unavailable in this demo" control. C
 ### I-4. Groups cannot be created in the UI (not declared as intentional)
 **Severity: Medium.** Communities shows whatever groups exist in the database, and the database starts empty. Group creation is reachable only through the API (`POST /bff/api/groups` returned 201 with `CreateGroupRequest`). Joining works: the UI shows "Subscribed" after the API join, and the group shows "1 nodes".
 
+> **Status: Fixed in the client: a 'Create community' dialog exists (not exercised in a browser; treat as untested).**
+
 ### I-5. Reactions do not notify the post author
 **Severity: Low.** Source calls `notify` only for follows and comments (`context/useFeed.ts`, `context/useSocial.ts`). After Alice reacted with "Wow", Carol's notifications contained only the follow and the comment.
 
@@ -122,6 +133,8 @@ No private or friends-only posts were created, and no blocks or private groups w
 ### RT-1. Chat opened from a post author's avatar goes to a user id that does not exist
 **Severity: High**
 
+> **Status: Fixed: chat from a post author uses the author's real user id and adds both participants.**
+
 - **Observed.** As Alice, click Carol's avatar on her post, then send "QA hello". The message shows in the chat window and is saved, but in a chat whose only participant is Alice. Carol is not a member, so she never receives it. The network log shows the peer participant creation (`POST /bff/api/chat-participants`) returning 400.
 - **How to reproduce.** Sign in as Alice. Click the author avatar on one of Carol's posts. Send a message. `GET /bff/api/chat-participants` shows one row for that chat.
 - **Cause.** Verified from source: `components/PostCard.tsx` (around lines 95 to 104, and 417 to 445) builds the peer id from the display name (`user-<name>`) or from mock ids (`sarah-1`, `elena-1`, `dave-1`, `linus-1`). The real `userId` is not used. The browser's localStorage holds an active chat with `userId: "user-qa-carol"`.
@@ -129,6 +142,8 @@ No private or friends-only posts were created, and no blocks or private groups w
 
 ### RT-2. The first message in a new DM is dropped without any error
 **Severity: Medium**
+
+> **Status: Fixed in the client: chat, both participants and the message are created in order; errors are shown. Still open: the recipient's open page does not join the new chat's hub group until reload (RT-3, needs a hub change).**
 
 - **Observed.** Start a new DM from Nodes to Join, type a message and press Enter immediately. The input clears, the message never appears and is not stored. No error is shown. A second message in the same chat is stored and shown.
 - **Cause.** Unverified. Source suggests a race: `context/useChat.ts` `sendMessage` returns early when the chat id is not yet mapped, and hub errors are swallowed with `.catch(() => {})`.
@@ -169,6 +184,8 @@ A 26 MB file was injected into the reel dialog. The dialog closed before the res
 ### D-1. Profile fields fall back to the previous account's cached values
 **Severity: High** (shared devices; the UI shows values the server does not hold)
 
+> **Status: Fixed: server values win over cache, a server null clears the field.**
+
 - **Observed.** Account Alice had a bio and handle saved in the browser. Logging out and registering `qa-c@example.com` ("QA Carol") in the same browser: the sidebar showed the handle "@bad handle!" and Alice's bio. Carol's server profile had no handle and no bio.
 - **How to reproduce.** In one browser, sign in as one account, set a bio, log out, register a second account. The second account shows the first account's bio.
 - **Cause.** Verified from source: `api/mappers.ts` `profileToUser` uses `bio: p.bio ?? prev.bio` and `username: p.handle ?? prev.username`. The `prev` state is the localStorage copy (`nexus_user`, via `usePersistentState`), so a null on the server never clears a stale value.
@@ -176,6 +193,8 @@ A 26 MB file was injected into the reel dialog. The dialog closed before the res
 
 ### D-2. Logout keeps per-user data in localStorage
 **Severity: Medium** (privacy on shared devices). After logout, `nexus_user`, `nexus_chat_messages`, `nexus_active_chats`, `nexus_notifications`, `nexus_groups` and `nexus_market_items` remain. Only `nexus_posts` and `nexus_authenticated` are removed (`context/useAuth.ts` logout). Verified by reading localStorage after logout. Another account in the same browser saw the previous account's chat windows.
+
+> **Status: Fixed: logout clears all per-user `nexus_*` state (dark-mode preference is kept).**
 - **Workaround.** Clear site data for the origin after logout.
 
 ### D-3. The previous user's posts appear briefly before the new user's feed loads
@@ -203,6 +222,8 @@ A 26 MB file was injected into the reel dialog. The dialog closed before the res
 
 ### U-1. At 390 px a restored chat window covers the screen and its close control is under the top bar
 **Severity: Medium.** At 390x844, a chat window restored from localStorage fills the viewport. Its title and close control sit under the 56 px sticky top bar. The Close button measured at x=333, y=0 (the other at 0,0 with zero size). The bottom tab bar is hidden while the window is open, so Store and other tabs cannot be reached until the window is closed.
+
+> **Status: Fixed: restored chats start minimised on phones and the close control is reachable.**
 - **How to reproduce.** Open a chat on a desktop-size window, then resize to 390x844 and reload. Try to close the chat.
 
 ### U-2. At 390 px chat windows overlap the composer and feed
@@ -211,11 +232,15 @@ A 26 MB file was injected into the reel dialog. The dialog closed before the res
 ### U-3. At 768 px the profile sidebar overlaps the stories bar and composer and clips its text
 **Severity: Medium.** A zoomed capture shows the sidebar card over the stories row and the composer, with "Alice Edited" cut off. Horizontal scroll was not present (scroll width equal to viewport) at 390 px or 768 px on the feed.
 
+> **Status: Fixed: MUI and Tailwind breakpoints are aligned; the tablet layout no longer overlaps.**
+
 ### U-4. Error messages are generic
 **Severity: Medium.** A wrong password shows "Login failed (400)", the same generic text used for other login failures. Registration failures show "Registration failed (400)". Neither says which field is wrong or why.
 
 ### U-5. Enter does not submit a comment
 **Severity: Low.** In "Join node thread...", pressing Enter does nothing. The Post comment button works.
+
+> **Status: Fixed: Enter submits a comment.**
 
 ### U-6. Positive
 The 390 px feed shows the bottom navigation (Home, Groups, Store, Reels, Profile) with no horizontal overflow. The 768 px feed has no horizontal overflow.
@@ -252,6 +277,8 @@ Observed from outside, read-only, with test accounts. Nothing was brute-forced o
 
 ### S-1. Other users' notifications, follows, friend rows and chat participants are readable by any logged-in user
 **Severity: High.** Verified with two tokens (`qa-a`, `qa-b`):
+
+> **Status: fixed for notifications, chats, chat participants, messages, chat mutes/blocks/requests, friends, blocks and preferences** (`readScope` in the module specs; commit `b43b727`). Verified with three accounts: a notification addressed to B is visible to B only (A, the actor, and C get nothing; `GET /{id}` returns 404 for C). **Intentionally still readable by any signed-in user:** the follow graph (follower counts need it). **Not yet scoped:** message attachments, reactions, read receipts and pins (they reference a message, not a chat).
 - `GET /bff/api/notifications`, `/api/follows`, `/api/friends` and `/api/chat-participants` return byte-identical bodies for both accounts.
 - The notification list contains rows whose `recipientId` is neither account.
 - The UI filters notifications by recipient in the browser (`context/useNotifications.ts`, `loadNotifications`). The server does not scope these lists.
@@ -260,8 +287,12 @@ Observed from outside, read-only, with test accounts. Nothing was brute-forced o
 ### S-2. Any logged-in user can read chat messages they are not part of
 **Severity: High.** `GET /bff/api/messages` with the token of `qa-c` returned four messages from a chat between two other accounts. Later it also returned messages from Alice's chats. The UI filters by chat id (`context/useChat.ts`, `loadChatHistory` and `loadChats`).
 
+> **Status: fixed** (same change). C no longer sees messages or chats of A and B; B and A still do.
+
 ### S-3. Write endpoints take the acting user's id from the request body (source-verified, not runtime-tested)
 **Severity: High (suspected).** `CreateFollowRequest.FollowerId` is taken from the body (`SocialGraph.API/Api/FollowEndpoints.cs`, line 62). `CreateReelRequest.CreatorId` is taken from the body (`Reels.API/Api/ReelEndpoints.cs`, line 65). Chat endpoints take `userId` and `createdBy` from the body (`context/useChat.ts`). The comment in `context/useSocial.ts` says the social-graph service "doesn't bind it from the JWT yet". A runtime probe was not completed: the sandbox declined a write that would create a follow edge on behalf of another account, and it was not retried. To verify, make one write on the local stack and delete it.
+
+> **Status: fixed for follows, friends, blocks, preferences, reels, reel views, stories, story views/replies, events, attendances, group members, chat (chat, message, reaction, receipt, block, request, mute) and notification actors.** The acting user now comes from the JWT `sub`; a body that claims another id is ignored (verified: posting a follow with `followerId = B` as A stores `followerId = A`).
 
 ### S-4. Public development OAuth client with a literal secret; the SPA uses the password grant
 **Severity: High for any non-demo deployment; Medium for this demo.** `src/main_fronted/src/api/auth.ts` hard-codes the client id `social-tests` and its client secret. The same values are in the served bundle. The SPA posts the username and password straight to `/bff/connect/token` (resource-owner password grant). The README notes the dev client is still seeded.

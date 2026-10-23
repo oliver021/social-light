@@ -33,6 +33,42 @@ export function getAccessToken(): string | null {
 }
 
 /**
+ * A readable message for a failed call. Prefers the server's own ProblemDetails text
+ * (`detail`, validation `errors`, or `title`); otherwise falls back to a status-based
+ * sentence. Never returns an empty string, so callers can show it as-is.
+ */
+export function describeApiError(error: unknown, response: Response | undefined, fallback: string): string {
+  const body = error && typeof error === 'object' ? (error as Record<string, unknown>) : null;
+  let detail = '';
+  if (body) {
+    if (typeof body.detail === 'string') detail = body.detail;
+    else if (body.errors && typeof body.errors === 'object') {
+      detail = Object.values(body.errors as Record<string, unknown>)
+        .flat()
+        .filter((m): m is string => typeof m === 'string')
+        .join(' ');
+    } else if (typeof body.title === 'string') detail = body.title;
+  }
+  if (detail) return `${fallback}: ${detail}`;
+  const status = response?.status;
+  if (status === 401 || status === 403) return `${fallback}: your session does not allow this. Sign in again and retry.`;
+  if (status && status >= 500) return `${fallback}: the server failed (HTTP ${status}). Try again in a moment.`;
+  if (status) return `${fallback} (HTTP ${status}).`;
+  return `${fallback}: network error. Check your connection and try again.`;
+}
+
+/**
+ * Readable message from any thrown value. A fetch that never got a response surfaces as a
+ * TypeError ("Failed to fetch"), which is reported as a network problem instead.
+ */
+export function messageOf(err: unknown, fallback: string): string {
+  if (err instanceof TypeError) return `${fallback}: network error. Check your connection and try again.`;
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === 'string' && err) return err;
+  return fallback;
+}
+
+/**
  * Resolve a backend media URL for the browser. The media host serves content-addressed
  * blobs at root-relative paths (`/blobs/…`) and the gateway routes them, so — like every
  * API call — they must travel through the same-origin `/bff` proxy. Absolute URLs

@@ -1,42 +1,14 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  Box, 
-  Card, 
-  Typography, 
-  Avatar, 
-  List, 
-  ListItem, 
-  ListItemButton, 
-  ListItemIcon, 
-  ListItemText, 
-  Divider,
-  Chip
-} from '@mui/material';
-import { 
-  Home, 
-  Users2, 
-  ShoppingBag,
-  Clapperboard,
-  User,
-  Sparkles,
-  TrendingUp,
-  Zap,
-  Heart
-} from 'lucide-react';
+import { Avatar, Box, Card, Divider, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, Chip } from '@mui/material';
+import { Home, Users2, ShoppingBag, Clapperboard, User } from 'lucide-react';
+import { cardSx, mutedSx, touchTargetSx } from './ui/tokens';
 
 export const Sidebar: React.FC = () => {
-  const { 
-    currentUser, 
-    activeTab, 
-    setActiveTab, 
-    isAuthenticated, 
-    login,
-    notifications
-  } = useApp();
+  const { currentUser, activeTab, setActiveTab, notifications } = useApp();
 
   const menuItems = [
-    { label: 'Feed Home', tab: 'home' as const, icon: Home, color: 'text-violet-500' },
+    { label: 'Home', tab: 'home' as const, icon: Home, color: 'text-violet-500' },
     { label: 'Communities', tab: 'groups' as const, icon: Users2, color: 'text-emerald-500' },
     { label: 'Marketplace', tab: 'marketplace' as const, icon: ShoppingBag, color: 'text-amber-500' },
     { label: 'Reels', tab: 'reels' as const, icon: Clapperboard, color: 'text-rose-500' },
@@ -46,87 +18,97 @@ export const Sidebar: React.FC = () => {
   const unreadAlerts = notifications.filter(n => !n.read).length;
 
   return (
-    <Box id="desktop-sidebar-and-widgets" className="flex flex-col gap-4 h-full">
-      {/* QUICK CARD PROFILE */}
-      <Card variant="outlined" id="sidebar-user-quickcard" className="p-4 border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950 overflow-hidden relative">
+    <Box id="desktop-sidebar-and-widgets" className="flex flex-col gap-4">
+      {/* PROFILE SUMMARY */}
+      <Card variant="outlined" id="sidebar-user-quickcard" component="section" aria-label="Your profile" sx={{ ...cardSx, position: 'relative', overflow: 'hidden', pt: 2 }}>
         <Box className="absolute top-0 left-0 right-0 h-14 bg-gradient-to-r from-violet-600/30 via-fuchsia-600/30 to-rose-600/10 dark:from-violet-950/40 dark:via-fuchsia-950/40 dark:to-zinc-950" />
-        <Box className="relative flex flex-col items-center mt-3 text-center">
-          <Avatar 
-            src={currentUser.avatar} 
-            alt={currentUser.name}
-            className="w-16 h-16 border-4 border-white dark:border-zinc-950 shadow-md mb-2 cursor-pointer"
+        <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 3, textAlign: 'center', minWidth: 0 }}>
+          <Box
+            component="button"
+            type="button"
+            aria-label="Open my profile"
             onClick={() => setActiveTab('profile')}
-          />
-          <Typography 
-            variant="subtitle1" 
-            className="font-display font-bold text-zinc-900 dark:text-zinc-100 hover:text-violet-600 dark:hover:text-violet-400 cursor-pointer text-sm"
+            sx={{ background: 'none', border: 0, p: 0, mb: 1, borderRadius: '50%', cursor: 'pointer', ...touchTargetSx, minWidth: 0, minHeight: 0 }}
+          >
+            <Avatar src={currentUser.avatar} alt={currentUser.name} sx={{ width: 64, height: 64, border: '4px solid var(--ui-surface)', boxShadow: 1 }} />
+          </Box>
+          <Typography
+            component="button"
+            type="button"
             onClick={() => setActiveTab('profile')}
+            sx={{ background: 'none', border: 0, p: 0, m: 0, cursor: 'pointer', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--ui-text)', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { color: 'var(--color-violet-500)' } }}
           >
             {currentUser.name}
           </Typography>
-          <Typography variant="caption" className="font-mono text-zinc-600 dark:text-zinc-400 block mb-2 text-xs">
+          <Typography sx={{ ...mutedSx, fontFamily: 'var(--font-mono)', fontSize: '0.75rem', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {currentUser.handle}
           </Typography>
-          
-          <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 text-xs px-2 line-clamp-2 min-h-[32px] mb-3 leading-relaxed">
-            {currentUser.bio}
+
+          <Typography sx={{ ...mutedSx, fontSize: '0.75rem', px: 1, mt: 1, mb: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 36 }}>
+            {currentUser.bio || 'No bio yet.'}
           </Typography>
 
-          <Divider className="w-full mb-3" />
+          <Divider sx={{ width: '100%', mb: 1.5 }} />
 
-          <Box className="flex items-center justify-around w-full">
-            <Box className="text-center">
-              <Typography variant="body2" className="font-bold font-mono text-zinc-800 dark:text-zinc-200 text-xs">
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', width: '100%' }}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography sx={{ fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--ui-text)' }}>
                 {currentUser.followersCount}
               </Typography>
-              <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 text-xs">Followers</Typography>
+              <Typography sx={{ ...mutedSx, fontSize: '0.75rem' }}>Followers</Typography>
             </Box>
-            <Box className="w-[1px] h-6 bg-zinc-200 dark:bg-zinc-800" />
-            <Box className="text-center">
-              <Typography variant="body2" className="font-bold font-mono text-zinc-800 dark:text-zinc-200 text-xs">
+            <Box sx={{ width: '1px', height: 24, bgcolor: 'var(--ui-border)' }} />
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography sx={{ fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--ui-text)' }}>
                 {currentUser.followingCount}
               </Typography>
-              <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 text-xs">Following</Typography>
+              <Typography sx={{ ...mutedSx, fontSize: '0.75rem' }}>Following</Typography>
             </Box>
           </Box>
         </Box>
       </Card>
 
-      {/* MULTI TAB NAVIGATION */}
-      <Card variant="outlined" id="sidebar-nav-menu" className="border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950 overflow-hidden">
-        <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 font-bold tracking-wider px-4 pt-4 pb-2 block uppercase text-xs">
-          Social Channels
+      {/* MAIN NAVIGATION */}
+      <Card variant="outlined" id="sidebar-nav-menu" component="nav" aria-label="Main" sx={{ ...cardSx, p: 0, overflow: 'hidden' }}>
+        <Typography component="h2" sx={{ ...mutedSx, fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', px: 2, pt: 2, pb: 1 }}>
+          Menu
         </Typography>
         <List className="py-0 px-2 pb-2">
           {menuItems.map((item) => {
             const IconComponent = item.icon;
             const isSelected = activeTab === item.tab;
+            const badge = item.tab === 'home' && unreadAlerts > 0 ? `, ${unreadAlerts} unread notifications` : '';
             return (
-              <ListItem key={item.tab} disablePadding className="my-0.5">
+              <ListItem key={item.tab} disablePadding sx={{ my: 0.25 }}>
                 <ListItemButton
                   onClick={() => setActiveTab(item.tab)}
-                  className={`rounded-xl px-3 py-2 flex items-center transition-all ${
-                    isSelected 
-                    ? 'bg-violet-50/50 dark:bg-violet-955/20 text-violet-700 dark:text-violet-400 border border-violet-100 dark:border-violet-950' 
-                    : 'text-zinc-700 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 border border-transparent'
-                  }`}
+                  aria-current={isSelected ? 'page' : undefined}
+                  aria-label={`${item.label}${badge}`}
+                  sx={{
+                    ...touchTargetSx,
+                    minHeight: 44,
+                    borderRadius: 2,
+                    px: 1.5,
+                    py: 1,
+                    border: '1px solid',
+                    borderColor: isSelected ? 'var(--ui-border)' : 'transparent',
+                    bgcolor: isSelected ? 'action.selected' : 'transparent',
+                    color: isSelected ? 'var(--color-violet-500)' : 'var(--ui-muted)',
+                  }}
                 >
-                  <ListItemIcon className={`min-w-0 mr-3 ${isSelected ? 'text-violet-600 dark:text-violet-400' : 'text-zinc-600 dark:text-zinc-400'}`} style={{ color: '' }}>
-                    <IconComponent className="w-5 h-5" />
+                  <ListItemIcon sx={{ minWidth: 0, mr: 1.5, color: 'inherit' }}>
+                    <IconComponent aria-hidden="true" className="w-5 h-5" />
                   </ListItemIcon>
-                  <ListItemText 
-                    primary={
-                      <Typography variant="body2" className={`font-display text-xs ${isSelected ? 'font-semibold' : 'font-medium'}`}>
-                        {item.label}
-                      </Typography>
-                    }
+                  <ListItemText
+                    primary={item.label}
+                    slotProps={{ primary: { sx: { fontSize: '0.8125rem', fontWeight: isSelected ? 600 : 500, fontFamily: 'var(--font-display)' } } }}
                   />
                   {item.tab === 'home' && unreadAlerts > 0 && (
-                    <Chip 
-                      label={unreadAlerts} 
-                      size="small" 
-                      color="error"
-                      className="bg-rose-500 text-white font-mono text-xs h-4 scale-90"
+                    <Chip
+                      label={unreadAlerts}
+                      size="small"
+                      aria-hidden="true"
+                      sx={{ bgcolor: 'var(--color-rose-500, #f43f5e)', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', height: 20 }}
                     />
                   )}
                 </ListItemButton>
@@ -135,7 +117,6 @@ export const Sidebar: React.FC = () => {
           })}
         </List>
       </Card>
-
     </Box>
   );
 };

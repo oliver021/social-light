@@ -2,35 +2,61 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { PostCard } from './PostCard';
 import { StoriesBar } from './StoriesBar';
-import { 
-  Box, 
-  Card, 
-  Avatar, 
-  Typography, 
-  Button, 
-  TextField, 
-  IconButton, 
-  Divider
+import {
+  Box,
+  Card,
+  Avatar,
+  Typography,
+  Button,
+  TextField,
+  IconButton,
+  Divider,
+  Skeleton
 } from '@mui/material';
 import { MediaPicker } from './MediaPicker';
-import { 
-  Image, 
-  FileVideo, 
-  BarChart4, 
-  Link2, 
-  Send, 
-  Smile, 
-  Plus, 
+import {
+  Image,
+  FileVideo,
+  BarChart4,
+  Link2,
+  Send,
+  Plus,
   Minus,
   CheckCircle,
-  Clock
+  Clock,
+  Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { EmptyState } from './ui/EmptyState';
+import { useSettled } from './ui/useSettled';
+import { cardSx, mutedSx, touchTargetSx } from './ui/tokens';
+import { SHOW_PEOPLE_EVENT } from './Widgets';
 
 const POSTS_PAGE_SIZE = 5;
 
+// Placeholder rows shown while the first feed request is in flight.
+const FeedSkeleton: React.FC = () => (
+  <Box aria-busy="true" aria-label="Loading posts" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    {[0, 1].map((i) => (
+      <Card key={i} variant="outlined" sx={{ ...cardSx }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+          <Skeleton variant="circular" width={40} height={40} />
+          <Box sx={{ flex: 1 }}>
+            <Skeleton variant="text" width="40%" />
+            <Skeleton variant="text" width="25%" />
+          </Box>
+        </Box>
+        <Skeleton variant="rounded" height={120} />
+      </Card>
+    ))}
+  </Box>
+);
+
 export const FeedsTab: React.FC = () => {
-  const { currentUser, posts, addPost } = useApp();
+  const { currentUser, posts, addPost, people } = useApp();
+  const settled = useSettled();
+  const followingSomeone = people.some((p) => p.followed);
+  const firstName = currentUser.name.split(' ')[0] || currentUser.name;
 
   // Composer state
   const [postText, setPostText] = useState('');
@@ -81,10 +107,10 @@ export const FeedsTab: React.FC = () => {
     if (composerType === 'link') {
       const linkUrl = linkInput.trim();
       extraData = {
-        title: 'User Shared Link',
+        title: 'Shared link',
         linkUrl,
-        linkTitle: 'Hyperlink node from ' + linkUrl,
-        linkDesc: 'Shared on the network. Discover related files and nodes.',
+        linkTitle: linkUrl,
+        linkDesc: '',
       };
     } else if (composerType === 'image') {
       extraData = {
@@ -126,27 +152,31 @@ export const FeedsTab: React.FC = () => {
   const activePosts = posts.slice(0, displayedPostsCount);
   const hasMorePosts = posts.length > displayedPostsCount;
 
+  const showPeople = () => {
+    window.dispatchEvent(new Event(SHOW_PEOPLE_EVENT));
+  };
+
   return (
     <Box id="main-feed-homepage" className="space-y-4 flex flex-col">
       {/* STORIES STRIP (generated Stories module) */}
       <StoriesBar />
       {/* POST COMPOSER CARD */}
-      <Card variant="outlined" id="post-composer-form" className="p-4 border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950 flex flex-col gap-3">
+      <Card variant="outlined" id="post-composer-form" component="section" aria-label="Create a post" sx={{ ...cardSx, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <Box className="flex items-start gap-2.5">
-          <Avatar src={currentUser.avatar} alt={currentUser.name} className="w-10 h-10 border border-zinc-100 dark:border-zinc-900" />
-          <Box className="w-full flex flex-col gap-2">
+          <Avatar src={currentUser.avatar} alt={currentUser.name} sx={{ width: 40, height: 40, flexShrink: 0 }} />
+          <Box className="w-full flex flex-col gap-2 min-w-0">
             <TextField
               fullWidth
               multiline
               rows={composerType === 'poll' ? 1 : 2}
-              placeholder={`Share what you are building to the grid, ${currentUser.name}...`}
+              placeholder={`What's on your mind, ${firstName}?`}
               value={postText}
               onChange={(e) => setPostText(e.target.value)}
               variant="standard"
               slotProps={{
                 input: {
                   disableUnderline: true,
-                  className: 'text-zinc-800 dark:text-zinc-100 text-xs py-1.5'
+                  sx: { fontSize: '0.875rem', py: 0.5 }
                 },
                 htmlInput: { 'aria-label': 'Post text' }
               }}
@@ -166,8 +196,8 @@ export const FeedsTab: React.FC = () => {
               <TextField
                 size="small"
                 fullWidth
-                label="Survey Question"
-                placeholder="Which React 19 core features are you implementing first?"
+                label="Question"
+                placeholder="What do you want to ask?"
                 value={pollQuestion}
                 onChange={(e) => setPollQuestion(e.target.value)}
                 variant="outlined"
@@ -181,8 +211,8 @@ export const FeedsTab: React.FC = () => {
                     key={index}
                     size="small"
                     fullWidth
-                    label={`Response Choice #${index + 1}`}
-                    placeholder={`e.g., Response branch option...`}
+                    label={`Option ${index + 1}`}
+                    placeholder="Add an answer"
                     value={opt}
                     onChange={(e) => {
                       const updated = [...pollOptions];
@@ -198,27 +228,25 @@ export const FeedsTab: React.FC = () => {
 
               <Box className="flex items-center gap-1 justify-between pr-1">
                 <Box className="flex items-center gap-1">
-                  <Button 
-                    size="small" 
-                    onClick={handleAddPollOption} 
-                    disabled={pollOptions.length >= 4} 
-                    className="normal-case text-xs"
-                    startIcon={<Plus className="w-3" />}
+                  <Button
+                    onClick={handleAddPollOption}
+                    disabled={pollOptions.length >= 4}
+                    sx={{ ...touchTargetSx, textTransform: 'none', fontSize: '0.8125rem' }}
+                    startIcon={<Plus className="w-3 h-3" />}
                   >
-                    Add choice
+                    Add option
                   </Button>
-                  <Button 
-                    size="small" 
-                    onClick={handleRemovePollOption} 
+                  <Button
+                    onClick={handleRemovePollOption}
                     disabled={pollOptions.length <= 2}
-                    className="normal-case text-xs"
-                    startIcon={<Minus className="w-3" />}
+                    sx={{ ...touchTargetSx, textTransform: 'none', fontSize: '0.8125rem' }}
+                    startIcon={<Minus className="w-3 h-3" />}
                     color="error"
                   >
-                    Remove
+                    Remove option
                   </Button>
                 </Box>
-                <Button size="small" onClick={handleCloseComposerExtra} className="normal-case text-xs text-zinc-600 dark:text-zinc-400">Cancel</Button>
+                <Button onClick={handleCloseComposerExtra} sx={{ ...touchTargetSx, textTransform: 'none', fontSize: '0.8125rem', color: 'var(--ui-muted)' }}>Cancel</Button>
               </Box>
             </motion.div>
           )}
@@ -233,8 +261,8 @@ export const FeedsTab: React.FC = () => {
               <TextField
                 size="small"
                 fullWidth
-                label="Hyperlink URL"
-                placeholder="https://chromium.googlesource.com/chromium/src"
+                label="Link"
+                placeholder="https://example.com"
                 value={linkInput}
                 onChange={(e) => setLinkInput(e.target.value)}
                 variant="outlined"
@@ -276,94 +304,116 @@ export const FeedsTab: React.FC = () => {
           )}
         </AnimatePresence>
 
-        <Divider className="my-0.5" />
+        <Divider />
 
-        {/* COMPOSER BUTTON CONTROLS AND AI TOGGLE */}
+        {/* COMPOSER ATTACHMENTS AND SUBMIT */}
         <Box className="flex items-center justify-between flex-wrap gap-2">
-          <Box className="flex items-center gap-1">
+          <Box className="flex items-center gap-0.5">
             <IconButton
-              size="small"
               aria-label="Attach image"
-              color={composerType === 'image' ? 'primary' : 'inherit'}
+              aria-pressed={composerType === 'image'}
+              color={composerType === 'image' ? 'primary' : 'default'}
               onClick={() => setComposerType('image')}
-              className="text-zinc-600 dark:text-zinc-400 w-11 h-11 p-0 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              sx={{ ...touchTargetSx, color: composerType === 'image' ? undefined : 'var(--ui-muted)' }}
             >
-              <Image className="w-4 h-4 text-emerald-500" />
+              <Image aria-hidden="true" className="w-4 h-4 text-emerald-500" />
             </IconButton>
 
             <IconButton
-              size="small"
               aria-label="Attach video"
-              color={composerType === 'video' ? 'primary' : 'inherit'}
+              aria-pressed={composerType === 'video'}
+              color={composerType === 'video' ? 'primary' : 'default'}
               onClick={() => setComposerType('video')}
-              className="text-zinc-600 dark:text-zinc-400 w-11 h-11 p-0 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              sx={{ ...touchTargetSx, color: composerType === 'video' ? undefined : 'var(--ui-muted)' }}
             >
-              <FileVideo className="w-4 h-4 text-rose-500" />
+              <FileVideo aria-hidden="true" className="w-4 h-4 text-rose-500" />
             </IconButton>
 
             <IconButton
-              size="small"
               aria-label="Add poll"
-              color={composerType === 'poll' ? 'primary' : 'inherit'}
+              aria-pressed={composerType === 'poll'}
+              color={composerType === 'poll' ? 'primary' : 'default'}
               onClick={() => setComposerType('poll')}
-              className="text-zinc-600 dark:text-zinc-400 w-11 h-11 p-0 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              sx={{ ...touchTargetSx, color: composerType === 'poll' ? undefined : 'var(--ui-muted)' }}
             >
-              <BarChart4 className="w-4 h-4 text-cyan-500" />
+              <BarChart4 aria-hidden="true" className="w-4 h-4 text-cyan-500" />
             </IconButton>
 
             <IconButton
-              size="small"
               aria-label="Attach link"
-              color={composerType === 'link' ? 'primary' : 'inherit'}
+              aria-pressed={composerType === 'link'}
+              color={composerType === 'link' ? 'primary' : 'default'}
               onClick={() => setComposerType('link')}
-              className="text-zinc-600 dark:text-zinc-400 w-11 h-11 p-0 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              sx={{ ...touchTargetSx, color: composerType === 'link' ? undefined : 'var(--ui-muted)' }}
             >
-              <Link2 className="w-4 h-4 text-amber-500" />
+              <Link2 aria-hidden="true" className="w-4 h-4 text-amber-500" />
             </IconButton>
           </Box>
 
           <Button
-            size="small"
             variant="contained"
             onClick={handlePostSubmit}
             disabled={(!postText.trim() && composerType === 'text') || attachmentMissing}
-            className="normal-case font-display text-xs bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4.5 py-1.5 min-h-[44px] text-white shadow-md flex items-center gap-1.5 rounded-full"
-            sx={{ '&.Mui-disabled': { color: 'text.secondary' } }}
+            endIcon={<Send aria-hidden="true" className="w-3 h-3" />}
+            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, borderRadius: 999, px: 2.5, background: 'linear-gradient(to right, #7c3aed, #c026d3)', color: '#fff', '&.Mui-disabled': { color: 'var(--ui-muted)', background: 'var(--ui-border)' } }}
           >
-            Publish
-            <Send className="w-3 h-3" />
+            Post
           </Button>
         </Box>
       </Card>
 
-      {/* RENDER POSTS FEED LIST */}
-      <Box className="space-y-4">
-        {activePosts.map((post) => (
-          <PostCard key={post.id} post={post} />
-        ))}
-      </Box>
+      {/* FEED: skeleton while loading, empty state when the feed is genuinely empty, else posts */}
+      {posts.length === 0 && !settled && <FeedSkeleton />}
 
-      {/* INFINITE SCROLL LOADER COMPONENT */}
-      <Box className="flex flex-col items-center justify-center pt-2 pb-6">
-        {hasMorePosts ? (
-          <Button
-            onClick={handleLoadMore}
-            variant="outlined"
-            size="small"
-            className="font-display normal-case text-xs border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 rounded-full px-6 flex items-center gap-1 text-zinc-700 dark:text-zinc-300"
-          >
-            <Clock className="w-3.5 h-3.5 text-violet-500" />
-            Load More Feed Nodes
-          </Button>
-        ) : posts.length > 0 ? (
-          <Box className="flex items-center gap-2 py-3 opacity-60">
-            <CheckCircle className="w-4 h-4 text-emerald-500" />
-            <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 font-mono text-xs">
-              You are all caught up.
-            </Typography>
+      {posts.length === 0 && settled && (
+        followingSomeone ? (
+          <EmptyState
+            icon={Users}
+            title="No posts yet"
+            body="The people you follow have not posted yet. Share something, or follow more people."
+            action={{ label: 'Find more people', onClick: showPeople, ariaLabel: 'Find more people to follow' }}
+          />
+        ) : (
+          <EmptyState
+            icon={Users}
+            title="Follow a few people to fill your feed"
+            body="Posts from people you follow show up here. Start with People you may know."
+            action={{ label: 'Find people', onClick: showPeople, ariaLabel: 'Find people to follow' }}
+          />
+        )
+      )}
+
+      {posts.length > 0 && (
+        <>
+          {/* RENDER POSTS FEED LIST */}
+          <Box className="space-y-4">
+            {activePosts.map((post) => (
+              <PostCard key={post.id} post={post} />
+            ))}
           </Box>
-        ) : null}
-      </Box>
+
+          {/* PAGING FOOTER */}
+          <Box className="flex flex-col items-center justify-center pt-2 pb-6">
+            {hasMorePosts ? (
+              <Button
+                onClick={handleLoadMore}
+                variant="outlined"
+                sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, borderRadius: 999, px: 3, color: 'var(--ui-text)', borderColor: 'var(--ui-border)' }}
+              >
+                <Clock aria-hidden="true" className="w-3.5 h-3.5 mr-1 text-violet-500" />
+                Show more posts
+              </Button>
+            ) : (
+              <Box className="flex items-center gap-2 py-3" sx={mutedSx}>
+                <CheckCircle aria-hidden="true" className="w-4 h-4 text-emerald-500" />
+                <Typography sx={{ ...mutedSx, fontSize: '0.8125rem' }}>
+                  You are all caught up.
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </>
+      )}
     </Box>
   );
 };
