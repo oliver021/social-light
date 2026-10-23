@@ -16,7 +16,6 @@ public sealed class UserPreferenceApiTests(  SocialGraphApiFixture fixture) : IC
         => fixture.CreateDefaultClient(new ApiVersionHandler(new QueryStringApiVersionWriter(), new ApiVersion(1, 0)));
 
     private static CreateUserPreferenceRequest SampleRequest() => new(
-        Guid.NewGuid(),
         "sample EntityType",
         Guid.NewGuid(),
         "sample PreferenceType",

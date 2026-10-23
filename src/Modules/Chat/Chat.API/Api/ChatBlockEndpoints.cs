@@ -42,25 +42,29 @@ public static class ChatBlockEndpoints
     }
 
     public static async Task<Ok<IReadOnlyList<ChatBlockDto>>> List(
-        ChatBlockService service, CancellationToken cancellationToken)
+        ChatBlockService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var scope = await ScopeAsync(user, cancellationToken);
         var items = await service.ListAsync(cancellationToken);
-        return TypedResults.Ok<IReadOnlyList<ChatBlockDto>>([.. items.Select(ToDto)]);
+        return TypedResults.Ok<IReadOnlyList<ChatBlockDto>>([.. items.Where(scope).Select(ToDto)]);
     }
 
     public static async Task<Results<Ok<ChatBlockDto>, NotFound>> GetById(
-        Guid id, ChatBlockService service, CancellationToken cancellationToken)
+        Guid id, ChatBlockService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var scope = await ScopeAsync(user, cancellationToken);
         var item = await service.GetAsync(id, cancellationToken);
-        return item is null ? TypedResults.NotFound() : TypedResults.Ok(ToDto(item));
+        // Not visible to the caller == not found (never reveal that it exists).
+        return item is null || !scope(item) ? TypedResults.NotFound() : TypedResults.Ok(ToDto(item));
     }
 
     public static async Task<Created<ChatBlockDto>> Create(
-        CreateChatBlockRequest request, ChatBlockService service, CancellationToken cancellationToken)
+        CreateChatBlockRequest request, ChatBlockService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var blockerId = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
         var chatBlock = await service.CreateAsync(
             request.ChatId,
-            request.BlockerId,
+            blockerId,
             request.BlockedId,
             cancellationToken);
 
@@ -69,10 +73,28 @@ public static class ChatBlockEndpoints
     }
 
     public static async Task<Results<NoContent, NotFound>> Delete(
-        Guid id, ChatBlockService service, CancellationToken cancellationToken)
-        => await service.DeleteAsync(id, cancellationToken)
+        Guid id, ChatBlockService service, ClaimsPrincipal user, CancellationToken cancellationToken)
+    {
+        var scope = await ScopeAsync(user, cancellationToken);
+        var item = await service.GetAsync(id, cancellationToken);
+        if (item is null || !scope(item)) return TypedResults.NotFound();
+        return await service.DeleteAsync(id, cancellationToken)
             ? TypedResults.NoContent()
             : TypedResults.NotFound();
+    }
+
+    /// <summary>
+    /// Read scope (spec `readScope`): the caller sees only rows that concern them
+    /// — rows where <c>BlockerId</c> is the caller.
+    /// Derived from the JWT `sub`, never from the request.
+    /// </summary>
+    private static async Task<Func<ChatBlock, bool>> ScopeAsync(
+        ClaimsPrincipal user, CancellationToken cancellationToken)
+    {
+        var me = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
+        await Task.CompletedTask;
+        return e => e.BlockerId == me;
+    }
 
     private static ChatBlockDto ToDto(ChatBlock e) => new(
         e.Id,

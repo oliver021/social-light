@@ -17,7 +17,6 @@ public sealed class ChatMuteApiTests(  ChatApiFixture fixture) : IClassFixture<C
 
     private static CreateChatMuteRequest SampleRequest() => new(
         Guid.NewGuid(),
-        Guid.NewGuid(),
         DateTime.UtcNow
     );
 

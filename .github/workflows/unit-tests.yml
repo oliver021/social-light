@@ -1,0 +1,25 @@
+name: Unit & Architecture Tests
+
+# Fast, Docker-free tests: the architecture-fitness suite (module isolation and the
+# canonical module form, read straight from the source tree) and the pure feed
+# ranking tests. code-engine is a coding-time tool and is not run here.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET (global.json)
+        uses: actions/setup-dotnet@v4
+      - name: Architecture tests
+        run: dotnet test --project tests/Architecture.UnitTests
+      - name: Feed ranking tests
+        run: dotnet test --project tests/Feed.UnitTests

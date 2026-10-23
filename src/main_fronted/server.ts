@@ -8,7 +8,7 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Same-origin BFF: proxy /bff/* to the social-bff gateway so the SPA avoids CORS.
   // Mounted BEFORE express.json() so request bodies stream through to the gateway

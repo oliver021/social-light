@@ -8,28 +8,15 @@
       "fields": [
         { "name": "id", "type": "guid", "key": true },
         { "name": "recipientId", "type": "guid" },
-        { "name": "actorId", "type": "guid" },
+        { "name": "actorId", "type": "guid", "fromPrincipal": true },
         { "name": "type", "type": "string" },
         { "name": "entityType", "type": "string" },
         { "name": "entityId", "type": "guid" },
         { "name": "isRead", "type": "bool" }
-      ]
+      ],
+      "readScope": { "field": "recipientId" }
     }
   ],
   "publishes": [],
-  "consumes": [
-    "PostPublished",
-    "CommentAdded",
-    "ReactionAdded",
-    "ContentShared",
-    "UserFollowed",
-    "FriendRequested",
-    "FriendAccepted",
-    "MessageSent",
-    "GroupMemberJoined",
-    "EventAttendanceChanged",
-    "JobApplicationStatusChanged",
-    "AchievementUnlocked",
-    "ThreadReplyAdded"
-  ]
+  "consumes": ["PostPublished", "CommentAdded", "ReactionAdded", "ContentShared", "UserFollowed", "FriendRequested", "FriendAccepted", "MessageSent", "GroupMemberJoined", "EventAttendanceChanged", "JobApplicationStatusChanged", "AchievementUnlocked", "ThreadReplyAdded"]
 }

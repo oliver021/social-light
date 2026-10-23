@@ -42,26 +42,30 @@ public static class ChatEndpoints
     }
 
     public static async Task<Ok<IReadOnlyList<ChatDto>>> List(
-        ChatService service, CancellationToken cancellationToken)
+        ChatService service, ChatParticipantService scopeService, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var scope = await ScopeAsync(scopeService, user, cancellationToken);
         var items = await service.ListAsync(cancellationToken);
-        return TypedResults.Ok<IReadOnlyList<ChatDto>>([.. items.Select(ToDto)]);
+        return TypedResults.Ok<IReadOnlyList<ChatDto>>([.. items.Where(scope).Select(ToDto)]);
     }
 
     public static async Task<Results<Ok<ChatDto>, NotFound>> GetById(
-        Guid id, ChatService service, CancellationToken cancellationToken)
+        Guid id, ChatService service, ChatParticipantService scopeService, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var scope = await ScopeAsync(scopeService, user, cancellationToken);
         var item = await service.GetAsync(id, cancellationToken);
-        return item is null ? TypedResults.NotFound() : TypedResults.Ok(ToDto(item));
+        // Not visible to the caller == not found (never reveal that it exists).
+        return item is null || !scope(item) ? TypedResults.NotFound() : TypedResults.Ok(ToDto(item));
     }
 
     public static async Task<Created<ChatDto>> Create(
-        CreateChatRequest request, ChatService service, CancellationToken cancellationToken)
+        CreateChatRequest request, ChatService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var createdBy = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
         var chat = await service.CreateAsync(
             request.Type,
             request.Title,
-            request.CreatedBy,
+            createdBy,
             cancellationToken);
 
         var location = $"/api/chats/{ chat.Id}";
@@ -69,10 +73,31 @@ public static class ChatEndpoints
     }
 
     public static async Task<Results<NoContent, NotFound>> Delete(
-        Guid id, ChatService service, CancellationToken cancellationToken)
-        => await service.DeleteAsync(id, cancellationToken)
+        Guid id, ChatService service, ChatParticipantService scopeService, ClaimsPrincipal user, CancellationToken cancellationToken)
+    {
+        var scope = await ScopeAsync(scopeService, user, cancellationToken);
+        var item = await service.GetAsync(id, cancellationToken);
+        if (item is null || !scope(item)) return TypedResults.NotFound();
+        return await service.DeleteAsync(id, cancellationToken)
             ? TypedResults.NoContent()
             : TypedResults.NotFound();
+    }
+
+    /// <summary>
+    /// Read scope (spec `readScope`): the caller sees only rows that concern them
+    /// — rows whose <c>Id</c> belongs to a <c>ChatParticipant</c> they are a member of.
+    /// Derived from the JWT `sub`, never from the request.
+    /// </summary>
+    private static async Task<Func<global::SocialLight.Chat.Domain.Chat, bool>> ScopeAsync(
+        ChatParticipantService scopeService, ClaimsPrincipal user, CancellationToken cancellationToken)
+    {
+        var me = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
+        var mine = (await scopeService.ListAsync(cancellationToken))
+            .Where(m => m.UserId == me)
+            .Select(m => m.ChatId)
+            .ToHashSet();
+        return e => mine.Contains(e.Id);
+    }
 
     private static ChatDto ToDto(global::SocialLight.Chat.Domain.Chat e) => new(
         e.Id,

@@ -23,12 +23,12 @@ public sealed class MessageAttachmentApiTests(  ChatApiFixture fixture) : IClass
         var seedChat = await SeedAsync<CreateChatRequest, ChatDto>(
             client,
             "/api/chats",
-            new CreateChatRequest("sample Type", "sample Title", Guid.NewGuid()),
+            new CreateChatRequest("sample Type", "sample Title"),
             ct);
         var seedMessage = await SeedAsync<CreateMessageRequest, MessageDto>(
             client,
             "/api/messages",
-            new CreateMessageRequest(seedChat.Id, Guid.NewGuid(), "sample ContentType", "sample Content", DateTime.UtcNow),
+            new CreateMessageRequest(seedChat.Id, "sample ContentType", "sample Content", DateTime.UtcNow),
             ct);
         return new CreateMessageAttachmentRequest(seedMessage.Id, "sample FileUrl", "sample MediaType");
     }

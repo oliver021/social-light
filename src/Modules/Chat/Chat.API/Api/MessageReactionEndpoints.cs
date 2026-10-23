@@ -56,11 +56,12 @@ public static class MessageReactionEndpoints
     }
 
     public static async Task<Created<MessageReactionDto>> Create(
-        CreateMessageReactionRequest request, MessageReactionService service, CancellationToken cancellationToken)
+        CreateMessageReactionRequest request, MessageReactionService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var userId = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
         var messageReaction = await service.CreateAsync(
             request.MessageId,
-            request.UserId,
+            userId,
             request.ReactionType,
             cancellationToken);
 

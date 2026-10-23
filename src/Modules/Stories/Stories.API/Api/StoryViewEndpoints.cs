@@ -42,25 +42,29 @@ public static class StoryViewEndpoints
     }
 
     public static async Task<Ok<IReadOnlyList<StoryViewDto>>> List(
-        StoryViewService service, CancellationToken cancellationToken)
+        StoryViewService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var scope = await ScopeAsync(user, cancellationToken);
         var items = await service.ListAsync(cancellationToken);
-        return TypedResults.Ok<IReadOnlyList<StoryViewDto>>([.. items.Select(ToDto)]);
+        return TypedResults.Ok<IReadOnlyList<StoryViewDto>>([.. items.Where(scope).Select(ToDto)]);
     }
 
     public static async Task<Results<Ok<StoryViewDto>, NotFound>> GetById(
-        Guid id, StoryViewService service, CancellationToken cancellationToken)
+        Guid id, StoryViewService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var scope = await ScopeAsync(user, cancellationToken);
         var item = await service.GetAsync(id, cancellationToken);
-        return item is null ? TypedResults.NotFound() : TypedResults.Ok(ToDto(item));
+        // Not visible to the caller == not found (never reveal that it exists).
+        return item is null || !scope(item) ? TypedResults.NotFound() : TypedResults.Ok(ToDto(item));
     }
 
     public static async Task<Created<StoryViewDto>> Create(
-        CreateStoryViewRequest request, StoryViewService service, CancellationToken cancellationToken)
+        CreateStoryViewRequest request, StoryViewService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var viewerId = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
         var storyView = await service.CreateAsync(
             request.StoryId,
-            request.ViewerId,
+            viewerId,
             request.ViewedAt,
             cancellationToken);
 
@@ -69,10 +73,28 @@ public static class StoryViewEndpoints
     }
 
     public static async Task<Results<NoContent, NotFound>> Delete(
-        Guid id, StoryViewService service, CancellationToken cancellationToken)
-        => await service.DeleteAsync(id, cancellationToken)
+        Guid id, StoryViewService service, ClaimsPrincipal user, CancellationToken cancellationToken)
+    {
+        var scope = await ScopeAsync(user, cancellationToken);
+        var item = await service.GetAsync(id, cancellationToken);
+        if (item is null || !scope(item)) return TypedResults.NotFound();
+        return await service.DeleteAsync(id, cancellationToken)
             ? TypedResults.NoContent()
             : TypedResults.NotFound();
+    }
+
+    /// <summary>
+    /// Read scope (spec `readScope`): the caller sees only rows that concern them
+    /// — rows where <c>ViewerId</c> is the caller.
+    /// Derived from the JWT `sub`, never from the request.
+    /// </summary>
+    private static async Task<Func<StoryView, bool>> ScopeAsync(
+        ClaimsPrincipal user, CancellationToken cancellationToken)
+    {
+        var me = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
+        await Task.CompletedTask;
+        return e => e.ViewerId == me;
+    }
 
     private static StoryViewDto ToDto(StoryView e) => new(
         e.Id,

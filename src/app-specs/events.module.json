@@ -7,7 +7,7 @@
       "name": "Event",
       "fields": [
         { "name": "id", "type": "guid", "key": true },
-        { "name": "organizerId", "type": "guid" },
+        { "name": "organizerId", "type": "guid", "fromPrincipal": true },
         { "name": "title", "type": "string" },
         { "name": "description", "type": "text", "nullable": true },
         { "name": "location", "type": "string", "nullable": true },
@@ -25,7 +25,7 @@
       "fields": [
         { "name": "id", "type": "guid", "key": true },
         { "name": "eventId", "type": "guid" },
-        { "name": "userId", "type": "guid" },
+        { "name": "userId", "type": "guid", "fromPrincipal": true },
         { "name": "status", "type": "string" }
       ]
     }

@@ -16,7 +16,6 @@ public sealed class ReelApiTests(  ReelsApiFixture fixture) : IClassFixture<Reel
         => fixture.CreateDefaultClient(new ApiVersionHandler(new QueryStringApiVersionWriter(), new ApiVersion(1, 0)));
 
     private static CreateReelRequest SampleRequest() => new(
-        Guid.NewGuid(),
         "sample VideoUrl",
         "sample Caption",
         1,

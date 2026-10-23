@@ -56,11 +56,12 @@ public static class StoryReplyEndpoints
     }
 
     public static async Task<Created<StoryReplyDto>> Create(
-        CreateStoryReplyRequest request, StoryReplyService service, CancellationToken cancellationToken)
+        CreateStoryReplyRequest request, StoryReplyService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var userId = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
         var storyReply = await service.CreateAsync(
             request.StoryId,
-            request.UserId,
+            userId,
             request.Body,
             cancellationToken);
 

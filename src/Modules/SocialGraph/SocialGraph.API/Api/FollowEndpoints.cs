@@ -56,10 +56,11 @@ public static class FollowEndpoints
     }
 
     public static async Task<Created<FollowDto>> Create(
-        CreateFollowRequest request, FollowService service, CancellationToken cancellationToken)
+        CreateFollowRequest request, FollowService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var followerId = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
         var follow = await service.CreateAsync(
-            request.FollowerId,
+            followerId,
             request.FollowingId,
             request.Status,
             request.CreatedAt,

@@ -23,9 +23,9 @@ public sealed class StoryViewApiTests(  StoriesApiFixture fixture) : IClassFixtu
         var seedStory = await SeedAsync<CreateStoryRequest, StoryDto>(
             client,
             "/api/stories",
-            new CreateStoryRequest(Guid.NewGuid(), "sample MediaType", "sample MediaUrl", "sample Caption", "sample Visibility", DateTime.UtcNow),
+            new CreateStoryRequest("sample MediaType", "sample MediaUrl", "sample Caption", "sample Visibility", DateTime.UtcNow),
             ct);
-        return new CreateStoryViewRequest(seedStory.Id, Guid.NewGuid(), DateTime.UtcNow);
+        return new CreateStoryViewRequest(seedStory.Id, DateTime.UtcNow);
     }
 
     private static async Task<TDto> SeedAsync<TRequest, TDto>(HttpClient client, string path, TRequest body, CancellationToken ct)

@@ -2,10 +2,10 @@ namespace SocialLight.Chat.Contracts;
 
 /// <summary>
 /// Write DTO for creating a <c>MessageReadReceipt</c>. The key is assigned by the
-/// domain/server, so it is intentionally absent from the request body.
+/// domain/server, so it is intentionally absent from the request body, as are
+/// owner fields (UserId) — bound server-side from the authenticated principal.
 /// </summary>
 public record CreateMessageReadReceiptRequest(
     Guid MessageId,
-    Guid UserId,
     DateTime ReadAt
 );

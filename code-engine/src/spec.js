@@ -334,6 +334,26 @@ export function validateModuleSpec(spec) {
   }
 }
 
+function normalizeReadScope(entity, fields) {
+  const rs = entity.readScope;
+  if (!rs) return null;
+  const names = rs.fields ?? (rs.field ? [rs.field] : []);
+  const where = `entity "${entity.name}" readScope`;
+  if (!names.length) throw new Error(`Invalid module spec:\n  - ${where}: "field" or "fields" is required.`);
+  const scoped = names.map((n) => {
+    const f = fields.find((x) => x.name === n);
+    if (!f) throw new Error(`Invalid module spec:\n  - ${where}: unknown field "${n}".`);
+    if (f.csType !== 'Guid') throw new Error(`Invalid module spec:\n  - ${where}: field "${n}" must be a Guid.`);
+    return { Name: f.Name };
+  });
+  let via = null;
+  if (rs.via) {
+    if (names.length !== 1) throw new Error(`Invalid module spec:\n  - ${where}: "via" takes exactly one field.`);
+    via = { Entity: toPascal(rs.via.entity), Key: toPascal(rs.via.key), User: toPascal(rs.via.user) };
+  }
+  return { fields: scoped, via, direct: !via };
+}
+
 function normalizeEntityInModule(entity, typeMap) {
   const Entity = toPascal(entity.name);
   const fields = entity.fields.map((f) => normalizeField(f, typeMap));
@@ -347,6 +367,20 @@ function normalizeEntityInModule(entity, typeMap) {
   const createCallArgs = nonKeyFields.map((f) => (f.fromPrincipal ? f.camel : `request.${f.Name}`));
   const requiredStringFields = fields.filter((f) => f.required && f.csType === 'string');
   const keyField = fields.find((f) => f.key) ?? { Name: 'Id', camel: 'id', csType: 'int', key: true };
+  // Optional read scope: the caller may only see/delete rows that concern them
+  // (owner fields equal to the JWT `sub`, or membership of a same-module entity).
+  const readScope = normalizeReadScope(entity, fields);
+  if (readScope?.direct) {
+    // The generated tests authenticate as TestAuthHandler.UserId, so rows must be
+    // "about" that user to be visible to it. A denial test (a row about someone
+    // else stays hidden) is only meaningful when no scoped field is principal-bound.
+    for (const sf of readScope.fields) {
+      const f = fields.find((x) => x.Name === sf.Name);
+      f.csSample = 'TestAuthHandler.UserId';
+    }
+    readScope.denyTestable = readScope.fields.every((sf) => !fields.find((x) => x.Name === sf.Name).fromPrincipal);
+    readScope.denyField = readScope.fields[0].Name;
+  }
   const events = (entity.events ?? []).map(normalizeEvent);
   const relations = (entity.relations ?? []).map((r) => ({
     to: r.to,
@@ -372,6 +406,7 @@ function normalizeEntityInModule(entity, typeMap) {
     fields,
     nonKeyFields,
     principalFields,
+    readScope,
     createFields,
     createCallArgs,
     requiredStringFields,

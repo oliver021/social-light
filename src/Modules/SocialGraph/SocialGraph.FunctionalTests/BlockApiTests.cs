@@ -17,7 +17,6 @@ public sealed class BlockApiTests(  SocialGraphApiFixture fixture) : IClassFixtu
 
     private static CreateBlockRequest SampleRequest() => new(
         Guid.NewGuid(),
-        Guid.NewGuid(),
         "sample Reason"
     );
 

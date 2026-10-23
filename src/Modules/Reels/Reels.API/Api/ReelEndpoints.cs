@@ -56,10 +56,11 @@ public static class ReelEndpoints
     }
 
     public static async Task<Created<ReelDto>> Create(
-        CreateReelRequest request, ReelService service, CancellationToken cancellationToken)
+        CreateReelRequest request, ReelService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var creatorId = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
         var reel = await service.CreateAsync(
-            request.CreatorId,
+            creatorId,
             request.VideoUrl,
             request.Caption,
             request.Duration,

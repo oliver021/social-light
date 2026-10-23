@@ -16,7 +16,6 @@ public sealed class StoryApiTests(  StoriesApiFixture fixture) : IClassFixture<S
         => fixture.CreateDefaultClient(new ApiVersionHandler(new QueryStringApiVersionWriter(), new ApiVersion(1, 0)));
 
     private static CreateStoryRequest SampleRequest() => new(
-        Guid.NewGuid(),
         "sample MediaType",
         "sample MediaUrl",
         "sample Caption",

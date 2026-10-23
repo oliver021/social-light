@@ -56,10 +56,11 @@ public static class EventEndpoints
     }
 
     public static async Task<Created<EventDto>> Create(
-        CreateEventRequest request, EventService service, CancellationToken cancellationToken)
+        CreateEventRequest request, EventService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var organizerId = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
         var @event = await service.CreateAsync(
-            request.OrganizerId,
+            organizerId,
             request.Title,
             request.Description,
             request.Location,

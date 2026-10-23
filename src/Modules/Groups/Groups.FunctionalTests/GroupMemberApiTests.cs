@@ -25,7 +25,7 @@ public sealed class GroupMemberApiTests(  GroupsApiFixture fixture) : IClassFixt
             "/api/groups",
             new CreateGroupRequest("sample Name", "sample Description", "sample Avatar", "sample CoverImage", "sample PrivacyType", true),
             ct);
-        return new CreateGroupMemberRequest(seedGroup.Id, Guid.NewGuid(), "sample Role");
+        return new CreateGroupMemberRequest(seedGroup.Id, "sample Role");
     }
 
     private static async Task<TDto> SeedAsync<TRequest, TDto>(HttpClient client, string path, TRequest body, CancellationToken ct)

@@ -23,9 +23,9 @@ public sealed class EventAttendanceApiTests(  EventsApiFixture fixture) : IClass
         var seedEvent = await SeedAsync<CreateEventRequest, EventDto>(
             client,
             "/api/events",
-            new CreateEventRequest(Guid.NewGuid(), "sample Title", "sample Description", "sample Location", DateTime.UtcNow, DateTime.UtcNow, 1, "sample Visibility"),
+            new CreateEventRequest("sample Title", "sample Description", "sample Location", DateTime.UtcNow, DateTime.UtcNow, 1, "sample Visibility"),
             ct);
-        return new CreateEventAttendanceRequest(seedEvent.Id, Guid.NewGuid(), "sample Status");
+        return new CreateEventAttendanceRequest(seedEvent.Id, "sample Status");
     }
 
     private static async Task<TDto> SeedAsync<TRequest, TDto>(HttpClient client, string path, TRequest body, CancellationToken ct)

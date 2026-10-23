@@ -7,7 +7,7 @@
       "name": "Story",
       "fields": [
         { "name": "id", "type": "guid", "key": true },
-        { "name": "authorId", "type": "guid" },
+        { "name": "authorId", "type": "guid", "fromPrincipal": true },
         { "name": "mediaType", "type": "string" },
         { "name": "mediaUrl", "type": "string" },
         { "name": "caption", "type": "string", "nullable": true },
@@ -24,16 +24,17 @@
       "fields": [
         { "name": "id", "type": "guid", "key": true },
         { "name": "storyId", "type": "guid" },
-        { "name": "viewerId", "type": "guid" },
+        { "name": "viewerId", "type": "guid", "fromPrincipal": true },
         { "name": "viewedAt", "type": "datetime" }
-      ]
+      ],
+      "readScope": { "field": "viewerId" }
     },
     {
       "name": "StoryReply",
       "fields": [
         { "name": "id", "type": "guid", "key": true },
         { "name": "storyId", "type": "guid" },
-        { "name": "userId", "type": "guid" },
+        { "name": "userId", "type": "guid", "fromPrincipal": true },
         { "name": "body", "type": "text" }
       ]
     }

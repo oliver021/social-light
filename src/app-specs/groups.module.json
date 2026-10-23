@@ -23,7 +23,7 @@
       "fields": [
         { "name": "id", "type": "guid", "key": true },
         { "name": "groupId", "type": "guid" },
-        { "name": "userId", "type": "guid" },
+        { "name": "userId", "type": "guid", "fromPrincipal": true },
         { "name": "role", "type": "string" }
       ]
     }

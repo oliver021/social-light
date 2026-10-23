@@ -9,12 +9,13 @@
         { "name": "id", "type": "guid", "key": true },
         { "name": "type", "type": "string" },
         { "name": "title", "type": "string", "nullable": true },
-        { "name": "createdBy", "type": "guid" }
+        { "name": "createdBy", "type": "guid", "fromPrincipal": true }
       ],
       "relations": [
         { "to": "ChatParticipant", "kind": "oneToMany" },
         { "to": "Message", "kind": "oneToMany" }
-      ]
+      ],
+      "readScope": { "field": "id", "via": { "entity": "ChatParticipant", "key": "chatId", "user": "userId" } }
     },
     {
       "name": "ChatParticipant",
@@ -23,14 +24,15 @@
         { "name": "chatId", "type": "guid" },
         { "name": "userId", "type": "guid" },
         { "name": "role", "type": "string" }
-      ]
+      ],
+      "readScope": { "field": "chatId", "via": { "entity": "ChatParticipant", "key": "chatId", "user": "userId" } }
     },
     {
       "name": "Message",
       "fields": [
         { "name": "id", "type": "guid", "key": true },
         { "name": "chatId", "type": "guid" },
-        { "name": "senderId", "type": "guid" },
+        { "name": "senderId", "type": "guid", "fromPrincipal": true },
         { "name": "contentType", "type": "string" },
         { "name": "content", "type": "text" },
         { "name": "editedAt", "type": "datetime", "nullable": true }
@@ -39,14 +41,15 @@
         { "to": "MessageReaction", "kind": "oneToMany" },
         { "to": "MessageReadReceipt", "kind": "oneToMany" },
         { "to": "MessageAttachment", "kind": "oneToMany" }
-      ]
+      ],
+      "readScope": { "field": "chatId", "via": { "entity": "ChatParticipant", "key": "chatId", "user": "userId" } }
     },
     {
       "name": "MessageReaction",
       "fields": [
         { "name": "id", "type": "guid", "key": true },
         { "name": "messageId", "type": "guid" },
-        { "name": "userId", "type": "guid" },
+        { "name": "userId", "type": "guid", "fromPrincipal": true },
         { "name": "reactionType", "type": "string" }
       ]
     },
@@ -55,7 +58,7 @@
       "fields": [
         { "name": "id", "type": "guid", "key": true },
         { "name": "messageId", "type": "guid" },
-        { "name": "userId", "type": "guid" },
+        { "name": "userId", "type": "guid", "fromPrincipal": true },
         { "name": "readAt", "type": "datetime" }
       ]
     },
@@ -73,27 +76,30 @@
       "fields": [
         { "name": "id", "type": "guid", "key": true },
         { "name": "chatId", "type": "guid" },
-        { "name": "blockerId", "type": "guid" },
+        { "name": "blockerId", "type": "guid", "fromPrincipal": true },
         { "name": "blockedId", "type": "guid" }
-      ]
+      ],
+      "readScope": { "field": "blockerId" }
     },
     {
       "name": "ChatRequest",
       "fields": [
         { "name": "id", "type": "guid", "key": true },
-        { "name": "requesterId", "type": "guid" },
+        { "name": "requesterId", "type": "guid", "fromPrincipal": true },
         { "name": "recipientId", "type": "guid" },
         { "name": "status", "type": "string" }
-      ]
+      ],
+      "readScope": { "fields": ["requesterId", "recipientId"] }
     },
     {
       "name": "ChatMute",
       "fields": [
         { "name": "id", "type": "guid", "key": true },
         { "name": "chatId", "type": "guid" },
-        { "name": "userId", "type": "guid" },
+        { "name": "userId", "type": "guid", "fromPrincipal": true },
         { "name": "mutedUntil", "type": "datetime", "nullable": true }
-      ]
+      ],
+      "readScope": { "field": "userId" }
     },
     {
       "name": "ChatPin",

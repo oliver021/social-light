@@ -16,7 +16,6 @@ public sealed class EventApiTests(  EventsApiFixture fixture) : IClassFixture<Ev
         => fixture.CreateDefaultClient(new ApiVersionHandler(new QueryStringApiVersionWriter(), new ApiVersion(1, 0)));
 
     private static CreateEventRequest SampleRequest() => new(
-        Guid.NewGuid(),
         "sample Title",
         "sample Description",
         "sample Location",

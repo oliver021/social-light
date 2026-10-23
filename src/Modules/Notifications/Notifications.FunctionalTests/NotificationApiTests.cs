@@ -16,8 +16,7 @@ public sealed class NotificationApiTests(  NotificationsApiFixture fixture) : IC
         => fixture.CreateDefaultClient(new ApiVersionHandler(new QueryStringApiVersionWriter(), new ApiVersion(1, 0)));
 
     private static CreateNotificationRequest SampleRequest() => new(
-        Guid.NewGuid(),
-        Guid.NewGuid(),
+        TestAuthHandler.UserId,
         "sample Type",
         "sample EntityType",
         Guid.NewGuid(),
@@ -80,5 +79,22 @@ public sealed class NotificationApiTests(  NotificationsApiFixture fixture) : IC
 
         var get = await client.GetAsync($"{BasePath}/{created.Id}", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.NotFound, get.StatusCode);
+    }
+
+    // readScope: a row that concerns someone else must not be visible to the caller.
+    [Fact]
+    public async Task Rows_about_other_users_are_hidden()
+    {
+        var client = CreateClient();
+        var other = (SampleRequest()) with { RecipientId = Guid.NewGuid() };
+        var create = await client.PostAsJsonAsync(BasePath, other, TestContext.Current.CancellationToken);
+        var created = await create.Content.ReadFromJsonAsync<NotificationDto>(_json, TestContext.Current.CancellationToken);
+        Assert.NotNull(created);
+
+        var get = await client.GetAsync($"{BasePath}/{created!.Id}", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, get.StatusCode);
+
+        var list = await client.GetFromJsonAsync<List<NotificationDto>>(BasePath, _json, TestContext.Current.CancellationToken);
+        Assert.DoesNotContain(list!, x => x.Id == created.Id);
     }
 }

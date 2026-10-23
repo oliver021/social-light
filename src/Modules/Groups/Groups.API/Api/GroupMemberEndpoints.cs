@@ -56,11 +56,12 @@ public static class GroupMemberEndpoints
     }
 
     public static async Task<Created<GroupMemberDto>> Create(
-        CreateGroupMemberRequest request, GroupMemberService service, CancellationToken cancellationToken)
+        CreateGroupMemberRequest request, GroupMemberService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var userId = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
         var groupMember = await service.CreateAsync(
             request.GroupId,
-            request.UserId,
+            userId,
             request.Role,
             cancellationToken);
 

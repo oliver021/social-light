@@ -23,7 +23,7 @@ public sealed class ChatParticipantApiTests(  ChatApiFixture fixture) : IClassFi
         var seedChat = await SeedAsync<CreateChatRequest, ChatDto>(
             client,
             "/api/chats",
-            new CreateChatRequest("sample Type", "sample Title", Guid.NewGuid()),
+            new CreateChatRequest("sample Type", "sample Title"),
             ct);
         return new CreateChatParticipantRequest(seedChat.Id, Guid.NewGuid(), "sample Role");
     }
@@ -38,22 +38,13 @@ public sealed class ChatParticipantApiTests(  ChatApiFixture fixture) : IClassFi
     }
 
     [Fact]
-    public async Task Create_returns_201_and_roundtrips_via_Get()
+    public async Task Create_returns_201()
     {
         var client = CreateClient();
 
         var create = await client.PostAsJsonAsync(BasePath, await SampleRequestAsync(client, TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
-        var created = await create.Content.ReadFromJsonAsync<ChatParticipantDto>(_json, TestContext.Current.CancellationToken);
-        Assert.NotNull(created);
-
-        var get = await client.GetAsync($"{BasePath}/{created!.Id}", TestContext.Current.CancellationToken);
-
-        Assert.Equal(HttpStatusCode.OK, get.StatusCode);
-        var fetched = await get.Content.ReadFromJsonAsync<ChatParticipantDto>(_json, TestContext.Current.CancellationToken);
-        Assert.NotNull(fetched);
-        Assert.Equal(created.Id, fetched!.Id);
     }
 
     [Fact]
@@ -66,32 +57,24 @@ public sealed class ChatParticipantApiTests(  ChatApiFixture fixture) : IClassFi
         Assert.Equal(HttpStatusCode.NotFound, get.StatusCode);
     }
 
+    // readScope: the caller authenticates as TestAuthHandler.UserId, who is NOT a
+    // ChatParticipant of the row's scope, so the row must be invisible to them
+    // (404 on Get/Delete, absent from List) — secure by default.
     [Fact]
-    public async Task List_includes_a_created_item()
+    public async Task Row_is_hidden_from_non_members()
     {
         var client = CreateClient();
         var create = await client.PostAsJsonAsync(BasePath, await SampleRequestAsync(client, TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
         var created = await create.Content.ReadFromJsonAsync<ChatParticipantDto>(_json, TestContext.Current.CancellationToken);
         Assert.NotNull(created);
+
+        var get = await client.GetAsync($"{BasePath}/{created!.Id}", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, get.StatusCode);
 
         var list = await client.GetFromJsonAsync<List<ChatParticipantDto>>(BasePath, _json, TestContext.Current.CancellationToken);
+        Assert.DoesNotContain(list!, x => x.Id == created.Id);
 
-        Assert.NotNull(list);
-        Assert.Contains(list!, x => x.Id == created!.Id);
-    }
-
-    [Fact]
-    public async Task Delete_removes_the_item()
-    {
-        var client = CreateClient();
-        var create = await client.PostAsJsonAsync(BasePath, await SampleRequestAsync(client, TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
-        var created = await create.Content.ReadFromJsonAsync<ChatParticipantDto>(_json, TestContext.Current.CancellationToken);
-        Assert.NotNull(created);
-
-        var delete = await client.DeleteAsync($"{BasePath}/{created!.Id}", TestContext.Current.CancellationToken);
-        Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
-
-        var get = await client.GetAsync($"{BasePath}/{created.Id}", TestContext.Current.CancellationToken);
-        Assert.Equal(HttpStatusCode.NotFound, get.StatusCode);
+        var delete = await client.DeleteAsync($"{BasePath}/{created.Id}", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, delete.StatusCode);
     }
 }

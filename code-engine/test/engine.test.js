@@ -346,3 +346,61 @@ test('__seed__ token marks category-2 and is stripped from the output name', () 
 
   fs.rmSync(outDir, { recursive: true, force: true });
 });
+
+// --- readScope: the caller only sees rows that concern them -----------------------
+
+const scopedModule = (readScope, extraField = {}) => ({
+  module: 'Inbox',
+  entities: [
+    {
+      name: 'Note',
+      fields: [
+        { name: 'id', type: 'guid', key: true },
+        { name: 'recipientId', type: 'guid', ...extraField },
+        { name: 'body', type: 'string' },
+      ],
+      readScope,
+    },
+  ],
+});
+
+function renderEndpoints(spec) {
+  const ctx = normalizeModuleSpec(spec);
+  const { outputs } = generate(ctx, {
+    preset: 'canonical-module',
+    outDir: fs.mkdtempSync(path.join(os.tmpdir(), 'code-engine-readscope-')),
+    dryRun: false,
+  });
+  return {
+    endpoints: outputs.find((o) => /NoteEndpoints\.cs$/.test(o.path)),
+    tests: outputs.find((o) => /NoteApiTests\.cs$/.test(o.path)),
+  };
+}
+
+test('readScope rejects an unknown field and a non-Guid field', () => {
+  assert.throws(() => normalizeModuleSpec(scopedModule({ field: 'nope' })), /unknown field "nope"/);
+  const bad = scopedModule({ field: 'body' });
+  assert.throws(() => normalizeModuleSpec(bad), /must be a Guid/);
+});
+
+test('readScope filters List/Get/Delete by the principal and 404s hidden rows', () => {
+  const { endpoints } = renderEndpoints(scopedModule({ field: 'recipientId' }));
+  const src = endpoints.content ?? fs.readFileSync(endpoints.path, 'utf8');
+  assert.match(src, /e\.RecipientId == me/);
+  assert.match(src, /items\.Where\(scope\)/);
+  assert.match(src, /!scope\(item\)\s*\?\s*TypedResults\.NotFound\(\)/);
+});
+
+test('an entity without readScope renders the unscoped endpoints (no regression)', () => {
+  const { endpoints } = renderEndpoints(scopedModule(undefined));
+  const src = endpoints.content ?? fs.readFileSync(endpoints.path, 'utf8');
+  assert.doesNotMatch(src, /ScopeAsync/);
+});
+
+test('readScope generates a denial test only when no scoped field is principal-bound', () => {
+  const open = renderEndpoints(scopedModule({ field: 'recipientId' })).tests;
+  const owned = renderEndpoints(scopedModule({ field: 'recipientId' }, { fromPrincipal: true })).tests;
+  const read = (o) => o.content ?? fs.readFileSync(o.path, 'utf8');
+  assert.match(read(open), /Rows_about_other_users_are_hidden/);
+  assert.doesNotMatch(read(owned), /Rows_about_other_users_are_hidden/);
+});

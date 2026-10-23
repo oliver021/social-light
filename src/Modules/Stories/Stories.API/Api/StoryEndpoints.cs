@@ -56,10 +56,11 @@ public static class StoryEndpoints
     }
 
     public static async Task<Created<StoryDto>> Create(
-        CreateStoryRequest request, StoryService service, CancellationToken cancellationToken)
+        CreateStoryRequest request, StoryService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var authorId = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
         var story = await service.CreateAsync(
-            request.AuthorId,
+            authorId,
             request.MediaType,
             request.MediaUrl,
             request.Caption,

@@ -7,7 +7,7 @@
       "name": "Follow",
       "fields": [
         { "name": "id", "type": "guid", "key": true },
-        { "name": "followerId", "type": "guid" },
+        { "name": "followerId", "type": "guid", "fromPrincipal": true },
         { "name": "followingId", "type": "guid" },
         { "name": "status", "type": "string" },
         { "name": "createdAt", "type": "datetime" }
@@ -17,31 +17,34 @@
       "name": "Friend",
       "fields": [
         { "name": "id", "type": "guid", "key": true },
-        { "name": "requesterId", "type": "guid" },
+        { "name": "requesterId", "type": "guid", "fromPrincipal": true },
         { "name": "recipientId", "type": "guid" },
         { "name": "status", "type": "string" },
         { "name": "acceptedAt", "type": "datetime", "nullable": true }
-      ]
+      ],
+      "readScope": { "fields": ["requesterId", "recipientId"] }
     },
     {
       "name": "Block",
       "fields": [
         { "name": "id", "type": "guid", "key": true },
-        { "name": "blockerId", "type": "guid" },
+        { "name": "blockerId", "type": "guid", "fromPrincipal": true },
         { "name": "blockedId", "type": "guid" },
         { "name": "reason", "type": "string", "nullable": true }
-      ]
+      ],
+      "readScope": { "field": "blockerId" }
     },
     {
       "name": "UserPreference",
       "fields": [
         { "name": "id", "type": "guid", "key": true },
-        { "name": "userId", "type": "guid" },
+        { "name": "userId", "type": "guid", "fromPrincipal": true },
         { "name": "entityType", "type": "string" },
         { "name": "entityId", "type": "guid" },
         { "name": "preferenceType", "type": "string" },
         { "name": "expiresAt", "type": "datetime", "nullable": true }
-      ]
+      ],
+      "readScope": { "field": "userId" }
     }
   ],
   "publishes": ["UserFollowed", "UserUnfollowed", "FriendRequested", "FriendAccepted", "UserBlocked"],

@@ -17,7 +17,6 @@ public sealed class ChatBlockApiTests(  ChatApiFixture fixture) : IClassFixture<
 
     private static CreateChatBlockRequest SampleRequest() => new(
         Guid.NewGuid(),
-        Guid.NewGuid(),
         Guid.NewGuid()
     );
 

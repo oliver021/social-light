@@ -42,17 +42,20 @@ public static class ChatParticipantEndpoints
     }
 
     public static async Task<Ok<IReadOnlyList<ChatParticipantDto>>> List(
-        ChatParticipantService service, CancellationToken cancellationToken)
+        ChatParticipantService service, ChatParticipantService scopeService, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var scope = await ScopeAsync(scopeService, user, cancellationToken);
         var items = await service.ListAsync(cancellationToken);
-        return TypedResults.Ok<IReadOnlyList<ChatParticipantDto>>([.. items.Select(ToDto)]);
+        return TypedResults.Ok<IReadOnlyList<ChatParticipantDto>>([.. items.Where(scope).Select(ToDto)]);
     }
 
     public static async Task<Results<Ok<ChatParticipantDto>, NotFound>> GetById(
-        Guid id, ChatParticipantService service, CancellationToken cancellationToken)
+        Guid id, ChatParticipantService service, ChatParticipantService scopeService, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var scope = await ScopeAsync(scopeService, user, cancellationToken);
         var item = await service.GetAsync(id, cancellationToken);
-        return item is null ? TypedResults.NotFound() : TypedResults.Ok(ToDto(item));
+        // Not visible to the caller == not found (never reveal that it exists).
+        return item is null || !scope(item) ? TypedResults.NotFound() : TypedResults.Ok(ToDto(item));
     }
 
     public static async Task<Created<ChatParticipantDto>> Create(
@@ -69,10 +72,31 @@ public static class ChatParticipantEndpoints
     }
 
     public static async Task<Results<NoContent, NotFound>> Delete(
-        Guid id, ChatParticipantService service, CancellationToken cancellationToken)
-        => await service.DeleteAsync(id, cancellationToken)
+        Guid id, ChatParticipantService service, ChatParticipantService scopeService, ClaimsPrincipal user, CancellationToken cancellationToken)
+    {
+        var scope = await ScopeAsync(scopeService, user, cancellationToken);
+        var item = await service.GetAsync(id, cancellationToken);
+        if (item is null || !scope(item)) return TypedResults.NotFound();
+        return await service.DeleteAsync(id, cancellationToken)
             ? TypedResults.NoContent()
             : TypedResults.NotFound();
+    }
+
+    /// <summary>
+    /// Read scope (spec `readScope`): the caller sees only rows that concern them
+    /// — rows whose <c>ChatId</c> belongs to a <c>ChatParticipant</c> they are a member of.
+    /// Derived from the JWT `sub`, never from the request.
+    /// </summary>
+    private static async Task<Func<ChatParticipant, bool>> ScopeAsync(
+        ChatParticipantService scopeService, ClaimsPrincipal user, CancellationToken cancellationToken)
+    {
+        var me = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
+        var mine = (await scopeService.ListAsync(cancellationToken))
+            .Where(m => m.UserId == me)
+            .Select(m => m.ChatId)
+            .ToHashSet();
+        return e => mine.Contains(e.ChatId);
+    }
 
     private static ChatParticipantDto ToDto(ChatParticipant e) => new(
         e.Id,

@@ -16,8 +16,7 @@ public sealed class ChatRequestApiTests(  ChatApiFixture fixture) : IClassFixtur
         => fixture.CreateDefaultClient(new ApiVersionHandler(new QueryStringApiVersionWriter(), new ApiVersion(1, 0)));
 
     private static CreateChatRequestRequest SampleRequest() => new(
-        Guid.NewGuid(),
-        Guid.NewGuid(),
+        TestAuthHandler.UserId,
         "sample Status"
     );
 

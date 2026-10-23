@@ -56,11 +56,12 @@ public static class MessageReadReceiptEndpoints
     }
 
     public static async Task<Created<MessageReadReceiptDto>> Create(
-        CreateMessageReadReceiptRequest request, MessageReadReceiptService service, CancellationToken cancellationToken)
+        CreateMessageReadReceiptRequest request, MessageReadReceiptService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var userId = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
         var messageReadReceipt = await service.CreateAsync(
             request.MessageId,
-            request.UserId,
+            userId,
             request.ReadAt,
             cancellationToken);
 

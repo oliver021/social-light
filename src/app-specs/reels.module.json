@@ -7,7 +7,7 @@
       "name": "Reel",
       "fields": [
         { "name": "id", "type": "guid", "key": true },
-        { "name": "creatorId", "type": "guid" },
+        { "name": "creatorId", "type": "guid", "fromPrincipal": true },
         { "name": "videoUrl", "type": "string" },
         { "name": "caption", "type": "string", "nullable": true },
         { "name": "duration", "type": "int" },
@@ -23,9 +23,10 @@
       "fields": [
         { "name": "id", "type": "guid", "key": true },
         { "name": "reelId", "type": "guid" },
-        { "name": "viewerId", "type": "guid" },
+        { "name": "viewerId", "type": "guid", "fromPrincipal": true },
         { "name": "viewedAt", "type": "datetime" }
-      ]
+      ],
+      "readScope": { "field": "viewerId" }
     }
   ],
   "publishes": ["ReelCreated"],

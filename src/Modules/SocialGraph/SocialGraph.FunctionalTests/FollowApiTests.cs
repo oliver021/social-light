@@ -17,7 +17,6 @@ public sealed class FollowApiTests(  SocialGraphApiFixture fixture) : IClassFixt
 
     private static CreateFollowRequest SampleRequest() => new(
         Guid.NewGuid(),
-        Guid.NewGuid(),
         "sample Status",
         DateTime.UtcNow
     );

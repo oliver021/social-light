@@ -16,8 +16,7 @@ public sealed class FriendApiTests(  SocialGraphApiFixture fixture) : IClassFixt
         => fixture.CreateDefaultClient(new ApiVersionHandler(new QueryStringApiVersionWriter(), new ApiVersion(1, 0)));
 
     private static CreateFriendRequest SampleRequest() => new(
-        Guid.NewGuid(),
-        Guid.NewGuid(),
+        TestAuthHandler.UserId,
         "sample Status",
         DateTime.UtcNow
     );

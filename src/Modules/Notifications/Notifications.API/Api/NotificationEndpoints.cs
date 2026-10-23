@@ -42,25 +42,29 @@ public static class NotificationEndpoints
     }
 
     public static async Task<Ok<IReadOnlyList<NotificationDto>>> List(
-        NotificationService service, CancellationToken cancellationToken)
+        NotificationService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var scope = await ScopeAsync(user, cancellationToken);
         var items = await service.ListAsync(cancellationToken);
-        return TypedResults.Ok<IReadOnlyList<NotificationDto>>([.. items.Select(ToDto)]);
+        return TypedResults.Ok<IReadOnlyList<NotificationDto>>([.. items.Where(scope).Select(ToDto)]);
     }
 
     public static async Task<Results<Ok<NotificationDto>, NotFound>> GetById(
-        Guid id, NotificationService service, CancellationToken cancellationToken)
+        Guid id, NotificationService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var scope = await ScopeAsync(user, cancellationToken);
         var item = await service.GetAsync(id, cancellationToken);
-        return item is null ? TypedResults.NotFound() : TypedResults.Ok(ToDto(item));
+        // Not visible to the caller == not found (never reveal that it exists).
+        return item is null || !scope(item) ? TypedResults.NotFound() : TypedResults.Ok(ToDto(item));
     }
 
     public static async Task<Created<NotificationDto>> Create(
-        CreateNotificationRequest request, NotificationService service, CancellationToken cancellationToken)
+        CreateNotificationRequest request, NotificationService service, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
+        var actorId = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
         var notification = await service.CreateAsync(
             request.RecipientId,
-            request.ActorId,
+            actorId,
             request.Type,
             request.EntityType,
             request.EntityId,
@@ -72,10 +76,28 @@ public static class NotificationEndpoints
     }
 
     public static async Task<Results<NoContent, NotFound>> Delete(
-        Guid id, NotificationService service, CancellationToken cancellationToken)
-        => await service.DeleteAsync(id, cancellationToken)
+        Guid id, NotificationService service, ClaimsPrincipal user, CancellationToken cancellationToken)
+    {
+        var scope = await ScopeAsync(user, cancellationToken);
+        var item = await service.GetAsync(id, cancellationToken);
+        if (item is null || !scope(item)) return TypedResults.NotFound();
+        return await service.DeleteAsync(id, cancellationToken)
             ? TypedResults.NoContent()
             : TypedResults.NotFound();
+    }
+
+    /// <summary>
+    /// Read scope (spec `readScope`): the caller sees only rows that concern them
+    /// — rows where <c>RecipientId</c> is the caller.
+    /// Derived from the JWT `sub`, never from the request.
+    /// </summary>
+    private static async Task<Func<Notification, bool>> ScopeAsync(
+        ClaimsPrincipal user, CancellationToken cancellationToken)
+    {
+        var me = Guid.Parse(user.GetUserId() ?? throw new InvalidOperationException("Missing 'sub' claim"));
+        await Task.CompletedTask;
+        return e => e.RecipientId == me;
+    }
 
     private static NotificationDto ToDto(Notification e) => new(
         e.Id,

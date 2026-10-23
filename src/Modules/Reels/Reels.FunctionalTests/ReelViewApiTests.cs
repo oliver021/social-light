@@ -23,9 +23,9 @@ public sealed class ReelViewApiTests(  ReelsApiFixture fixture) : IClassFixture<
         var seedReel = await SeedAsync<CreateReelRequest, ReelDto>(
             client,
             "/api/reels",
-            new CreateReelRequest(Guid.NewGuid(), "sample VideoUrl", "sample Caption", 1, "sample Visibility", Guid.NewGuid()),
+            new CreateReelRequest("sample VideoUrl", "sample Caption", 1, "sample Visibility", Guid.NewGuid()),
             ct);
-        return new CreateReelViewRequest(seedReel.Id, Guid.NewGuid(), DateTime.UtcNow);
+        return new CreateReelViewRequest(seedReel.Id, DateTime.UtcNow);
     }
 
     private static async Task<TDto> SeedAsync<TRequest, TDto>(HttpClient client, string path, TRequest body, CancellationToken ct)
