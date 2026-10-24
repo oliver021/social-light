@@ -1,19 +1,12 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { Avatar, Box, Card, Divider, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, Chip } from '@mui/material';
-import { Home, Users2, ShoppingBag, Clapperboard, User } from 'lucide-react';
 import { cardSx, mutedSx, touchTargetSx } from './ui/tokens';
+import { TABS, TAB_ID } from './layout/tabs';
 
 export const Sidebar: React.FC = () => {
   const { currentUser, activeTab, setActiveTab, notifications } = useApp();
 
-  const menuItems = [
-    { label: 'Home', tab: 'home' as const, icon: Home, color: 'text-primary' },
-    { label: 'Communities', tab: 'groups' as const, icon: Users2, color: 'text-emerald-500' },
-    { label: 'Marketplace', tab: 'marketplace' as const, icon: ShoppingBag, color: 'text-amber-500' },
-    { label: 'Reels', tab: 'reels' as const, icon: Clapperboard, color: 'text-rose-500' },
-    { label: 'My profile', tab: 'profile' as const, icon: User, color: 'text-accent' }
-  ];
 
   const unreadAlerts = notifications.filter(n => !n.read).length;
 
@@ -27,7 +20,7 @@ export const Sidebar: React.FC = () => {
             component="button"
             type="button"
             aria-label="Open my profile"
-            onClick={() => setActiveTab('profile')}
+            onClick={() => setActiveTab(TAB_ID.profile)}
             sx={{ background: 'none', border: 0, p: 0, mb: 1, borderRadius: '50%', cursor: 'pointer', ...touchTargetSx, minWidth: 0, minHeight: 0 }}
           >
             <Avatar src={currentUser.avatar} alt={currentUser.name} sx={{ width: 64, height: 64, border: '4px solid var(--ui-surface)', boxShadow: 1 }} />
@@ -35,7 +28,7 @@ export const Sidebar: React.FC = () => {
           <Typography
             component="button"
             type="button"
-            onClick={() => setActiveTab('profile')}
+            onClick={() => setActiveTab(TAB_ID.profile)}
             sx={{ background: 'none', border: 0, p: 0, m: 0, cursor: 'pointer', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--ui-text)', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { color: 'var(--ui-primary)' } }}
           >
             {currentUser.name}
@@ -74,14 +67,14 @@ export const Sidebar: React.FC = () => {
           Menu
         </Typography>
         <List className="py-0 px-2 pb-2">
-          {menuItems.map((item) => {
+          {TABS.map((item) => {
             const IconComponent = item.icon;
-            const isSelected = activeTab === item.tab;
-            const badge = item.tab === 'home' && unreadAlerts > 0 ? `, ${unreadAlerts} unread notifications` : '';
+            const isSelected = activeTab === item.id;
+            const badge = item.id === TAB_ID.home && unreadAlerts > 0 ? `, ${unreadAlerts} unread notifications` : '';
             return (
-              <ListItem key={item.tab} disablePadding sx={{ my: 0.25 }}>
+              <ListItem key={item.id} disablePadding sx={{ my: 0.25 }}>
                 <ListItemButton
-                  onClick={() => setActiveTab(item.tab)}
+                  onClick={() => setActiveTab(item.id)}
                   aria-current={isSelected ? 'page' : undefined}
                   aria-label={`${item.label}${badge}`}
                   sx={{
@@ -103,7 +96,7 @@ export const Sidebar: React.FC = () => {
                     primary={item.label}
                     slotProps={{ primary: { sx: { fontSize: '0.8125rem', fontWeight: isSelected ? 600 : 500, fontFamily: 'var(--font-display)' } } }}
                   />
-                  {item.tab === 'home' && unreadAlerts > 0 && (
+                  {item.id === TAB_ID.home && unreadAlerts > 0 && (
                     <Chip
                       label={unreadAlerts}
                       size="small"

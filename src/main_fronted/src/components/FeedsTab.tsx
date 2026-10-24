@@ -10,8 +10,7 @@ import {
   Button,
   TextField,
   IconButton,
-  Divider,
-  Skeleton
+  Divider
 } from '@mui/material';
 import { MediaPicker } from './MediaPicker';
 import {
@@ -29,28 +28,11 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { EmptyState } from './ui/EmptyState';
 import { useSettled } from './ui/useSettled';
+import { PostSkeleton } from './ui/Skeletons';
 import { cardSx, mutedSx, touchTargetSx } from './ui/tokens';
 import { SHOW_PEOPLE_EVENT } from './Widgets';
 
 const POSTS_PAGE_SIZE = 5;
-
-// Placeholder rows shown while the first feed request is in flight.
-const FeedSkeleton: React.FC = () => (
-  <Box aria-busy="true" aria-label="Loading posts" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-    {[0, 1].map((i) => (
-      <Card key={i} variant="outlined" sx={{ ...cardSx }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-          <Skeleton variant="circular" width={40} height={40} />
-          <Box sx={{ flex: 1 }}>
-            <Skeleton variant="text" width="40%" />
-            <Skeleton variant="text" width="25%" />
-          </Box>
-        </Box>
-        <Skeleton variant="rounded" height={120} />
-      </Card>
-    ))}
-  </Box>
-);
 
 export const FeedsTab: React.FC = () => {
   const { currentUser, posts, addPost, people } = useApp();
@@ -363,7 +345,7 @@ export const FeedsTab: React.FC = () => {
       </Card>
 
       {/* FEED: skeleton while loading, empty state when the feed is genuinely empty, else posts */}
-      {posts.length === 0 && !settled && <FeedSkeleton />}
+      {posts.length === 0 && !settled && <PostSkeleton />}
 
       {posts.length === 0 && settled && (
         followingSomeone ? (

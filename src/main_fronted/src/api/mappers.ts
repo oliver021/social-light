@@ -11,6 +11,10 @@ import type { components as NotificationComponents } from '@sdk/notifications';
 import type { components as CatalogComponents } from '@sdk/catalog';
 import type { UserProfile, Post, Comment, Reactions, NotificationItem, MarketItem } from '../types';
 import { mediaUrl, unMediaUrl } from './gateway';
+import { timeAgo } from '../components/ui/time';
+
+// timeAgo lives in components/ui/time.ts (M0.3); re-exported so existing imports keep working.
+export { timeAgo };
 
 /** The six reaction kinds the UI knows about; the backend stores the key verbatim. */
 const REACTION_KEYS: (keyof Reactions)[] = ['like', 'love', 'laugh', 'wow', 'sad', 'angry'];
@@ -80,20 +84,6 @@ export function userToUpdateRequest(u: Partial<UserProfile>): ProfileComponents[
     location: null,
     handle: handle || null,
   };
-}
-
-/** Best-effort relative time from an ISO timestamp. */
-export function timeAgo(iso: string | null | undefined): string {
-  if (!iso) return 'Just now';
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return 'Just now';
-  const secs = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (secs < 60) return 'Just now';
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
 }
 
 /** FeedItemDto (already composed by Feed.API) -> the UI's Post. */
