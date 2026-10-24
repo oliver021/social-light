@@ -14,6 +14,12 @@ describe('UserAvatar', () => {
     expect(screen.getByRole('img', { name: 'Ana Ruiz' })).toBeInTheDocument();
   });
 
+  it('shows a stored /bff avatar url once, not prefixed twice', () => {
+    renderWithProviders(<UserAvatar name="Ana Ruiz" src="/bff/blobs/a.png" />);
+    const img = screen.getByRole('img', { name: 'Ana Ruiz' });
+    expect(img.getAttribute('src')).toBe('/bff/blobs/a.png');
+  });
+
   it('with onClick it is a button named "Open {name}\'s profile"', async () => {
     const onClick = vi.fn();
     const { user } = renderWithProviders(<UserAvatar name="Ana Ruiz" onClick={onClick} />);

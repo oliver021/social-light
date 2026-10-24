@@ -47,6 +47,12 @@ describe('media URLs', () => {
     expect(unMediaUrl(mediaUrl('/blobs/abc.png'))).toBe('/blobs/abc.png');
   });
 
+  it('is idempotent: an already-prefixed url is returned unchanged', () => {
+    expect(mediaUrl('/bff/blobs/a.png')).toBe('/bff/blobs/a.png');
+    expect(mediaUrl(mediaUrl('/blobs/a.png'))).toBe('/bff/blobs/a.png');
+    expect(mediaUrl(mediaUrl(mediaUrl('/blobs/a.png')))).toBe('/bff/blobs/a.png');
+  });
+
   it('passes absolute, data and blob URLs through untouched', () => {
     expect(mediaUrl('https://images.example.test/a.jpg')).toBe('https://images.example.test/a.jpg');
     expect(mediaUrl('data:image/png;base64,AAAA')).toBe('data:image/png;base64,AAAA');

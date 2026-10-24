@@ -1,34 +1,35 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { messageOf } from '../api/gateway';
-import { 
-  Box, 
-  Typography, 
-  Avatar, 
-  IconButton, 
-  InputBase 
-} from '@mui/material';
-import { 
-  X, 
-  Minus, 
-  Send, 
-  ThumbsUp, 
-  Smile
-} from 'lucide-react';
+import { Box, Typography, IconButton, InputBase } from '@mui/material';
+import { X, Minus, Send, ThumbsUp, Smile } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { EmptyState, T, UserAvatar } from './ui';
+import type { ChatBoxState, ChatMessage } from '../types';
 
 /** Phones get a full-screen chat; anything wider keeps floating windows. */
 const PHONE_QUERY = '(max-width: 639px)';
 
+/** A 44px target for every icon button in the chat windows (WCAG 2.5.5). */
+const touchIconSx = {
+  width: 44,
+  height: 44,
+  p: 0,
+  color: T.muted,
+  borderRadius: 'var(--ui-radius-sm)',
+  '&:hover': { bgcolor: T.surface3 },
+  '&.Mui-focusVisible': { outline: `2px solid ${T.focus}`, outlineOffset: 2 },
+};
+
 export const Messenger: React.FC = () => {
-  const { 
-    activeChats, 
-    chatMessages, 
-    sendMessage, 
-    closeChat, 
-    minimizeChat, 
+  const {
+    activeChats,
+    chatMessages,
+    sendMessage,
+    closeChat,
+    minimizeChat,
     currentUser,
-    showToast
+    showToast,
   } = useApp();
 
   const [inputStates, setInputStates] = useState<Record<string, string>>({});
@@ -45,7 +46,7 @@ export const Messenger: React.FC = () => {
   }, []);
 
   const handleInputChange = (userId: string, val: string) => {
-    setInputStates(prev => ({ ...prev, [userId]: val }));
+    setInputStates((prev) => ({ ...prev, [userId]: val }));
   };
 
   // The composer is cleared only after the message is accepted. On failure the text stays
@@ -56,7 +57,7 @@ export const Messenger: React.FC = () => {
     try {
       await sendMessage(userId, text);
       // Clear only if the user has not typed something new in the meantime.
-      setInputStates(prev => (prev[userId] === text ? { ...prev, [userId]: '' } : prev));
+      setInputStates((prev) => (prev[userId] === text ? { ...prev, [userId]: '' } : prev));
     } catch (err) {
       showToast(messageOf(err, 'Your message was not sent'));
     }
@@ -74,7 +75,24 @@ export const Messenger: React.FC = () => {
   };
 
   return (
-    <Box className="fixed bottom-0 top-14 left-0 right-0 sm:top-auto sm:left-auto sm:right-10 z-50 flex flex-row-reverse items-end gap-4 pointer-events-none sm:max-w-[95%] overflow-visible">
+    <Box
+      sx={{
+        position: 'fixed',
+        // Phones: the chat fills the space between the top bar and the bottom navigation.
+        top: { xs: 'calc(var(--ui-header-h) + 8px)', sm: 'auto' },
+        bottom: { xs: 'calc(var(--ui-bottomnav-h) + 8px)', md: 0 },
+        left: { xs: 0, sm: 'auto' },
+        right: { xs: 0, sm: 40 },
+        zIndex: 50,
+        display: 'flex',
+        flexDirection: 'row-reverse',
+        alignItems: 'flex-end',
+        gap: 2,
+        maxWidth: { sm: '95%' },
+        pointerEvents: 'none',
+        overflow: 'visible',
+      }}
+    >
       <AnimatePresence>
         {activeChats.map((chat, idx) => {
           const messages = chatMessages[chat.userId] || [];
@@ -106,8 +124,8 @@ export const Messenger: React.FC = () => {
 
 interface ChatBoxProps {
   showOnMobile: boolean;
-  chat: any;
-  messages: any[];
+  chat: ChatBoxState;
+  messages: ChatMessage[];
   currentInput: string;
   onInputChange: (val: string) => void;
   onSend: () => void;
@@ -115,7 +133,7 @@ interface ChatBoxProps {
   onLike: () => void;
   onMinimize: () => void;
   onClose: () => void;
-  currentUser: any;
+  currentUser: { id: string };
 }
 
 const ChatBox: React.FC<ChatBoxProps> = ({
@@ -129,7 +147,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   onLike,
   onMinimize,
   onClose,
-  currentUser
+  currentUser,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -140,30 +158,46 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   }, [messages, chat.isMinimized]);
 
   return (
-    <motion.div
+    <Box
+      component={motion.div}
       initial={{ opacity: 0, y: 150, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 100, scale: 0.9 }}
       transition={{ type: 'spring', damping: 20, stiffness: 150 }}
       id={`facebook-chat-box-${chat.userId}`}
-      className={`pointer-events-auto ${showOnMobile ? 'flex' : 'hidden sm:flex'} flex-col w-full sm:w-[310px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-none sm:rounded-t-2xl shadow-2xl ${
-        chat.isMinimized ? 'h-11 mb-14 sm:mb-0' : 'h-full sm:h-[400px] sm:max-h-[440px]'
-      }`}
+      sx={{
+        pointerEvents: 'auto',
+        display: showOnMobile ? 'flex' : { xs: 'none', sm: 'flex' },
+        flexDirection: 'column',
+        width: { xs: '100%', sm: 310 },
+        // Minimized: a 44px header. Expanded: fills the phone space (never under the bottom
+        // navigation or the top bar), or a 400px floating window from 640px up.
+        height: chat.isMinimized ? 44 : { xs: '100%', sm: 400 },
+        maxHeight: chat.isMinimized
+          ? 44
+          : { xs: 'calc(100dvh - var(--ui-header-h) - var(--ui-bottomnav-h) - 16px)', sm: 440 },
+        bgcolor: T.surface,
+        color: T.text,
+        border: `1px solid ${T.border}`,
+        borderRadius: { xs: 0, sm: 'var(--ui-radius-lg) var(--ui-radius-lg) 0 0' },
+        boxShadow: 'var(--ui-shadow-2)',
+        overflow: 'hidden',
+      }}
     >
       {/* CHAT HEADER */}
-      <Box 
+      <Box
         onClick={onMinimize}
-        className="h-11 shrink-0 px-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between cursor-pointer rounded-none sm:rounded-t-2xl select-none"
+        className="h-11 shrink-0 px-3 bg-surface-2 border-b border-line flex items-center justify-between cursor-pointer select-none"
       >
         <Box className="flex items-center gap-2 min-w-0">
-          <Avatar src={chat.avatar} alt={chat.name} className="w-6.5 h-6.5 scale-90" />
+          <UserAvatar name={chat.name} src={chat.avatar} size="xs" />
           <Box className="leading-tight min-w-0">
-            <Typography variant="caption" className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs block truncate max-w-[130px]">
+            <Typography className="font-semibold text-fg text-xs block truncate max-w-[130px]">
               {chat.name}
             </Typography>
             {/* No presence is tracked yet, so the header shows the handle, never a status. */}
             {chat.handle && (
-              <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 font-mono block truncate max-w-[130px]">
+              <Typography className="text-xs text-muted font-mono block truncate max-w-[130px]">
                 {chat.handle}
               </Typography>
             )}
@@ -171,57 +205,47 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         </Box>
 
         <Box className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-          <TooltipIconButton title={`Minimize chat with ${chat.name}`} onClick={onMinimize}>
-            <Minus className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
-          </TooltipIconButton>
-          <TooltipIconButton title={`Close chat with ${chat.name}`} onClick={onClose}>
-            <X className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
-          </TooltipIconButton>
+          <IconButton size="small" onClick={onMinimize} aria-label={`Minimize chat with ${chat.name}`} sx={touchIconSx}>
+            <Minus size={16} strokeWidth={1.75} aria-hidden="true" />
+          </IconButton>
+          <IconButton size="small" onClick={onClose} aria-label={`Close chat with ${chat.name}`} sx={touchIconSx}>
+            <X size={16} strokeWidth={1.75} aria-hidden="true" />
+          </IconButton>
         </Box>
       </Box>
 
       {/* CHAT BODY */}
       {!chat.isMinimized && (
         <>
-          <Box 
+          <Box
             ref={scrollRef}
-            className="flex-1 min-h-0 p-3 overflow-y-auto space-y-2.5 bg-zinc-50/40 dark:bg-zinc-950/20 sm:max-h-[295px]"
+            className="flex-1 min-h-0 p-3 overflow-y-auto space-y-2.5 bg-page"
           >
             {messages.length === 0 ? (
-              <Box className="flex flex-col items-center justify-center py-8 text-center px-4">
-                <Avatar src={chat.avatar} alt={chat.name} className="w-14 h-14 mb-2 shadow-md border-2 border-zinc-100 dark:border-zinc-800" />
-                <Typography variant="body2" className="font-bold text-zinc-800 dark:text-zinc-200 text-xs">
-                  {chat.name}
-                </Typography>
-                {chat.handle && (
-                  <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 font-mono">
-                    {chat.handle}
-                  </Typography>
-                )}
-                <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 block italic">
-                  Say hello to start the conversation.
-                </Typography>
+              <Box className="flex flex-col items-center justify-center py-6 text-center px-4 gap-1">
+                <UserAvatar name={chat.name} src={chat.avatar} size="lg" />
+                <Typography className="font-bold text-fg text-xs">{chat.name}</Typography>
+                {chat.handle && <Typography className="text-xs text-muted font-mono">{chat.handle}</Typography>}
+                <EmptyState compact title="Say hello to start the conversation." />
               </Box>
             ) : (
               messages.map((msg, i) => {
                 const isMe = msg.senderId === currentUser.id;
                 return (
-                  <Box 
+                  <Box
                     key={msg.id || i}
                     className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
                   >
-                    {!isMe && (
-                      <Avatar src={chat.avatar} alt={chat.name} className="w-5.5 h-5.5 scale-90 mb-0.5 shrink-0" />
-                    )}
-                    <Box 
-                      className={`max-w-[72%] rounded-2xl px-3 py-1.5 text-xs shadow-sm ${
-                        isMe 
-                          ? 'bg-gradient-to-tr from-blue-600 to-purple-600 text-white rounded-br-none' 
-                          : 'bg-zinc-100 dark:bg-zinc-850 text-zinc-800 dark:text-zinc-200 rounded-bl-none'
+                    {!isMe && <UserAvatar name={chat.name} src={chat.avatar} size="xs" />}
+                    <Box
+                      className={`max-w-[72%] rounded-lg px-3 py-1.5 shadow-1 ${
+                        isMe
+                          ? 'bg-primary text-on-primary rounded-br-none'
+                          : 'bg-surface-2 text-fg rounded-bl-none'
                       }`}
                       style={{
                         wordBreak: 'break-word',
-                        whiteSpace: 'pre-wrap'
+                        whiteSpace: 'pre-wrap',
                       }}
                     >
                       <Typography variant="body2" className="text-xs font-sans leading-snug">
@@ -232,16 +256,15 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                 );
               })
             )}
-
           </Box>
 
           {/* CHAT FOOTER INPUT */}
-          <Box className="p-2 border-t border-zinc-200 dark:border-zinc-800 flex items-center gap-1 bg-white dark:bg-zinc-950">
-            <IconButton size="small" aria-label="Emoji" className="w-11 h-11 sm:w-8 sm:h-8 p-0 text-zinc-600 dark:text-zinc-400 hover:text-zinc-600">
-              <Smile className="w-4 h-4" />
+          <Box className="p-2 border-t border-line flex items-center gap-1 bg-surface">
+            <IconButton size="small" aria-label="Emoji" sx={touchIconSx}>
+              <Smile size={18} strokeWidth={1.75} aria-hidden="true" />
             </IconButton>
 
-            <Box className="flex-1 bg-zinc-100 dark:bg-zinc-900 rounded-full px-3 py-1 flex items-center border border-zinc-200/50 dark:border-zinc-800/60">
+            <Box className="flex-1 bg-surface-2 rounded-full px-3 py-1 flex items-center border border-line">
               <InputBase
                 placeholder="Aa..."
                 size="small"
@@ -249,54 +272,28 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                 value={currentInput}
                 onChange={(e) => onInputChange(e.target.value)}
                 onKeyDown={onKeyDown}
-                className="font-sans text-xs text-zinc-800 dark:text-zinc-100"
+                className="font-sans text-xs text-fg"
                 slotProps={{
                   input: {
                     className: 'p-0 text-xs font-sans',
-                    'aria-label': `Message ${chat.name}`
-                  }
+                    'aria-label': `Message ${chat.name}`,
+                  },
                 }}
               />
             </Box>
 
             {currentInput.trim() ? (
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={onSend}
-                aria-label="Send message"
-                className="w-11 h-11 sm:w-8 sm:h-8 p-0 text-blue-500 hover:text-blue-600"
-              >
-                <Send className="w-4 h-4 rotate-0" />
+              <IconButton size="small" onClick={onSend} aria-label="Send message" sx={{ ...touchIconSx, color: T.primary }}>
+                <Send size={18} strokeWidth={1.75} aria-hidden="true" />
               </IconButton>
             ) : (
-              <IconButton
-                size="small"
-                onClick={onLike}
-                aria-label="Send thumbs up"
-                className="w-11 h-11 sm:w-8 sm:h-8 p-0 text-amber-500 hover:text-amber-600"
-              >
-                <ThumbsUp className="w-4 h-4" />
+              <IconButton size="small" onClick={onLike} aria-label="Send thumbs up" sx={{ ...touchIconSx, color: T.warning }}>
+                <ThumbsUp size={18} strokeWidth={1.75} aria-hidden="true" />
               </IconButton>
             )}
           </Box>
         </>
       )}
-    </motion.div>
+    </Box>
   );
 };
-
-const TooltipIconButton: React.FC<{ title: string; onClick: () => void; children: React.ReactNode }> = ({
-  title,
-  onClick,
-  children
-}) => (
-  <IconButton
-    size="small"
-    onClick={onClick}
-    aria-label={title}
-    className="w-11 h-11 sm:w-7 sm:h-7 p-0 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/80 rounded"
-  >
-    {children}
-  </IconButton>
-);

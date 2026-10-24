@@ -1,160 +1,191 @@
-import React, { useRef, useState } from 'react';
+import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { Box, Card, IconButton, Typography } from '@mui/material';
-import { FileVideo, Play, Pause, ExternalLink } from 'lucide-react';
+import { Box, ButtonBase, Card, Typography } from '@mui/material';
+import { BarChart4, ExternalLink } from 'lucide-react';
 import type { Post } from '../../types';
+import { mediaUrl } from '../../api/gateway';
+import { T } from '../ui/tokens';
 
 export interface PostBodyProps {
   post: Post;
 }
 
+const ALT_TEXT_LIMIT = 120;
+
+/** Alt text for a post image: the post text (truncated), or the author when there is no text. */
+export function postImageAlt(post: Pick<Post, 'content' | 'author'>): string {
+  const text = post.content.trim();
+  if (!text) return `Image posted by ${post.author.name}`;
+  return text.length > ALT_TEXT_LIMIT ? `${text.slice(0, ALT_TEXT_LIMIT)}…` : text;
+}
+
+/** Only http(s) links are rendered as links. A user-posted javascript: or data: url is not. */
+export function safeHttpUrl(raw: string | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The post's text and its attachments: poll, image, video, or link preview. */
 export const PostBody: React.FC<PostBodyProps> = ({ post }) => {
   const { votePoll } = useApp();
-  const [videoPlaying, setVideoPlaying] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  const handleToggleVideo = () => {
-    if (videoRef.current) {
-      if (videoPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play().catch(err => {
-          console.warn("Autoplay block:", err);
-        });
-      }
-      setVideoPlaying(!videoPlaying);
-    }
-  };
+  const linkHref = safeHttpUrl(post.linkUrl);
+  const linkHost = linkHref ? new URL(linkHref).hostname : null;
 
   return (
     <>
-    {/* CORE POST CONTENT */}
-    <Typography variant="body2" className="text-zinc-850 dark:text-zinc-300 leading-relaxed text-xs break-words whitespace-pre-wrap">
-      {post.content}
-    </Typography>
+      {/* CORE POST CONTENT */}
+      <Typography sx={{ color: T.text, fontSize: 'var(--ui-fs-base)', lineHeight: 1.5, overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>
+        {post.content}
+      </Typography>
 
-    {/* RENDER DYNAMIC ATTACHMENTS */}
-    {post.type === 'poll' && post.poll && (
-      <Box className="p-3.5 bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/50 dark:border-zinc-850 rounded-xl space-y-2.5">
-        <Typography variant="subtitle2" className="font-display font-semibold text-zinc-800 dark:text-zinc-200 text-xs break-words">
-          📊 {post.poll.question}
-        </Typography>
-      
-        <Box className="space-y-2">
-          {post.poll.options.map((opt) => {
-            const percentage = post.poll!.totalVotes > 0 
-              ? Math.round((opt.votes / post.poll!.totalVotes) * 100) 
-              : 0;
+      {/* POLL: each option is a button, so the vote works from the keyboard too */}
+      {post.type === 'poll' && post.poll && (
+        <Box sx={{ p: 1.5, bgcolor: T.surface2, border: `1px solid ${T.border}`, borderRadius: 'var(--ui-radius-lg)', display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Typography sx={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--ui-fs-sm)', color: T.text, display: 'flex', alignItems: 'center', gap: 1, overflowWrap: 'anywhere' }}>
+            <BarChart4 aria-hidden="true" size={18} strokeWidth={1.75} color={T.accent} />
+            {post.poll.question}
+          </Typography>
 
-            const isUserVoted = post.poll!.userVotedOptionId === opt.id;
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {post.poll.options.map((opt) => {
+              const totalVotes = post.poll!.totalVotes;
+              const percentage = totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0;
+              const isUserVoted = post.poll!.userVotedOptionId === opt.id;
 
-            return (
-              <Box 
-                key={opt.id} 
-                onClick={() => votePoll(post.id, opt.id)}
-                className={`relative p-2.5 rounded-lg border cursor-pointer select-none overflow-hidden transition-all duration-350 ${
-                  isUserVoted 
-                  ? 'border-primary bg-primary-soft/15' 
-                  : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100/40 dark:hover:bg-zinc-900/40'
-                }`}
-              >
-                {/* Graphical bar progress indicator background */}
-                <div 
-                  className="absolute top-0 bottom-0 left-0 bg-primary/10 transition-all duration-500"
-                  style={{ width: `${percentage}%` }}
-                />
-
-                <Box className="relative flex items-center justify-between z-10">
-                  <Typography variant="caption" className={`text-xs font-medium break-words min-w-0 ${isUserVoted ? 'text-primary font-semibold' : 'text-zinc-700 dark:text-zinc-400'}`}>
-                    {opt.text} {isUserVoted && '✓'}
-                  </Typography>
-                  <Typography variant="caption" className="font-mono text-xs text-zinc-600 dark:text-zinc-400">
-                    {opt.votes} ({percentage}%)
-                  </Typography>
-                </Box>
-              </Box>
-            );
-          })}
-        </Box>
-        <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 font-mono text-xs block">
-          {post.poll.totalVotes} responses counted • Click items to vote
-        </Typography>
-      </Box>
-    )}
-
-    {post.type === 'image' && post.imageUrl && (
-      <Box className="relative rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-850 max-h-96">
-        <img
-          src={post.imageUrl}
-          alt={post.content ? `Image attached to post: ${post.content.slice(0, 80)}` : 'Image attached to post'}
-          className="w-full max-w-full object-cover max-h-96"
-          referrerPolicy="no-referrer"
-        />
-      </Box>
-    )}
-
-    {post.type === 'video' && post.videoUrl && (
-      <Box className="relative rounded-xl overflow-hidden border border-zinc-200/60 dark:border-zinc-850 bg-black aspect-video flex items-center justify-center">
-        <video 
-          ref={videoRef}
-          aria-label={post.content ? `Video attached to post: ${post.content.slice(0, 80)}` : 'Video attached to post'}
-          src={post.videoUrl}
-          loop
-          muted
-          playsInline
-          className="w-full max-w-full h-full object-cover"
-        />
-        {/* Custom play interface overlay */}
-        <Box className="absolute inset-0 bg-black/35 hover:bg-black/20 flex items-center justify-center transition-all">
-          <IconButton
-            size="large"
-            aria-label={videoPlaying ? 'Pause video' : 'Play video'}
-            onClick={handleToggleVideo}
-            className="bg-white/90 hover:bg-white text-zinc-900 p-2.5 shadow-xl"
-          >
-            {videoPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
-          </IconButton>
-        </Box>
-        <Box className="absolute bottom-2.5 left-2.5 bg-zinc-900/70 backdrop-blur px-2 py-0.5 rounded-full flex items-center gap-1.5 border border-zinc-700/50">
-          <FileVideo className="w-3" color="var(--ui-accent)" />
-          <Typography variant="caption" className="font-mono text-xs text-zinc-300">
-            Interactive video preview
+              return (
+                <ButtonBase
+                  key={opt.id}
+                  onClick={() => votePoll(post.id, opt.id)}
+                  aria-label={`Vote for ${opt.text}`}
+                  aria-pressed={isUserVoted}
+                  sx={{
+                    position: 'relative',
+                    display: 'block',
+                    width: '100%',
+                    minHeight: 44,
+                    px: 1.5,
+                    py: 1,
+                    textAlign: 'left',
+                    overflow: 'hidden',
+                    borderRadius: 'var(--ui-radius-sm)',
+                    border: `1px solid ${isUserVoted ? T.primary : T.border}`,
+                    bgcolor: T.surface,
+                    transition: `background-color var(--ui-dur) var(--ui-ease), border-color var(--ui-dur) var(--ui-ease)`,
+                    '&:hover': { bgcolor: T.surface2 },
+                    '&:active': { bgcolor: T.surface3 },
+                    '&.Mui-focusVisible': { outline: `2px solid ${T.focus}`, outlineOffset: 2 },
+                  }}
+                >
+                  <Box
+                    aria-hidden="true"
+                    sx={{
+                      position: 'absolute',
+                      inset: '0 auto 0 0',
+                      width: `${percentage}%`,
+                      bgcolor: T.primarySoft,
+                      transition: `width var(--ui-dur) var(--ui-ease)`,
+                    }}
+                  />
+                  <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 'var(--ui-fs-sm)', fontWeight: isUserVoted ? 600 : 500, color: isUserVoted ? T.primary : T.text, overflowWrap: 'anywhere', minWidth: 0 }}>
+                      {opt.text}{isUserVoted ? ' ✓' : ''}
+                    </Typography>
+                    <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--ui-fs-xs)', color: T.muted, flexShrink: 0 }}>
+                      {opt.votes} ({percentage}%)
+                    </Typography>
+                  </Box>
+                </ButtonBase>
+              );
+            })}
+          </Box>
+          <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--ui-fs-xs)', color: T.muted }}>
+            {post.poll.totalVotes} {post.poll.totalVotes === 1 ? 'response' : 'responses'} · Select an option to vote
           </Typography>
         </Box>
-      </Box>
-    )}
+      )}
 
-    {post.type === 'link' && post.linkUrl && (
-      <Card 
-        variant="outlined" 
-        className="rounded-xl border border-zinc-200 dark:border-zinc-850 overflow-hidden bg-zinc-50/50 dark:bg-zinc-900/30 hover:border-primary transition-all cursor-pointer flex flex-col md:flex-row"
-        onClick={() => window.open(post.linkUrl, '_blank')}
-      >
-        {post.linkImage && (
-          <img 
-            src={post.linkImage}
-            alt={post.linkTitle ? `Preview image for ${post.linkTitle}` : 'Link preview image'}
-            className="w-full md:w-32 h-24 object-cover shrink-0"
+      {post.type === 'image' && post.imageUrl && (
+        <Box sx={{ borderRadius: 'var(--ui-radius-lg)', overflow: 'hidden', border: `1px solid ${T.border}`, bgcolor: T.surface2 }}>
+          <Box
+            component="img"
+            src={mediaUrl(post.imageUrl)}
+            alt={postImageAlt(post)}
             referrerPolicy="no-referrer"
+            sx={{ display: 'block', width: '100%', maxWidth: '100%', maxHeight: 560, objectFit: 'cover' }}
           />
-        )}
-        <Box className="p-3 flex flex-col justify-between min-w-0">
-          <Box className="min-w-0">
-            <Typography variant="subtitle2" className="font-display font-bold text-zinc-800 dark:text-zinc-200 leading-snug line-clamp-1 break-all text-xs">
-              {post.linkTitle}
-            </Typography>
-            <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed text-xs break-words">
-              {post.linkDesc}
-            </Typography>
-          </Box>
-          <Box className="flex items-center gap-1 mt-1 text-xs font-mono text-primary dark:text-primary">
-            <ExternalLink className="w-3 h-3" />
-            Source: chromium.org
-          </Box>
         </Box>
-      </Card>
-    )}
+      )}
+
+      {post.type === 'video' && post.videoUrl && (
+        <Box sx={{ borderRadius: 'var(--ui-radius-lg)', overflow: 'hidden', border: `1px solid ${T.border}`, bgcolor: 'black' }}>
+          <Box
+            component="video"
+            aria-label={post.content ? `Video posted by ${post.author.name}` : 'Video attached to post'}
+            src={mediaUrl(post.videoUrl)}
+            controls
+            playsInline
+            preload="metadata"
+            sx={{ display: 'block', width: '100%', maxWidth: '100%', maxHeight: 560, bgcolor: 'black' }}
+          />
+        </Box>
+      )}
+
+      {post.type === 'link' && post.linkUrl && (
+        <Card
+          variant="outlined"
+          component={linkHref ? 'a' : 'div'}
+          href={linkHref ?? undefined}
+          target={linkHref ? '_blank' : undefined}
+          rel={linkHref ? 'noopener noreferrer' : undefined}
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            overflow: 'hidden',
+            borderRadius: 'var(--ui-radius-lg)',
+            borderColor: T.border,
+            bgcolor: T.surface2,
+            color: 'inherit',
+            textDecoration: 'none',
+            boxShadow: 'none',
+            transition: `background-color var(--ui-dur) var(--ui-ease)`,
+            '&:hover': { bgcolor: T.surface3 },
+            '&:focus-visible': { outline: `2px solid ${T.focus}`, outlineOffset: 2 },
+          }}
+        >
+          {post.linkImage && (
+            <Box
+              component="img"
+              src={mediaUrl(post.linkImage)}
+              alt={post.linkTitle ? `Preview image for ${post.linkTitle}` : 'Link preview image'}
+              referrerPolicy="no-referrer"
+              sx={{ width: { xs: '100%', md: 128 }, height: 96, objectFit: 'cover', flexShrink: 0 }}
+            />
+          )}
+          <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 0.5, minWidth: 0 }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--ui-fs-sm)', color: T.text, overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {post.linkTitle}
+              </Typography>
+              {post.linkDesc && (
+                <Typography sx={{ mt: 0.5, fontSize: 'var(--ui-fs-xs)', color: T.muted, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>
+                  {post.linkDesc}
+                </Typography>
+              )}
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--ui-fs-xs)', color: T.primary }}>
+              <ExternalLink aria-hidden="true" size={14} strokeWidth={1.75} />
+              <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {linkHost ? linkHost : 'Link not available'}
+              </Box>
+            </Box>
+          </Box>
+        </Card>
+      )}
     </>
   );
 };

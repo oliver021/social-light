@@ -6,6 +6,7 @@ import { SearchBox } from './navbar/SearchBox';
 import { MessengerMenu } from './navbar/MessengerMenu';
 import { NotificationsMenu } from './navbar/NotificationsMenu';
 import { AccountMenu } from './navbar/AccountMenu';
+import { navIconButtonSx } from './navbar/menuSx';
 import { TAB_ID } from './layout/tabs';
 import { T } from './ui/tokens';
 
@@ -35,7 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
         backdropFilter: 'blur(8px)',
         borderBottom: `1px solid ${T.border}`,
         color: T.text,
-        transition: 'background-color 350ms',
+        transition: `background-color var(--ui-dur) var(--ui-ease)`,
       }}
     >
       <Toolbar
@@ -45,13 +46,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
         {/* LOGO */}
         <Box className="flex items-center gap-2 sm:gap-3 min-w-0">
           <IconButton
-            color="inherit"
             aria-label="Open navigation menu"
             edge="start"
             onClick={onToggleMobileDrawer}
-            className="md:hidden w-11 h-11 p-0"
+            sx={{
+              ...navIconButtonSx,
+              color: T.text,
+              display: { xs: 'inline-flex', md: 'none' },
+            }}
           >
-            <MenuIcon className="w-5 h-5 text-zinc-700 dark:text-zinc-300" />
+            <MenuIcon size={20} strokeWidth={1.75} aria-hidden="true" />
           </IconButton>
 
           <Box
@@ -62,8 +66,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
             onClick={() => setActiveTab(TAB_ID.home)}
             onKeyDown={(e) => { if (e.key === 'Enter') setActiveTab(TAB_ID.home); }}
           >
-            <Box className="p-1.5 brand-gradient rounded-xl flex items-center justify-center text-white shadow-lg">
-              <Zap className="w-5 h-5 fill-current animate-bounce" />
+            <Box className="p-1.5 brand-gradient rounded-sm flex items-center justify-center text-on-primary shadow-2">
+              <Zap size={20} strokeWidth={1.75} aria-hidden="true" className="fill-current animate-bounce" />
             </Box>
             <Typography variant="h6" className="hidden min-[480px]:block font-display font-bold text-transparent bg-clip-text brand-gradient tracking-tight leading-none text-xl whitespace-nowrap shrink-0">
               socialLight
@@ -79,22 +83,24 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
           {/* MOBILE SEARCH TOGGLE (desktop shows the search bar inline) */}
           <IconButton
             onClick={() => setMobileSearchOpen((open) => !open)}
-            color="inherit"
             aria-label={mobileSearchOpen ? 'Close search' : 'Open search'}
             aria-expanded={mobileSearchOpen}
-            className="sm:hidden w-11 h-11 p-0 text-zinc-600 dark:text-zinc-400"
+            sx={{ ...navIconButtonSx, display: { xs: 'inline-flex', sm: 'none' } }}
           >
-            <Search className="w-5 h-5" />
+            <Search size={20} strokeWidth={1.75} aria-hidden="true" />
           </IconButton>
 
           {/* DARK TOGGLE */}
           <IconButton
             onClick={() => setDarkMode(!darkMode)}
-            color="inherit"
             aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="text-zinc-600 dark:text-zinc-400 w-11 h-11 p-0"
+            sx={navIconButtonSx}
           >
-            {darkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-zinc-600" />}
+            {darkMode ? (
+              <Sun size={20} strokeWidth={1.75} aria-hidden="true" className="text-warning" />
+            ) : (
+              <Moon size={20} strokeWidth={1.75} aria-hidden="true" />
+            )}
           </IconButton>
 
           <MessengerMenu />

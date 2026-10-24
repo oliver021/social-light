@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { Box, Typography } from '@mui/material';
 import type { Post } from '../../types';
 import { UserLine } from '../ui/UserLine';
+import { T } from '../ui/tokens';
 import { canChatWith } from './chat';
 
 export interface PostHeaderProps {
@@ -15,8 +16,8 @@ export const PostHeader: React.FC<PostHeaderProps> = ({ post }) => {
   const chatTarget = canChatWith(post.authorId, currentUser.id) ? post.authorId : undefined;
 
   return (
-    <Box className="flex items-center justify-between gap-2 min-w-0">
-      <Box className="min-w-0 flex-1">
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
+      <Box sx={{ minWidth: 0, flex: 1 }}>
         <UserLine
           name={post.author.name}
           handle={post.author.handle}
@@ -30,8 +31,8 @@ export const PostHeader: React.FC<PostHeaderProps> = ({ post }) => {
         />
       </Box>
       {post.type !== 'text' && (
-        <Box className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-900 rounded-full border border-zinc-200/50 dark:border-zinc-800">
-          <Typography variant="caption" className="font-mono text-zinc-600 dark:text-zinc-400 text-xs uppercase tracking-wider">
+        <Box sx={{ px: 1, py: 0.25, bgcolor: T.surface2, border: `1px solid ${T.border}`, borderRadius: 'var(--ui-radius-full)' }}>
+          <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--ui-fs-xs)', color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {post.type}
           </Typography>
         </Box>

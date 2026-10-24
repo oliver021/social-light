@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Avatar, Box, Collapse, IconButton, List, ListItem, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, ButtonBase, Collapse, IconButton, List, ListItem, TextField, Tooltip, Typography } from '@mui/material';
 import { Send } from 'lucide-react';
-import { AnimatePresence } from 'motion/react';
 import type { Post } from '../../types';
+import { UserAvatar } from '../ui/UserAvatar';
+import { EmptyState } from '../ui/EmptyState';
+import { T } from '../ui/tokens';
 import { canChatWith } from './chat';
 
 export interface CommentThreadProps {
@@ -45,9 +47,9 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ post, open }) => {
 
   return (
     <Collapse in={open}>
-      <Box className="mt-3 bg-zinc-50/50 dark:bg-zinc-900/20 border border-zinc-200/40 dark:border-zinc-850/60 p-3 rounded-xl">
+      <Box sx={{ mt: 1.5, p: 1.5, bgcolor: T.surface2, border: `1px solid ${T.border}`, borderRadius: 'var(--ui-radius-lg)' }}>
         {/* ADD COMMENT INPUT */}
-        <form onSubmit={handleCommentSubmit} className="flex gap-2 mb-3">
+        <Box component="form" onSubmit={handleCommentSubmit} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
           <TextField
             size="small"
             fullWidth
@@ -56,65 +58,81 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ post, open }) => {
             value={newCommentText}
             disabled={posting}
             onChange={(e) => setNewCommentText(e.target.value)}
-            className="bg-white dark:bg-zinc-950/80 rounded-lg text-xs"
+            sx={{
+              '& .MuiOutlinedInput-root': { bgcolor: T.surface, borderRadius: 'var(--ui-radius-sm)' },
+            }}
             slotProps={{
-              input: {
-                className: 'text-xs pr-1 py-1'
-              },
-              htmlInput: { 'aria-label': 'Write a comment' }
+              input: { sx: { fontSize: 'var(--ui-fs-sm)' } },
+              htmlInput: { 'aria-label': 'Write a comment' },
             }}
           />
           <IconButton
             type="submit"
             aria-label="Post comment"
             disabled={!newCommentText.trim() || posting}
-            className="bg-primary text-on-primary hover:bg-primary-hover w-11 h-11 shrink-0 text-zinc-700 dark:text-zinc-300"
-            size="small"
-            style={{ borderRadius: '8px' }}
+            sx={{
+              width: 44,
+              height: 44,
+              flexShrink: 0,
+              borderRadius: 'var(--ui-radius-sm)',
+              bgcolor: T.primary,
+              color: T.onPrimary,
+              '&:hover': { bgcolor: T.primaryHover },
+              '&.Mui-disabled': { bgcolor: T.surface3, color: T.subtle },
+              '&.Mui-focusVisible': { outline: `2px solid ${T.focus}`, outlineOffset: 2 },
+            }}
           >
-            <Send className="w-3.5 h-3.5 fill-current text-white/90" />
+            <Send aria-hidden="true" size={18} strokeWidth={1.75} />
           </IconButton>
-        </form>
+        </Box>
 
-        {/* RECENT REPLIES */}
+        {/* THREAD */}
         {post.comments.length > 0 ? (
-          <List className="py-0 divide-y divide-zinc-100 dark:divide-zinc-850/40 max-h-52 overflow-y-auto">
-            <AnimatePresence>
-              {post.comments.map((comment) => (
-                <ListItem key={comment.id} disablePadding className="py-2 flex items-start gap-2.5">
-                  <Tooltip title={`Chat with ${comment.author.name}`} placement="top-start">
-                    <Avatar 
-                      src={comment.author.avatar} 
-                      alt={comment.author.name}
-                      className="w-7 h-7 cursor-pointer hover:opacity-85 transition-opacity" 
-                      onClick={() => chatWith(comment.authorId, comment.author.name, comment.author.avatar, comment.author.handle)}
-                    />
-                  </Tooltip>
-                  <Box className="bg-white dark:bg-zinc-900/60 px-3 py-1.5 border border-zinc-200/40 dark:border-zinc-850/40 rounded-xl max-w-[85%] min-w-0 break-words">
-                    <Box className="flex items-center gap-1.5 mb-0.5">
-                      <Typography 
-                        variant="caption" 
-                        className="font-bold text-zinc-800 dark:text-zinc-200 text-xs cursor-pointer hover:text-blue-500 hover:underline"
-                        onClick={() => chatWith(comment.authorId, comment.author.name, comment.author.avatar, comment.author.handle)}
+          <List disablePadding aria-label="Comments" sx={{ maxHeight: 208, overflowY: 'auto', '& > li + li': { borderTop: `1px solid ${T.border}` } }}>
+            {post.comments.map((comment) => {
+              const chatable = canChatWith(comment.authorId, currentUser.id);
+              const openChat = () => chatWith(comment.authorId, comment.author.name, comment.author.avatar, comment.author.handle);
+              return (
+                <ListItem key={comment.id} disableGutters sx={{ py: 1, alignItems: 'flex-start', gap: 1.25, minWidth: 0 }}>
+                  {chatable ? (
+                    <Tooltip title={`Chat with ${comment.author.name}`} placement="top-start">
+                      <ButtonBase
+                        onClick={openChat}
+                        aria-label={`Chat with ${comment.author.name}`}
+                        sx={{ borderRadius: 'var(--ui-radius-full)', minWidth: 44, minHeight: 44, flexShrink: 0, '&.Mui-focusVisible': { outline: `2px solid ${T.focus}` } }}
                       >
-                        {comment.author.name}
-                      </Typography>
-                      <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 font-mono">
-                        {[comment.author.handle, comment.createdAt].filter(Boolean).join(' • ')}
+                        <UserAvatar name={comment.author.name} src={comment.author.avatar} size="sm" />
+                      </ButtonBase>
+                    </Tooltip>
+                  ) : (
+                    <UserAvatar name={comment.author.name} src={comment.author.avatar} size="sm" />
+                  )}
+                  <Box sx={{ minWidth: 0, maxWidth: '85%', px: 1.5, py: 1, bgcolor: T.surface, border: `1px solid ${T.border}`, borderRadius: 'var(--ui-radius-lg)', overflowWrap: 'anywhere' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 0.75, mb: 0.25 }}>
+                      {chatable ? (
+                        <ButtonBase
+                          onClick={openChat}
+                          sx={{ fontWeight: 700, fontSize: 'var(--ui-fs-xs)', color: T.text, borderRadius: 'var(--ui-radius-sm)', '&:hover': { textDecoration: 'underline' }, '&.Mui-focusVisible': { outline: `2px solid ${T.focus}` } }}
+                        >
+                          {comment.author.name}
+                        </ButtonBase>
+                      ) : (
+                        <Typography sx={{ fontWeight: 700, fontSize: 'var(--ui-fs-xs)', color: T.text }}>{comment.author.name}</Typography>
+                      )}
+                      <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--ui-fs-xs)', color: T.muted }}>
+                        {[comment.author.handle, comment.createdAt].filter(Boolean).join(' · ')}
                       </Typography>
                     </Box>
-                    <Typography variant="caption" className="text-zinc-600 dark:text-zinc-300 text-xs block leading-normal leading-relaxed break-words whitespace-pre-wrap">
+                    <Typography sx={{ fontSize: 'var(--ui-fs-sm)', color: T.text, lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
                       {comment.content}
                     </Typography>
                   </Box>
                 </ListItem>
-              ))}
-            </AnimatePresence>
+              );
+            })}
           </List>
         ) : (
-          <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 block text-center py-2 text-xs font-display">
-            Empty thread. Pitch your first response node!
-          </Typography>
+          <EmptyState compact title="No comments yet" body="Be the first to comment." />
         )}
       </Box>
     </Collapse>

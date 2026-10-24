@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Avatar, Box, List, ListItem, ListItemText, Typography } from '@mui/material';
+import { Avatar, Box, List, ListItemButton, ListItemText, Typography } from '@mui/material';
 import { Gamepad2, Search, ShoppingBag, Sparkles, Tag, User, Users2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { TAB_ID } from '../layout/tabs';
+import { EmptyState, T, UserAvatar, UserLine } from '../ui';
+import { menuRowSx } from './menuSx';
 
 export interface SearchBoxProps {
   /** Phones: the search row is shown only when opened from the navbar's search button. */
@@ -11,6 +13,8 @@ export interface SearchBoxProps {
   /** Called after a suggestion is chosen, so the phone search row closes with the navigation. */
   onCloseMobile: () => void;
 }
+
+const GROUP_LABEL_CLASS = 'px-2 py-1 flex items-center gap-1.5 text-muted font-mono text-xs uppercase font-bold tracking-wider';
 
 /** The navbar search: matches people, communities, market items and posts, with a suggestion popover. */
 export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile }) => {
@@ -101,10 +105,10 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
   return (
     <Box
       ref={searchContainerRef}
-      className={`${mobileOpen ? 'flex order-last' : 'hidden'} sm:flex sm:order-none relative items-center max-w-sm w-full min-w-0 sm:flex-1 sm:mx-4 bg-zinc-100 dark:bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-200/50 dark:border-zinc-800/80`}
+      className={`${mobileOpen ? 'flex order-last' : 'hidden'} sm:flex sm:order-none relative items-center max-w-sm w-full min-w-0 sm:flex-1 sm:mx-4 bg-surface-2 px-3 min-h-11 rounded-full border border-line`}
       id="search-container"
     >
-      <Search className="w-4 h-4 text-zinc-600 dark:text-zinc-400 mr-2 shrink-0" />
+      <Search size={18} strokeWidth={1.75} aria-hidden="true" className="text-muted mr-2 shrink-0" />
       <input
         type="text"
         aria-label="Search people, posts and items"
@@ -128,7 +132,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
           }
         }}
         placeholder="Search people, posts and items…"
-        className="w-full bg-transparent text-xs outline-none text-zinc-700 dark:text-zinc-300 placeholder-zinc-500 dark:placeholder-zinc-400"
+        className="w-full bg-transparent text-xs outline-none text-fg placeholder:text-subtle"
       />
 
       <AnimatePresence>
@@ -138,13 +142,13 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 right-0 top-full mt-2.5 z-50 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-850 rounded-2xl shadow-2xl overflow-hidden max-h-96"
+            className="absolute left-0 right-0 top-full mt-2.5 z-50 bg-surface text-fg border border-line rounded-card shadow-2 overflow-hidden max-h-96"
             id="search-autocomplete-dropdown"
           >
             <Box className="overflow-y-auto p-2 max-h-[350px] scrollbar-none">
               {!searchQuery.trim() ? (
                 <Box className="p-2.5">
-                  <Typography variant="caption" className="font-mono text-zinc-600 dark:text-zinc-400 text-xs uppercase font-bold tracking-wider block mb-2">
+                  <Typography component="p" className={`${GROUP_LABEL_CLASS} mb-2`}>
                     Trending
                   </Typography>
                   <Box className="flex flex-wrap gap-1.5">
@@ -156,10 +160,11 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
                     ].map((topic) => (
                       <button
                         key={topic.text}
+                        type="button"
                         onClick={() => setSearchQuery(topic.value)}
-                        className="flex items-center gap-1.5 px-3 py-1 bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-100 dark:border-zinc-800 rounded-full text-xs text-zinc-600 dark:text-zinc-300 hover:bg-primary-soft hover:text-primary font-sans transition-all cursor-pointer"
+                        className="flex items-center gap-1.5 min-h-11 px-3 bg-surface-2 border border-line rounded-full text-xs text-muted hover:bg-primary-soft hover:text-primary font-sans transition-all cursor-pointer"
                       >
-                        <topic.icon className="w-3 h-3 text-primary" />
+                        <topic.icon size={14} strokeWidth={1.75} aria-hidden="true" className="text-primary" />
                         {topic.text}
                       </button>
                     ))}
@@ -168,38 +173,25 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
               ) : (
                 <>
                   {!hasAnyMatches && (
-                    <Box className="p-6 text-center">
-                      <Typography variant="body2" className="text-zinc-600 dark:text-zinc-400 text-xs">
-                        Nothing matches &ldquo;{searchQuery}&rdquo; yet.
-                      </Typography>
-                    </Box>
+                    <EmptyState compact title={`Nothing matches “${searchQuery}” yet.`} />
                   )}
 
                   {/* 0. MATCHED PEOPLE */}
                   {matchedPeople.length > 0 && (
                     <Box className="mb-3">
-                      <Box className="px-2 py-1 flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 font-mono text-xs uppercase font-bold tracking-wider">
-                        <User className="w-3.5 h-3.5 text-emerald-500" />
+                      <Box className={GROUP_LABEL_CLASS}>
+                        <User size={14} strokeWidth={1.75} aria-hidden="true" className="text-success" />
                         People
                       </Box>
-                      <List className="p-0">
+                      <List disablePadding>
                         {matchedPeople.map((person) => (
-                          <ListItem
+                          <ListItemButton
                             key={person.userId}
-                            disablePadding
-                            className="rounded-xl overflow-hidden hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer p-2 transition-colors mb-0.5"
                             onClick={() => handleSelectSuggestion('person', person)}
+                            sx={{ ...menuRowSx, mb: 0.5 }}
                           >
-                            <Avatar src={person.avatar} alt={person.name} className="w-8 h-8 mr-2.5" />
-                            <ListItemText
-                              primary={person.name}
-                              secondary={person.handle}
-                              slotProps={{
-                                primary: { className: 'text-xs font-semibold text-zinc-800 dark:text-zinc-200' },
-                                secondary: { className: 'text-xs text-zinc-600 dark:text-zinc-400 font-mono truncate block' }
-                              }}
-                            />
-                          </ListItem>
+                            <UserLine name={person.name} handle={person.handle} avatarSrc={person.avatar} size="sm" />
+                          </ListItemButton>
                         ))}
                       </List>
                     </Box>
@@ -208,28 +200,27 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
                   {/* 1. MATCHED COMMUNITIES */}
                   {matchedGroups.length > 0 && (
                     <Box className="mb-3">
-                      <Box className="px-2 py-1 flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 font-mono text-xs uppercase font-bold tracking-wider">
-                        <Users2 className="w-3.5 h-3.5 text-sky-500" />
+                      <Box className={GROUP_LABEL_CLASS}>
+                        <Users2 size={14} strokeWidth={1.75} aria-hidden="true" className="text-primary" />
                         Communities
                       </Box>
-                      <List className="p-0">
+                      <List disablePadding>
                         {matchedGroups.map((group) => (
-                          <ListItem
+                          <ListItemButton
                             key={group.id}
-                            disablePadding
-                            className="rounded-xl overflow-hidden hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer p-2 transition-colors mb-0.5"
                             onClick={() => handleSelectSuggestion('group', group)}
+                            sx={{ ...menuRowSx, mb: 0.5 }}
                           >
-                            <Avatar src={group.coverUrl} variant="rounded" className="w-8 h-8 mr-2.5" />
+                            <Avatar src={group.coverUrl} alt="" variant="rounded" sx={{ width: 32, height: 32, mr: 1 }} />
                             <ListItemText
                               primary={group.name}
                               secondary={`${group.category} • ${group.memberCount.toLocaleString()} members`}
                               slotProps={{
-                                primary: { className: 'text-xs font-semibold text-zinc-800 dark:text-zinc-200' },
-                                secondary: { className: 'text-xs text-zinc-600 dark:text-zinc-400 font-sans truncate' }
+                                primary: { className: 'text-xs font-semibold text-fg' },
+                                secondary: { className: 'text-xs text-muted font-sans truncate block' },
                               }}
                             />
-                          </ListItem>
+                          </ListItemButton>
                         ))}
                       </List>
                     </Box>
@@ -238,28 +229,27 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
                   {/* 2. MATCHED MARKET ITEMS */}
                   {matchedMarket.length > 0 && (
                     <Box className="mb-3">
-                      <Box className="px-2 py-1 flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 font-mono text-xs uppercase font-bold tracking-wider">
-                        <ShoppingBag className="w-3.5 h-3.5 text-amber-500" />
+                      <Box className={GROUP_LABEL_CLASS}>
+                        <ShoppingBag size={14} strokeWidth={1.75} aria-hidden="true" className="text-warning" />
                         Marketplace
                       </Box>
-                      <List className="p-0">
+                      <List disablePadding>
                         {matchedMarket.map((item) => (
-                          <ListItem
+                          <ListItemButton
                             key={item.id}
-                            disablePadding
-                            className="rounded-xl overflow-hidden hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer p-2 transition-colors mb-0.5"
                             onClick={() => handleSelectSuggestion('market', item)}
+                            sx={{ ...menuRowSx, mb: 0.5 }}
                           >
-                            <Avatar src={item.imageUrl} variant="rounded" className="w-8 h-8 mr-2.5" />
+                            <Avatar src={item.imageUrl} alt="" variant="rounded" sx={{ width: 32, height: 32, mr: 1 }} />
                             <ListItemText
                               primary={item.title}
                               secondary={`$${item.price} • ${item.category}`}
                               slotProps={{
-                                primary: { className: 'text-xs font-semibold text-zinc-800 dark:text-zinc-200 font-sans' },
-                                secondary: { className: 'text-xs text-zinc-600 dark:text-zinc-400 font-mono truncate' }
+                                primary: { className: 'text-xs font-semibold text-fg font-sans' },
+                                secondary: { className: 'text-xs text-muted font-mono truncate' },
                               }}
                             />
-                          </ListItem>
+                          </ListItemButton>
                         ))}
                       </List>
                     </Box>
@@ -268,28 +258,23 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
                   {/* 3. MATCHED POSTS */}
                   {matchedPosts.length > 0 && (
                     <Box>
-                      <Box className="px-2 py-1 flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 font-mono text-xs uppercase font-bold tracking-wider">
-                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                      <Box className={GROUP_LABEL_CLASS}>
+                        <Sparkles size={14} strokeWidth={1.75} aria-hidden="true" className="text-primary" />
                         Posts
                       </Box>
-                      <List className="p-0">
+                      <List disablePadding>
                         {matchedPosts.map((post) => (
-                          <ListItem
+                          <ListItemButton
                             key={post.id}
-                            disablePadding
-                            className="rounded-xl overflow-hidden hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer p-2 transition-colors mb-0.5"
                             onClick={() => handleSelectSuggestion('post', post)}
+                            sx={{ ...menuRowSx, mb: 0.5 }}
                           >
-                            <Avatar src={post.author.avatar} className="w-8 h-8 mr-2.5" />
-                            <ListItemText
-                              primary={post.author.name}
-                              secondary={post.content}
-                              slotProps={{
-                                primary: { className: 'text-xs font-semibold text-zinc-800 dark:text-zinc-200' },
-                                secondary: { className: 'text-xs text-zinc-600 dark:text-zinc-400 font-sans truncate block' }
-                              }}
-                            />
-                          </ListItem>
+                            <UserAvatar name={post.author.name} src={post.author.avatar} size="sm" />
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography className="text-xs font-semibold text-fg">{post.author.name}</Typography>
+                              <Typography className="text-xs text-muted font-sans truncate block">{post.content}</Typography>
+                            </Box>
+                          </ListItemButton>
                         ))}
                       </List>
                     </Box>

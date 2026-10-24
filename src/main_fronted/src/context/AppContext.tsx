@@ -35,6 +35,8 @@ export interface AppContextType {
   groups: Group[];
   marketItems: MarketItem[];
   marketCategories: string[];
+  /** True until the first catalog load settles. Optional: absent means settled. */
+  marketplaceLoading?: boolean;
   notifications: NotificationItem[];
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
@@ -57,6 +59,8 @@ export interface AppContextType {
   toggleJoinGroup: (groupId: string) => Promise<boolean>;
   /** Creates a community and makes the creator a member. Rejects with a readable message. */
   createGroup: (input: NewGroup) => Promise<void>;
+  /** True until the first groups load settles. Optional: absent means settled. */
+  groupsLoading?: boolean;
   buyMarketItem: (itemId: string) => void;
   createMarketItem: (title: string, description: string, price: number, category: string, location: string, imageUrl: string) => void;
   /** Rejects with a readable message when the server does not accept the change. */
@@ -65,15 +69,21 @@ export interface AppContextType {
   showToast: (message: string, severity?: ToastSeverity) => void;
   // Social graph (M3): real people to discover + follow, backed by Profile + SocialGraph.
   people: Person[];
+  /** True until the first people load settles. Optional: absent means settled. */
+  peopleLoading?: boolean;
   followUser: (userId: string) => void;
   unfollowUser: (userId: string) => void;
   markNotificationsAsRead: () => void;
+  /** True until the first notifications load settles. Optional: absent means settled. */
+  notificationsLoading?: boolean;
   addNotification: (type: NotificationItem['type'], actorName: string, text: string, postId?: string) => void;
 
   // Messenger system states & methods
   activeChats: ChatBoxState[];
   chatMessages: Record<string, ChatMessage[]>;
   chatThreads: ChatThread[];
+  /** True until the conversation list settles. Optional: absent means settled. */
+  chatThreadsLoading?: boolean;
   openChatWithUser: (user: { id: string; name: string; avatar: string; handle: string }) => void;
   closeChat: (userId: string) => void;
   minimizeChat: (userId: string) => void;
@@ -85,9 +95,13 @@ export interface AppContextType {
   addStory: (mediaUrl: string, caption: string) => void;
   viewStory: (storyId: string) => void;
   reels: Reel[];
+  /** True until the first reels load settles. Optional: absent means settled. */
+  reelsLoading?: boolean;
   addReel: (videoUrl: string, caption: string, duration: number) => Promise<void>;
   viewReel: (reelId: string) => void;
   events: EventItem[];
+  /** True until the first events load settles. Optional: absent means settled. */
+  eventsLoading?: boolean;
   createEvent: (title: string, description: string, location: string, startDate: string, endDate: string, capacity: number | null) => void;
   rsvpEvent: (eventId: string) => void;
 }
@@ -160,9 +174,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currentUser: session.currentUser,
     posts: feed.posts,
     groups: groups.groups,
+    groupsLoading: groups.loading,
     marketItems: marketplace.marketItems,
     marketCategories: marketplace.marketCategories,
+    marketplaceLoading: marketplace.loading,
     notifications: notifications.notifications,
+    notificationsLoading: notifications.loading,
     activeTab: ui.activeTab,
     setActiveTab: ui.setActiveTab,
     selectedGroupId: ui.selectedGroupId,
@@ -186,6 +203,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     createMarketItem: marketplace.createMarketItem,
     updateProfile: profile.updateProfile,
     people: social.people,
+    peopleLoading: social.peopleLoading,
     followUser: social.followUser,
     unfollowUser: social.unfollowUser,
     markNotificationsAsRead: notifications.markNotificationsAsRead,
@@ -193,6 +211,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     activeChats: chat.activeChats,
     chatMessages: chat.chatMessages,
     chatThreads: chat.chatThreads,
+    chatThreadsLoading: chat.threadsLoading,
     openChatWithUser: chat.openChatWithUser,
     closeChat: chat.closeChat,
     minimizeChat: chat.minimizeChat,
@@ -201,9 +220,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addStory: storiesState.addStory,
     viewStory: storiesState.viewStory,
     reels: reelsState.reels,
+    reelsLoading: reelsState.loading,
     addReel: reelsState.addReel,
     viewReel: reelsState.viewReel,
     events: eventsState.events,
+    eventsLoading: eventsState.loading,
     createEvent: eventsState.createEvent,
     rsvpEvent: eventsState.rsvpEvent,
   };

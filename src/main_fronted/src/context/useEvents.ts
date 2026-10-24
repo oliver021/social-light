@@ -27,40 +27,47 @@ interface Deps {
  */
 export function useEvents({ myUserId }: Deps) {
   const [events, setEvents] = useState<EventItem[]>([]);
+  // True until the first load settles (success or failure), so the widget can show a
+  // skeleton instead of an empty state. A refresh does not set it back.
+  const [loading, setLoading] = useState(true);
   // Maps an eventId -> this user's attendance id, so un-RSVP can DELETE it.
   const myAttendanceIds = useRef<Map<string, string>>(new Map());
 
   const loadEvents = async () => {
-    const [{ data: eventList }, { data: attendances }] = await Promise.all([
-      eventsApi.GET('/api/events'),
-      eventsApi.GET('/api/event-attendances'),
-    ]);
-    if (!eventList) return;
-    const myId = myUserId.current;
-    const counts = new Map<string, number>();
-    myAttendanceIds.current.clear();
-    for (const a of attendances ?? []) {
-      counts.set(a.eventId, (counts.get(a.eventId) ?? 0) + 1);
-      if (a.userId === myId) myAttendanceIds.current.set(a.eventId, a.id);
+    try {
+      const [{ data: eventList }, { data: attendances }] = await Promise.all([
+        eventsApi.GET('/api/events'),
+        eventsApi.GET('/api/event-attendances'),
+      ]);
+      if (!eventList) return;
+      const myId = myUserId.current;
+      const counts = new Map<string, number>();
+      myAttendanceIds.current.clear();
+      for (const a of attendances ?? []) {
+        counts.set(a.eventId, (counts.get(a.eventId) ?? 0) + 1);
+        if (a.userId === myId) myAttendanceIds.current.set(a.eventId, a.id);
+      }
+      const organizerIds = [...new Set(eventList.map((e) => e.organizerId))];
+      const profiles = await Promise.all(organizerIds.map((id) => getProfile(id).catch(() => null)));
+      const profileById = new Map(organizerIds.map((id, i) => [id, profiles[i]]));
+      setEvents(
+        eventList.map((e) => ({
+          id: e.id,
+          organizerId: e.organizerId,
+          organizerName: profileById.get(e.organizerId)?.displayName || 'Member',
+          title: e.title,
+          description: e.description ?? '',
+          location: e.location ?? '',
+          startDate: e.startDate,
+          endDate: e.endDate,
+          capacity: e.capacity == null ? null : Number(e.capacity),
+          attendeeCount: counts.get(e.id) ?? 0,
+          attending: myAttendanceIds.current.has(e.id),
+        })),
+      );
+    } finally {
+      setLoading(false);
     }
-    const organizerIds = [...new Set(eventList.map((e) => e.organizerId))];
-    const profiles = await Promise.all(organizerIds.map((id) => getProfile(id).catch(() => null)));
-    const profileById = new Map(organizerIds.map((id, i) => [id, profiles[i]]));
-    setEvents(
-      eventList.map((e) => ({
-        id: e.id,
-        organizerId: e.organizerId,
-        organizerName: profileById.get(e.organizerId)?.displayName || 'Member',
-        title: e.title,
-        description: e.description ?? '',
-        location: e.location ?? '',
-        startDate: e.startDate,
-        endDate: e.endDate,
-        capacity: e.capacity == null ? null : Number(e.capacity),
-        attendeeCount: counts.get(e.id) ?? 0,
-        attending: myAttendanceIds.current.has(e.id),
-      })),
-    );
   };
 
   const createEvent = async (
@@ -121,5 +128,5 @@ export function useEvents({ myUserId }: Deps) {
     })();
   };
 
-  return { events, loadEvents, createEvent, rsvpEvent };
+  return { events, loading, loadEvents, createEvent, rsvpEvent };
 }

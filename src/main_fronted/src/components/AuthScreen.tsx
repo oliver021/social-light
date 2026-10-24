@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Box, Paper, Typography, TextField, Button, Chip, Alert, CircularProgress, Divider } from '@mui/material';
+import { messageOf } from '../api/gateway';
+import { Box, Typography, TextField, Button, Alert, CircularProgress, Divider } from '@mui/material';
 import { Zap } from 'lucide-react';
+import { Surface, T, mutedSx } from './ui';
 
 // The login gate. Drives the real Identity flow: sign up (POST /api/account/register)
 // and/or log in (POST /connect/token) through the same /bff proxy the rest of the SDK
@@ -25,30 +27,44 @@ export const AuthScreen: React.FC = () => {
       } else {
         await login(email.trim(), password);
       }
-    } catch (err: any) {
-      setError(err?.message ?? 'Something went wrong. Check the gateway is running.');
+    } catch (err) {
+      setError(messageOf(err, 'Something went wrong. Check the gateway is running.'));
     } finally {
       setBusy(false);
     }
   };
 
+  const switchMode = () => {
+    setError(null);
+    setMode(mode === 'signin' ? 'signup' : 'signin');
+  };
+
   return (
-    <Box className="min-h-[100dvh] flex items-center justify-center bg-zinc-950 p-4">
-      <Paper
-        elevation={0}
-        className="w-full max-w-md p-6 sm:p-8 border border-zinc-800 rounded-2xl bg-zinc-900/60"
-      >
-        <Box className="flex items-center gap-2 mb-6">
-          <Box className="p-1.5 brand-gradient rounded text-white">
-            <Zap className="w-5 h-5 fill-current" />
+    <Box
+      sx={{
+        minHeight: '100dvh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: 2,
+        bgcolor: T.page,
+        color: T.text,
+      }}
+    >
+      <Surface as="section" sx={{ width: '100%', maxWidth: 420, p: { xs: 3, sm: 4 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+          <Box className="p-1.5 brand-gradient rounded-sm text-on-primary flex items-center justify-center">
+            <Zap size={20} strokeWidth={1.75} aria-hidden="true" className="fill-current" />
           </Box>
-          <Typography variant="h5" component="h1" className="font-display font-bold" sx={{ color: 'var(--ui-on-media)', fontWeight: 700 }}>
+          <Typography
+            component="h1"
+            sx={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--ui-fs-2xl)', lineHeight: 1.2, color: T.text }}
+          >
             socialLight
           </Typography>
-          <Chip label="live" size="small" color="success" className="ml-auto scale-90" />
         </Box>
 
-        <Typography variant="body2" className="mb-6" sx={{ color: 'var(--ui-on-media-muted)' }}>
+        <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-base)', mb: 3 }}>
           {mode === 'signin' ? 'Sign in to your account.' : 'Create an account to get started.'}
         </Typography>
 
@@ -60,6 +76,7 @@ export const AuthScreen: React.FC = () => {
               onChange={(e) => setDisplayName(e.target.value)}
               size="small"
               fullWidth
+              autoComplete="nickname"
             />
           )}
           <TextField
@@ -84,31 +101,46 @@ export const AuthScreen: React.FC = () => {
             helperText={mode === 'signup' ? 'Use an uppercase letter, a lowercase letter, a number and a symbol.' : undefined}
           />
 
-          {error && <Alert severity="error" className="text-xs">{error}</Alert>}
+          {error && <Alert severity="error">{error}</Alert>}
 
           <Button
             type="submit"
             variant="contained"
+            fullWidth
             disabled={busy}
-            className="brand-gradient text-white py-2.5 rounded-lg font-semibold"
+            sx={{
+              minHeight: 44,
+              textTransform: 'none',
+              fontWeight: 600,
+              borderRadius: 'var(--ui-radius-sm)',
+            }}
           >
-            {busy ? <CircularProgress size={20} color="inherit" /> : mode === 'signin' ? 'Sign In' : 'Create Account'}
+            {busy ? (
+              <>
+                <CircularProgress size={18} color="inherit" aria-hidden="true" sx={{ mr: 1 }} />
+                {mode === 'signin' ? 'Signing in…' : 'Creating account…'}
+              </>
+            ) : mode === 'signin' ? (
+              'Sign In'
+            ) : (
+              'Create Account'
+            )}
           </Button>
         </form>
 
-        <Divider className="my-5" />
+        <Divider sx={{ my: 3 }} />
 
-        <Typography variant="caption" className="block text-center" sx={{ color: 'var(--ui-on-media-muted)' }}>
+        <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-sm)', textAlign: 'center' }}>
           {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
           <Button
-            size="small"
-            onClick={() => { setError(null); setMode(mode === 'signin' ? 'signup' : 'signin'); }}
-            className="normal-case font-semibold p-0 min-w-0 align-baseline" sx={{ color: 'var(--ui-on-media)', textDecoration: 'underline' }}
+            size="medium"
+            onClick={switchMode}
+            sx={{ minHeight: 44, px: 1, textTransform: 'none', fontWeight: 600, color: T.primary, verticalAlign: 'baseline' }}
           >
             {mode === 'signin' ? 'Sign up' : 'Sign in'}
           </Button>
         </Typography>
-      </Paper>
+      </Surface>
     </Box>
   );
 };

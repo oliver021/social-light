@@ -31,36 +31,42 @@ interface Deps {
  */
 export function useSocial({ myUserId, setCurrentUser, loadFeed, notify, showToast }: Deps) {
   const [people, setPeople] = useState<Person[]>([]);
+  // True until the first people load settles, so the widget can show a skeleton.
+  const [peopleLoading, setPeopleLoading] = useState(true);
 
   // The social graph has no user directory, so people to follow come from Profile's
   // discovery list; cross-reference my follows to mark who I already follow (and
   // remember each FollowDto id for unfollow).
   const loadPeople = async () => {
-    const [{ data: profiles }, { data: follows }] = await Promise.all([
-      profileApi.GET('/api/profiles'),
-      socialGraphApi.GET('/api/follows'),
-    ]);
-    if (!profiles) return;
-    const myId = myUserId.current;
-    const allFollows = follows ?? [];
-    const myFollows = allFollows.filter((f) => f.followerId === myId);
-    const followByTarget = new Map(myFollows.map((f) => [f.followingId, f.id]));
+    try {
+      const [{ data: profiles }, { data: follows }] = await Promise.all([
+        profileApi.GET('/api/profiles'),
+        socialGraphApi.GET('/api/follows'),
+      ]);
+      if (!profiles) return;
+      const myId = myUserId.current;
+      const allFollows = follows ?? [];
+      const myFollows = allFollows.filter((f) => f.followerId === myId);
+      const followByTarget = new Map(myFollows.map((f) => [f.followingId, f.id]));
 
-    // Back the profile's social counts with real graph data (M4): how many I follow
-    // and how many follow me. Replaces the last mock numbers on the Profile tab.
-    const followerCount = allFollows.filter((f) => f.followingId === myId).length;
-    setCurrentUser((prev) => ({ ...prev, followingCount: myFollows.length, followersCount: followerCount }));
-    setPeople(
-      profiles.map((p) => ({
-        userId: p.userId,
-        name: p.displayName || 'Unknown User',
-        handle: withHandle(p.handle),
-        avatar: mediaUrl(p.avatarUrl) ?? defaultAvatar(p.userId),
-        bio: p.bio ?? '',
-        followed: followByTarget.has(p.userId),
-        followId: followByTarget.get(p.userId),
-      })),
-    );
+      // Back the profile's social counts with real graph data (M4): how many I follow
+      // and how many follow me. Replaces the last mock numbers on the Profile tab.
+      const followerCount = allFollows.filter((f) => f.followingId === myId).length;
+      setCurrentUser((prev) => ({ ...prev, followingCount: myFollows.length, followersCount: followerCount }));
+      setPeople(
+        profiles.map((p) => ({
+          userId: p.userId,
+          name: p.displayName || 'Unknown User',
+          handle: withHandle(p.handle),
+          avatar: mediaUrl(p.avatarUrl) ?? defaultAvatar(p.userId),
+          bio: p.bio ?? '',
+          followed: followByTarget.has(p.userId),
+          followId: followByTarget.get(p.userId),
+        })),
+      );
+    } finally {
+      setPeopleLoading(false);
+    }
   };
 
   // Create the edge (followerId from my id; the v0 social-graph module doesn't bind
@@ -111,5 +117,5 @@ export function useSocial({ myUserId, setCurrentUser, loadFeed, notify, showToas
   // Forget the previous account's follow edges (used when the signed-in user changes).
   const reset = () => setPeople([]);
 
-  return { people, loadPeople, followUser, unfollowUser, reset };
+  return { people, peopleLoading, loadPeople, followUser, unfollowUser, reset };
 }

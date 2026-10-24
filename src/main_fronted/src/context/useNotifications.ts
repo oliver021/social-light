@@ -1,4 +1,4 @@
-import { type MutableRefObject } from 'react';
+import { useState, type MutableRefObject } from 'react';
 import { NotificationItem } from '../types';
 import { notificationsApi, getProfile } from '../api/gateway';
 import { notificationToItem } from '../api/mappers';
@@ -19,10 +19,21 @@ export function useNotifications({ myUserId }: Deps) {
     () => [],
   );
 
+  // True until the first notifications load settles, so the menu can show a skeleton.
+  const [loading, setLoading] = useState(true);
+
   // Read mine (filter by recipientId), resolve actors via Profile, synthesize text.
   // The v0 modules don't emit notifications server-side yet, so `notify` records them
   // client-side (the eventual path is backend event consumers).
   const loadNotifications = async () => {
+    try {
+      await fetchNotifications();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchNotifications = async () => {
     const { data } = await notificationsApi.GET('/api/notifications');
     if (!data) return;
     const myId = myUserId.current;
@@ -73,5 +84,5 @@ export function useNotifications({ myUserId }: Deps) {
   // Forget the previous account's notifications (used when the signed-in user changes).
   const reset = () => setNotifications([]);
 
-  return { notifications, loadNotifications, notify, addNotification, markNotificationsAsRead, reset };
+  return { notifications, loading, loadNotifications, notify, addNotification, markNotificationsAsRead, reset };
 }

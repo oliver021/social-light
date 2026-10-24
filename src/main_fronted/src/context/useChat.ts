@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MutableRefObject } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { ChatMessage, ChatBoxState, ChatThread } from '../types';
 import { chatApi, getProfile, describeApiError, messageOf, mediaUrl } from '../api/gateway';
 import { connectChatHub, joinChat, sendChatMessage, onChatMessage, disconnectChatHub, type MessageDto } from '../api/realtime';
@@ -33,6 +33,8 @@ export function useChat({ myUserId, currentUserId, isAuthenticated, showToast }:
   const [activeChats, setActiveChats] = usePersistentState<ChatBoxState[]>('nexus_active_chats', () => []);
   const [chatMessages, setChatMessages] = usePersistentState<Record<string, ChatMessage[]>>('nexus_chat_messages', () => ({}));
   const [chatThreads, setChatThreads] = usePersistentState<ChatThread[]>('nexus_chat_threads', () => []);
+  // True until the conversation list has loaded or the live connection failed, so the menu can show a skeleton.
+  const [threadsLoading, setThreadsLoading] = useState(true);
 
   const chatIdByPeer = useRef<Map<string, string>>(new Map()); // peerUserId -> chatId
   const peerByChatId = useRef<Map<string, Peer>>(new Map());
@@ -105,6 +107,14 @@ export function useChat({ myUserId, currentUserId, isAuthenticated, showToast }:
   // their hub groups (so inbound arrives before I open them), and build the thread
   // list + message cache.
   const loadChats = async () => {
+    try {
+      await fetchChats();
+    } finally {
+      setThreadsLoading(false);
+    }
+  };
+
+  const fetchChats = async () => {
     const myId = myUserId.current;
     if (!myId) return;
     const { data: parts } = await chatApi.GET('/api/chat-participants');
@@ -227,6 +237,8 @@ export function useChat({ myUserId, currentUserId, isAuthenticated, showToast }:
         unsub = onChatMessage((m) => incomingRef.current(m));
         await loadChats();
       } catch {
+        // Nothing will load now: settle the list so the menu shows its empty state, not a skeleton.
+        setThreadsLoading(false);
         if (active) showToast('Live chat is unavailable right now. Messages may not arrive.', 'info');
       }
     })();
@@ -252,5 +264,5 @@ export function useChat({ myUserId, currentUserId, isAuthenticated, showToast }:
     disconnectChatHub().catch(() => {});
   };
 
-  return { activeChats, chatMessages, chatThreads, openChatWithUser, closeChat, minimizeChat, sendMessage, teardown, reset };
+  return { activeChats, chatMessages, chatThreads, threadsLoading, openChatWithUser, closeChat, minimizeChat, sendMessage, teardown, reset };
 }

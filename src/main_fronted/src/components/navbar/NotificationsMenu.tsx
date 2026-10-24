@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Avatar, Badge, Box, Button, Divider, IconButton, List, ListItem, ListItemAvatar, ListItemText, Popover, Typography } from '@mui/material';
+import { Badge, Box, Button, Divider, IconButton, List, ListItemButton, Popover, Typography } from '@mui/material';
 import { Bell } from 'lucide-react';
 import { TAB_ID } from '../layout/tabs';
+import { EmptyState, ListSkeleton, SectionHeader, T, UserAvatar } from '../ui';
+import { badgeSx, menuRowSx, navIconButtonSx, popoverPaperSx } from './menuSx';
 
 /** The bell in the navbar and its notifications popover. Opening it marks them read. */
 export const NotificationsMenu: React.FC = () => {
-  const { notifications, markNotificationsAsRead, setActiveTab } = useApp();
+  const { notifications, notificationsLoading, markNotificationsAsRead, setActiveTab } = useApp();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -23,12 +25,11 @@ export const NotificationsMenu: React.FC = () => {
     <>
       <IconButton
         onClick={handleOpen}
-        color="inherit"
         aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
-        className="text-zinc-600 dark:text-zinc-400 w-11 h-11 p-0"
+        sx={navIconButtonSx}
       >
-        <Badge badgeContent={unreadCount} color="error" overlap="circular" slotProps={{ badge: { className: 'font-mono text-xs h-4 min-w-4 px-1' } }}>
-          <Bell className="w-5 h-5" />
+        <Badge badgeContent={unreadCount} color="error" overlap="circular" sx={badgeSx('danger')}>
+          <Bell size={20} strokeWidth={1.75} aria-hidden="true" />
         </Badge>
       </IconButton>
 
@@ -38,34 +39,28 @@ export const NotificationsMenu: React.FC = () => {
         onClose={handleClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        slotProps={{
-          paper: {
-            className: 'mt-2 w-80 max-h-96 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 p-2 shadow-2xl overflow-y-auto'
-          }
-        }}
+        slotProps={{ paper: { sx: popoverPaperSx } }}
       >
-        <Box className="p-2 flex items-center justify-between">
-          <Typography variant="subtitle2" className="font-display font-semibold flex items-center gap-1 text-zinc-800 dark:text-zinc-200">
-            <Bell className="w-4 h-4 text-primary" />
-            Notifications
-          </Typography>
-          <Typography variant="caption" className="font-mono text-zinc-600 dark:text-zinc-400">
-            {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
-          </Typography>
+        <Box sx={{ p: 1 }}>
+          <SectionHeader
+            title="Notifications"
+            subtitle={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+          />
         </Box>
         <Divider />
-        {notifications.length === 0 ? (
-          <Box className="p-6 text-center">
-            <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 block">
-              No notifications yet.
-            </Typography>
+        {notifications.length === 0 && notificationsLoading ? (
+          <Box sx={{ p: 1 }}>
+            <ListSkeleton rows={3} />
+          </Box>
+        ) : notifications.length === 0 ? (
+          <Box sx={{ p: 1 }}>
+            <EmptyState compact title="No notifications yet" />
           </Box>
         ) : (
-          <List className="py-0">
+          <List dense disablePadding>
             {notifications.map((notif) => (
-              <ListItem 
-                key={notif.id} 
-                className={`px-2 py-1.5 rounded-xl my-1 gap-2 border border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer ${!notif.read ? 'bg-primary-soft/20 border-l-primary border-l-2' : ''}`}
+              <ListItemButton
+                key={notif.id}
                 onClick={() => {
                   if (notif.postId) {
                     setActiveTab(TAB_ID.home);
@@ -73,32 +68,35 @@ export const NotificationsMenu: React.FC = () => {
                   }
                   handleClose();
                 }}
+                sx={{
+                  ...menuRowSx,
+                  alignItems: 'flex-start',
+                  my: 0.5,
+                  ...(notif.read ? {} : { bgcolor: T.primarySoft, borderLeft: `2px solid ${T.primary}` }),
+                }}
               >
-                <ListItemAvatar className="min-w-0">
-                  <Avatar src={notif.actor.avatar} className="w-8 h-8" />
-                </ListItemAvatar>
-                <ListItemText
-                  primary={
-                    <Typography variant="caption" className="text-zinc-800 dark:text-zinc-300 text-xs">
-                      <span className="font-semibold text-zinc-900">{notif.actor.name}</span> {notif.text}
-                    </Typography>
-                  }
-                  secondary={
-                    <Typography variant="caption" className="text-xs text-zinc-600 dark:text-zinc-400 font-mono block">
-                      {notif.createdAt}
-                    </Typography>
-                  }
-                />
-              </ListItem>
+                <UserAvatar name={notif.actor.name} src={notif.actor.avatar} size="sm" />
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontSize: 'var(--ui-fs-sm)', color: T.text, overflowWrap: 'anywhere' }}>
+                    <Box component="span" sx={{ fontWeight: 600 }}>
+                      {notif.actor.name}
+                    </Box>{' '}
+                    {notif.text}
+                  </Typography>
+                  <Typography sx={{ fontSize: 'var(--ui-fs-xs)', color: T.subtle, fontFamily: 'var(--font-mono)' }}>
+                    {notif.createdAt}
+                  </Typography>
+                </Box>
+              </ListItemButton>
             ))}
           </List>
         )}
         <Divider />
-        <Box className="p-1 flex justify-center">
-          <Button 
-            size="small" 
-            onClick={handleClose} 
-            className="text-primary dark:text-primary font-display text-xs normal-case"
+        <Box sx={{ p: 0.5, display: 'flex', justifyContent: 'center' }}>
+          <Button
+            size="medium"
+            onClick={handleClose}
+            sx={{ minHeight: 44, color: T.primary, fontFamily: 'var(--font-display)', textTransform: 'none', fontWeight: 600 }}
           >
             Close
           </Button>

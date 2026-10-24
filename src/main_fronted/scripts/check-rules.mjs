@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../src', import.meta.url));
 
-const ENABLED_RULES = ['no-hex', 'no-violet', 'no-raw-bff-fetch', 'no-fake-actor', 'no-console-log'];
+const ENABLED_RULES = ['no-hex', 'no-violet', 'no-raw-palette', 'no-raw-bff-fetch', 'no-fake-actor', 'no-console-log'];
 
 const RULES = [
   {
@@ -23,6 +23,13 @@ const RULES = [
   {
     id: 'no-violet',
     test: (line) => /\b(violet|fuchsia)-\d{2,3}\b/.test(line),
+  },
+  {
+    // Raw Tailwind palette classes (zinc, blue, emerald, ...) with or without a state prefix
+    // (dark:, hover:). Colour comes from the tokens (text-muted, bg-surface, text-success).
+    id: 'no-raw-palette',
+    test: (line) =>
+      /\b(bg|text|border|from|to|via|ring|fill|stroke|divide|outline|shadow)-(zinc|gray|slate|neutral|stone|blue|sky|indigo|purple|violet|fuchsia|emerald|green|teal|amber|yellow|orange|red|rose|pink)-\d{2,3}\b/.test(line),
   },
   {
     id: 'no-raw-bff-fetch',

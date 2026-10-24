@@ -77,10 +77,10 @@ export const AppShell: React.FC = () => {
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 1 }}>
-            <Box className="p-1 brand-gradient rounded text-white shrink-0">
-              <Zap className="w-4 h-4 fill-current" />
+            <Box className="p-1 brand-gradient rounded-sm text-white shrink-0">
+              <Zap aria-hidden="true" className="w-4 h-4 fill-current" strokeWidth={1.75} />
             </Box>
-            <Typography variant="body2" sx={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '13px' }}>
+            <Typography variant="body2" sx={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--ui-fs-sm)' }}>
               socialLight
             </Typography>
           </Box>
@@ -190,7 +190,7 @@ export const AppShell: React.FC = () => {
               key={tab.id}
               value={tab.id}
               label={<span className="text-xs font-medium">{tab.shortLabel}</span>}
-              icon={<tab.icon aria-hidden="true" className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />}
+              icon={<tab.icon aria-hidden="true" strokeWidth={1.75} className="w-5 h-5 text-muted" />}
             />
           ))}
         </BottomNavigation>

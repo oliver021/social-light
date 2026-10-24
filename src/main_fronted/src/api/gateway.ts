@@ -77,6 +77,8 @@ export function messageOf(err: unknown, fallback: string): string {
 export function mediaUrl(url: string | null | undefined): string | undefined {
   if (!url) return undefined;
   if (/^(https?:|data:|blob:)/i.test(url)) return url;
+  // Idempotent: a url already prefixed with /bff (what the stores hold) is returned as is.
+  if (url.startsWith(`${BFF_BASE}/`)) return url;
   return `${BFF_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 

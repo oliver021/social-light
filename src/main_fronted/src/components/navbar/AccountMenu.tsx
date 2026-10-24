@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Avatar, Box, Divider, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
+import { Box, Divider, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
 import { LogOut, User } from 'lucide-react';
 import { TAB_ID } from '../layout/tabs';
+import { T, UserAvatar } from '../ui';
+import { menuRowSx, popoverPaperSx } from './menuSx';
 
 /** The avatar shortcut and its account menu (My profile, Log out). */
 export const AccountMenu: React.FC = () => {
@@ -27,12 +29,20 @@ export const AccountMenu: React.FC = () => {
   return (
     <Box>
       <Tooltip title="Account">
-        <IconButton onClick={handleOpen} aria-label="Account menu" className="w-11 h-11 p-0 border-2 border-transparent hover:border-primary/50 rounded-full">
-          <Avatar 
-            src={currentUser.avatar} 
-            alt={currentUser.name} 
-            className="w-8 h-8"
-          />
+        <IconButton
+          onClick={handleOpen}
+          aria-label="Account menu"
+          sx={{
+            width: 44,
+            height: 44,
+            p: 0,
+            border: '2px solid transparent',
+            borderRadius: 'var(--ui-radius-full)',
+            '&:hover': { borderColor: `color-mix(in srgb, ${T.primary} 50%, transparent)` },
+            '&.Mui-focusVisible': { outline: `2px solid ${T.focus}`, outlineOffset: 2 },
+          }}
+        >
+          <UserAvatar name={currentUser.name} src={currentUser.avatar} size="sm" />
         </IconButton>
       </Tooltip>
       <Menu
@@ -41,26 +51,28 @@ export const AccountMenu: React.FC = () => {
         onClose={handleClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        slotProps={{
-          paper: {
-            className: 'mt-2 border border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950 p-1 shadow-2xl'
-          }
-        }}
+        slotProps={{ paper: { sx: { ...popoverPaperSx, width: 240 } } }}
       >
-        <Box className="px-3 py-2">
-          <Typography variant="body2" className="font-semibold text-zinc-850 dark:text-zinc-100">
-            {currentUser.name}
-          </Typography>
-          <Typography variant="caption" className="font-mono text-zinc-600 dark:text-zinc-400 block text-xs">
+        <Box sx={{ px: 1.5, py: 1 }}>
+          <Typography sx={{ fontSize: 'var(--ui-fs-sm)', fontWeight: 600, color: T.text }}>{currentUser.name}</Typography>
+          <Typography sx={{ fontSize: 'var(--ui-fs-xs)', color: T.subtle, fontFamily: 'var(--font-mono)' }}>
             {currentUser.handle}
           </Typography>
         </Box>
-        <Divider className="my-1" />
-        <MenuItem onClick={() => { handleClose(); setActiveTab(TAB_ID.profile); }} className="gap-2 text-xs rounded-lg text-zinc-700 dark:text-zinc-300">
-          <User className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" /> My profile
+        <Divider sx={{ my: 0.5 }} />
+        <MenuItem
+          onClick={() => {
+            handleClose();
+            setActiveTab(TAB_ID.profile);
+          }}
+          sx={{ ...menuRowSx, color: T.text }}
+        >
+          <User size={18} strokeWidth={1.75} aria-hidden="true" />
+          My profile
         </MenuItem>
-        <MenuItem onClick={handleLogoutClick} className="gap-2 text-xs text-rose-600 rounded-lg dark:text-rose-400">
-          <LogOut className="w-3.5 h-3.5" /> Log out
+        <MenuItem onClick={handleLogoutClick} sx={{ ...menuRowSx, color: T.danger }}>
+          <LogOut size={18} strokeWidth={1.75} aria-hidden="true" />
+          Log out
         </MenuItem>
       </Menu>
     </Box>

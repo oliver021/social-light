@@ -7,15 +7,6 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", "Inter", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
-
-  /* Zinc remaps are kept until M0.4 migrates the zinc classes to tokens. */
-  --color-zinc-50: #fbfbfb;
-  --color-zinc-100: #f4f4f5;
-  --color-zinc-200: #e4e4e7;
-  --color-zinc-800: #1a1a1a;
-  --color-zinc-850: #2a2a2a;
-  --color-zinc-900: #0f0f0f;
-  --color-zinc-950: #0a0a0a;
 }
 
 /*
@@ -168,6 +159,16 @@
 :focus-visible {
   outline: 2px solid var(--ui-focus);
   outline-offset: 2px;
+}
+
+/* Users who ask for less motion get instant transitions and animations. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
 }
 
 body {

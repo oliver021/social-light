@@ -25,8 +25,18 @@ const DEFAULT_AVATAR = (seed: string) => `https://api.dicebear.com/7.x/identicon
  */
 export function useReels({ myUserId }: Deps) {
   const [reels, setReels] = useState<Reel[]>([]);
+  // True until the first reels load settles, so the feed can show a skeleton.
+  const [loading, setLoading] = useState(true);
 
   const loadReels = async () => {
+    try {
+      await fetchReels();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchReels = async () => {
     const { data } = await reelsApi.GET('/api/reels');
     if (!data) return;
     const creatorIds = [...new Set(data.map((r) => r.creatorId))];
@@ -76,5 +86,5 @@ export function useReels({ myUserId }: Deps) {
       .catch(() => {});
   };
 
-  return { reels, loadReels, addReel, viewReel };
+  return { reels, loading, loadReels, addReel, viewReel };
 }

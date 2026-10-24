@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { UserProfile, MarketItem, NotificationItem } from '../types';
 import { catalogApi, catalogPicUrl } from '../api/gateway';
 import { catalogItemToMarketItem } from '../api/mappers';
@@ -22,9 +23,20 @@ export function useMarketplace({ currentUser, addNotification }: Deps) {
   // Real catalog category names (chips), derived from /catalogtypes on load.
   const [marketCategories, setMarketCategories] = usePersistentState<string[]>('nexus_market_categories', () => []);
 
+  // True until the first catalog load settles, so the grid can show a skeleton.
+  const [loading, setLoading] = useState(true);
+
   // CONTENT (live): fetch the real catalog + its types, resolve each item's category
   // (the list response leaves catalogType null), and surface the type list as chips.
   const loadMarketplace = async () => {
+    try {
+      await fetchMarketplace();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMarketplace = async () => {
     const [itemsRes, typesRes] = await Promise.all([
       catalogApi.GET('/api/catalog/items', { params: { query: { 'api-version': '1.0', PageSize: 50 } } }),
       catalogApi.GET('/api/catalog/catalogtypes', { params: { query: { 'api-version': '1.0' } } }),
@@ -74,5 +86,5 @@ export function useMarketplace({ currentUser, addNotification }: Deps) {
   // Forget the previous account's local drafts (used when the signed-in user changes).
   const reset = () => setMarketItems([]);
 
-  return { marketItems, marketCategories, loadMarketplace, buyMarketItem, createMarketItem, reset };
+  return { marketItems, marketCategories, loading, loadMarketplace, buyMarketItem, createMarketItem, reset };
 }

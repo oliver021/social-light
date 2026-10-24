@@ -1,4 +1,4 @@
-import { useRef, type MutableRefObject } from 'react';
+import { useRef, useState, type MutableRefObject } from 'react';
 import { Group } from '../types';
 import { groupsApi, describeApiError, messageOf } from '../api/gateway';
 import { usePersistentState } from './usePersistentState';
@@ -25,8 +25,18 @@ export function useGroups({ myUserId, showToast }: Deps) {
   const [groups, setGroups] = usePersistentState<Group[]>('nexus_groups', () => []);
   // Maps a groupId -> this user's group-member id, so leaving a group can DELETE it.
   const myGroupMemberIds = useRef<Map<string, string>>(new Map());
+  // True until the first list load settles (success or failure), so the tab can show a skeleton.
+  const [loading, setLoading] = useState(true);
 
   const loadGroups = async () => {
+    try {
+      await fetchGroups();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchGroups = async () => {
     const [{ data: groupList }, { data: members }] = await Promise.all([
       groupsApi.GET('/api/groups'),
       groupsApi.GET('/api/group-members'),
@@ -129,5 +139,5 @@ export function useGroups({ myUserId, showToast }: Deps) {
     setGroups([]);
   };
 
-  return { groups, loadGroups, toggleJoinGroup, createGroup, reset };
+  return { groups, loading, loadGroups, toggleJoinGroup, createGroup, reset };
 }

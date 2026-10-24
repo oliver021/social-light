@@ -3,6 +3,7 @@ import { Box, Button, LinearProgress, Typography } from '@mui/material';
 import { useDropzone, type Accept, type FileRejection } from 'react-dropzone';
 import { Upload } from 'lucide-react';
 import { mediaUrl, uploadMedia } from '../api/gateway';
+import { T } from './ui/tokens';
 
 interface MediaPickerProps {
   kind: 'image' | 'video';
@@ -94,44 +95,65 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({ kind, value, onChange,
   });
 
   return (
-    <Box className="flex flex-col gap-1.5">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
       {label && (
-        <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 text-xs font-mono">
+        <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--ui-fs-xs)', color: T.muted }}>
           {label}
         </Typography>
       )}
 
       <Box
         {...getRootProps()}
-        className={`rounded-xl border-2 border-dashed p-3 flex flex-col items-center gap-2 text-center transition-colors ${
-          isDragActive
-            ? 'border-primary bg-primary-soft'
-            : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950'
-        }`}
+        sx={{
+          p: 1.5,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 1,
+          textAlign: 'center',
+          border: `2px dashed ${isDragActive ? T.primary : T.borderStrong}`,
+          borderRadius: 'var(--ui-radius-lg)',
+          bgcolor: isDragActive ? T.primarySoft : T.surface,
+          transition: `background-color var(--ui-dur) var(--ui-ease), border-color var(--ui-dur) var(--ui-ease)`,
+        }}
       >
         <input {...getInputProps({ 'aria-label': label ?? `Choose ${kind} file` })} />
 
         {src && kind === 'image' && (
-          <img src={src} alt={label ?? 'Uploaded image'} className="max-w-full max-h-48 rounded-lg object-cover" referrerPolicy="no-referrer" />
+          <Box
+            component="img"
+            src={src}
+            alt={label ? `${label} preview` : 'Selected image preview'}
+            referrerPolicy="no-referrer"
+            sx={{ maxWidth: '100%', maxHeight: 192, borderRadius: 'var(--ui-radius-lg)', objectFit: 'cover' }}
+          />
         )}
         {src && kind === 'video' && (
-          <video src={src} controls preload="metadata" playsInline className="max-w-full max-h-56 w-full rounded-lg bg-black" />
+          <Box
+            component="video"
+            src={src}
+            controls
+            preload="metadata"
+            playsInline
+            aria-label={label ? `${label} preview` : 'Selected video preview'}
+            sx={{ maxWidth: '100%', maxHeight: 224, width: '100%', borderRadius: 'var(--ui-radius-lg)', bgcolor: 'black' }}
+          />
         )}
 
         {uploading ? (
-          <Box className="w-full max-w-xs flex flex-col gap-1.5 min-h-[44px] justify-center">
+          <Box sx={{ width: '100%', maxWidth: 320, minHeight: 44, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 0.75 }}>
             <LinearProgress
               variant="determinate"
               value={progress}
               aria-label="Upload progress"
-              className="h-2 rounded"
+              sx={{ height: 8, borderRadius: 'var(--ui-radius-full)' }}
             />
-            <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 text-xs font-mono">
+            <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--ui-fs-xs)', color: T.muted }}>
               Uploading… {progress}%
             </Typography>
           </Box>
         ) : (
-          <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 text-xs">
+          <Typography sx={{ fontSize: 'var(--ui-fs-xs)', color: T.muted }}>
             {isDragActive
               ? 'Drop the file to upload it.'
               : src
@@ -140,14 +162,14 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({ kind, value, onChange,
           </Typography>
         )}
 
-        <Box className="flex items-center justify-center gap-2 flex-wrap">
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Button
             size="small"
             variant="outlined"
             disabled={busy}
             onClick={open}
-            startIcon={<Upload className="w-3.5 h-3.5" />}
-            className="normal-case text-xs min-h-[44px] px-3 rounded-lg text-zinc-700 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700"
+            startIcon={<Upload aria-hidden="true" size={18} strokeWidth={1.75} />}
+            sx={{ textTransform: 'none', fontSize: 'var(--ui-fs-sm)', minHeight: 44, px: 1.5, borderRadius: 'var(--ui-radius-sm)', color: T.text, borderColor: T.borderStrong }}
           >
             {kind === 'image' ? 'Choose image' : 'Choose video'}
           </Button>
@@ -157,7 +179,7 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({ kind, value, onChange,
               color="error"
               disabled={busy}
               onClick={() => { setError(null); onChange(null); }}
-              className="normal-case text-xs min-h-[44px] px-3 rounded-lg"
+              sx={{ textTransform: 'none', fontSize: 'var(--ui-fs-sm)', minHeight: 44, px: 1.5, borderRadius: 'var(--ui-radius-sm)' }}
             >
               Remove
             </Button>
@@ -166,7 +188,7 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({ kind, value, onChange,
       </Box>
 
       {error && (
-        <Typography role="alert" className="text-red-600 dark:text-red-400 text-xs">
+        <Typography role="alert" sx={{ fontSize: 'var(--ui-fs-xs)', color: T.danger }}>
           {error}
         </Typography>
       )}
