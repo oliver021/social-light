@@ -29,7 +29,7 @@ export type { Person, Story, Reel, EventItem };
  * with explicit dependencies and assembles the context value. The shape below is the
  * public contract — keep it stable.
  */
-interface AppContextType {
+export interface AppContextType {
   currentUser: UserProfile;
   posts: Post[];
   groups: Group[];
@@ -92,7 +92,7 @@ interface AppContextType {
   rsvpEvent: (eventId: string) => void;
 }
 
-const AppContext = createContext<AppContextType | undefined>(undefined);
+export const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Hooks are composed top-down in dependency order: a hook is declared after every

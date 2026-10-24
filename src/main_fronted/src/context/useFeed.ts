@@ -216,14 +216,17 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     (async () => {
       try {
         if (previousId) {
-          await engagementApi.DELETE('/api/reactions/{id}', { params: { path: { id: previousId } } });
+          const del = await engagementApi.DELETE('/api/reactions/{id}', { params: { path: { id: previousId } } });
+          if (!del.response.ok) throw new Error(describeApiError(del.error, del.response, 'Your reaction was not removed'));
           myReactionIds.current.delete(postId);
         }
         if (!removing) {
-          const { data } = await engagementApi.POST('/api/reactions', {
+          // openapi-fetch resolves on HTTP errors instead of throwing, so check the response.
+          const { data, error, response } = await engagementApi.POST('/api/reactions', {
             body: { targetType: 'Post', targetId: postId, reactionType },
           });
-          if (data) myReactionIds.current.set(postId, data.id);
+          if (!data) throw new Error(describeApiError(error, response, 'Your reaction was not saved'));
+          myReactionIds.current.set(postId, data.id);
         }
       } catch (err) {
         showToast(messageOf(err, 'Your reaction was not saved'));
