@@ -105,7 +105,7 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({ kind, value, onChange,
         {...getRootProps()}
         className={`rounded-xl border-2 border-dashed p-3 flex flex-col items-center gap-2 text-center transition-colors ${
           isDragActive
-            ? 'border-violet-500 bg-violet-50 dark:bg-violet-950/30'
+            ? 'border-primary bg-primary-soft'
             : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950'
         }`}
       >

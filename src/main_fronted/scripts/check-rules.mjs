@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../src', import.meta.url));
 
-const ENABLED_RULES = ['no-raw-bff-fetch', 'no-fake-actor', 'no-console-log'];
+const ENABLED_RULES = ['no-hex', 'no-violet', 'no-raw-bff-fetch', 'no-fake-actor', 'no-console-log'];
 
 const RULES = [
   {

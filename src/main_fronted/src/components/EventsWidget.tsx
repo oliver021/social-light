@@ -30,14 +30,14 @@ export const EventsWidget: React.FC = () => {
     <Card variant="outlined" component="section" aria-labelledby="upcoming-events-title" sx={cardSx}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
         <Typography id="upcoming-events-title" component="h2" sx={{ ...sectionTitleSx, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <CalendarDays aria-hidden="true" className="w-4 h-4 text-violet-500" />
+          <CalendarDays aria-hidden="true" className="w-4 h-4 text-primary" />
           Upcoming events
         </Typography>
         <IconButton
           aria-label={open ? 'Close event form' : 'Add event'}
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
-          sx={{ ...touchTargetSx, color: 'var(--color-violet-500)' }}
+          sx={{ ...touchTargetSx, color: 'var(--ui-primary)' }}
         >
           <Plus aria-hidden="true" className="w-4 h-4" />
         </IconButton>

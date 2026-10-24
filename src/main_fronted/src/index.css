@@ -8,7 +8,7 @@
   --font-display: "Space Grotesk", "Inter", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  /* Premium High Density Dark Mode Swatches mapping across current layout styles */
+  /* Zinc remaps are kept until M0.4 migrates the zinc classes to tokens. */
   --color-zinc-50: #fbfbfb;
   --color-zinc-100: #f4f4f5;
   --color-zinc-200: #e4e4e7;
@@ -16,49 +16,136 @@
   --color-zinc-850: #2a2a2a;
   --color-zinc-900: #0f0f0f;
   --color-zinc-950: #0a0a0a;
-
-  /* Redefining Violet/Fuchsia color accents to modern High Density neon Blue and purple */
-  --color-violet-50: #eff6ff;
-  --color-violet-100: #dbeafe;
-  --color-violet-200: #bfdbfe;
-  --color-violet-300: #93c5fd;
-  --color-violet-400: #60a5fa;
-  --color-violet-500: #3b82f6;
-  --color-violet-600: #2563eb;
-  --color-violet-750: #1d4ed8;
-  --color-violet-800: #1e40af;
-  --color-violet-900: #1e3a8a;
-  --color-violet-950: #172554;
-
-  --color-fuchsia-50: #f5f3ff;
-  --color-fuchsia-100: #ede9fe;
-  --color-fuchsia-200: #ddd6fe;
-  --color-fuchsia-500: #8b5cf6;
-  --color-fuchsia-600: #7c3aed;
-  --color-fuchsia-700: #6d28d9;
 }
 
 /*
- * Shared surface tokens. Every tab uses these so cards, borders and muted text look
- * the same across Home, Communities, Marketplace and Reels. MUI components read them
- * through `components/ui/tokens.ts` (sx), plain elements through the utilities below.
- * Contrast: muted text is >= 4.5:1 on the surface in both themes.
+ * Design tokens. This file and components/ui/theme.ts (TOKENS) hold every colour value;
+ * a parity test (components/ui/theme.test.ts) keeps the two in sync.
+ * Contrast: text, muted and subtle are >= 4.5:1 on surface and page in both themes.
  */
 :root {
+  --ui-page: #f6f7f9;
   --ui-surface: #ffffff;
-  --ui-page: #fafafa;
-  --ui-border: #e4e4e7;
-  --ui-text: #18181b;
-  --ui-muted: #52525b;
-  --ui-radius: 1rem;
-  --ui-card-pad: 1rem;
+  --ui-surface-2: #f1f2f4;
+  --ui-surface-3: #e7e8eb;
+  --ui-border: #e3e4e8;
+  --ui-border-strong: #c9cbd1;
+  --ui-text: #16171a;
+  --ui-muted: #555862;
+  --ui-subtle: #6e717b;
+  --ui-primary: #2563eb;
+  --ui-primary-hover: #1d4ed8;
+  --ui-on-primary: #ffffff;
+  --ui-primary-soft: #e8f0fe;
+  --ui-accent: #7c3aed;
+  --ui-accent-soft: #f1ebfe;
+  --ui-success: #047857;
+  --ui-success-soft: #e7f6ef;
+  --ui-warning: #b45309;
+  --ui-warning-soft: #fdf4e3;
+  --ui-danger: #c62828;
+  --ui-danger-soft: #fdecec;
+  --ui-focus: #2563eb;
+  /* Text placed on dark photos (auth screen); the same in both themes. */
+  --ui-on-media: #fafafa;
+  --ui-on-media-muted: #d4d4d8;
+
+  /* Non-colour tokens (same in both themes). */
+  --ui-radius-sm: 8px;
+  --ui-radius: 14px;
+  --ui-radius-lg: 20px;
+  --ui-radius-full: 999px;
+  --ui-card-pad: 16px;
+  --ui-gap: 16px;
+  --ui-header-h: 56px;
+  --ui-bottomnav-h: 56px;
+  --ui-shadow-1: 0 1px 2px rgb(0 0 0 / .06);
+  --ui-shadow-2: 0 8px 24px rgb(0 0 0 / .12);
+  --ui-shadow-3: 0 16px 48px rgb(0 0 0 / .18);
+  --ui-dur: 160ms;
+  --ui-ease: cubic-bezier(.2,.8,.2,1);
+
+  /* Typography scale. */
+  --ui-fs-xs: 0.75rem;
+  --ui-fs-sm: 0.8125rem;
+  --ui-fs-base: 0.9375rem;
+  --ui-fs-lg: 1.0625rem;
+  --ui-fs-xl: 1.25rem;
+  --ui-fs-2xl: 1.5rem;
 }
+
+@media (min-width: 1200px) {
+  :root {
+    --ui-card-pad: 20px;
+  }
+}
+
 .dark {
-  --ui-surface: #0a0a0a;
-  --ui-page: #0a0a0a;
-  --ui-border: #2a2a2a;
-  --ui-text: #e4e4e7;
-  --ui-muted: #a1a1aa;
+  --ui-page: #0a0a0b;
+  --ui-surface: #121214;
+  --ui-surface-2: #1b1b1f;
+  --ui-surface-3: #26262b;
+  --ui-border: #2a2a30;
+  --ui-border-strong: #3a3a42;
+  --ui-text: #ececef;
+  --ui-muted: #a3a5ad;
+  --ui-subtle: #8a8c95;
+  --ui-primary: #60a5fa;
+  --ui-primary-hover: #93c5fd;
+  --ui-on-primary: #0a0a0b;
+  --ui-primary-soft: #172554;
+  --ui-accent: #a78bfa;
+  --ui-accent-soft: #2e1065;
+  --ui-success: #34d399;
+  --ui-success-soft: #052e22;
+  --ui-warning: #fbbf24;
+  --ui-warning-soft: #2d1d05;
+  --ui-danger: #f87171;
+  --ui-danger-soft: #3a0d0d;
+  --ui-focus: #93c5fd;
+  --ui-on-media: #fafafa;
+  --ui-on-media-muted: #d4d4d8;
+
+  --ui-shadow-1: 0 1px 2px rgb(0 0 0 / .5);
+  --ui-shadow-2: 0 8px 24px rgb(0 0 0 / .6);
+  --ui-shadow-3: 0 16px 48px rgb(0 0 0 / .7);
+}
+
+/* Tailwind utilities backed by the tokens: bg-surface, text-muted, border-line, ... */
+@theme inline {
+  --color-page: var(--ui-page);
+  --color-surface: var(--ui-surface);
+  --color-surface-2: var(--ui-surface-2);
+  --color-surface-3: var(--ui-surface-3);
+  --color-line: var(--ui-border);
+  --color-line-strong: var(--ui-border-strong);
+  --color-fg: var(--ui-text);
+  --color-muted: var(--ui-muted);
+  --color-subtle: var(--ui-subtle);
+  --color-primary: var(--ui-primary);
+  --color-primary-hover: var(--ui-primary-hover);
+  --color-on-primary: var(--ui-on-primary);
+  --color-primary-soft: var(--ui-primary-soft);
+  --color-accent: var(--ui-accent);
+  --color-accent-soft: var(--ui-accent-soft);
+  --color-success: var(--ui-success);
+  --color-success-soft: var(--ui-success-soft);
+  --color-warning: var(--ui-warning);
+  --color-warning-soft: var(--ui-warning-soft);
+  --color-danger: var(--ui-danger);
+  --color-danger-soft: var(--ui-danger-soft);
+  --radius-sm: var(--ui-radius-sm);
+  --radius-card: var(--ui-radius);
+  --radius-lg: var(--ui-radius-lg);
+  --shadow-1: var(--ui-shadow-1);
+  --shadow-2: var(--ui-shadow-2);
+  --shadow-3: var(--ui-shadow-3);
+}
+@utility brand-gradient {
+  background-image: linear-gradient(to top right, var(--ui-primary), var(--ui-accent));
+}
+@utility brand-ring {
+  background-image: linear-gradient(to top right, var(--ui-accent), var(--ui-primary));
 }
 
 @utility ui-card {
@@ -79,7 +166,7 @@
 
 /* Visible keyboard focus everywhere (MUI and native controls). */
 :focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--ui-focus);
   outline-offset: 2px;
 }
 
@@ -88,6 +175,8 @@ body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
+  background-color: var(--ui-page);
+  color: var(--ui-text);
 }
 
 /* Custom scrollbars */
@@ -105,4 +194,3 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(155, 155, 155, 0.4);
 }
-

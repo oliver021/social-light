@@ -89,7 +89,7 @@ export const MarketplaceTab: React.FC = () => {
           <Button
             variant="contained"
             onClick={() => setCreateOpen(true)}
-            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, borderRadius: 999, px: 2, bgcolor: '#b45309', color: '#fff', '&:hover': { bgcolor: '#92400e' }, flexShrink: 0 }}
+            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, borderRadius: 999, px: 2, flexShrink: 0 }}
           >
             <PlusCircle aria-hidden="true" className="w-4 h-4 mr-1" />
             List an item
@@ -133,10 +133,10 @@ export const MarketplaceTab: React.FC = () => {
                   fontSize: '0.8125rem',
                   fontWeight: selected ? 600 : 500,
                   flexShrink: 0,
-                  bgcolor: selected ? '#f59e0b' : 'transparent',
-                  color: selected ? '#18181b' : 'var(--ui-text)',
+                  bgcolor: selected ? 'var(--ui-primary-soft)' : 'transparent',
+                  color: selected ? 'var(--ui-primary)' : 'var(--ui-text)',
                   borderColor: 'var(--ui-border)',
-                  '&:hover': { bgcolor: selected ? '#d97706' : 'action.hover' },
+                  '&:hover': { bgcolor: selected ? 'var(--ui-primary-soft)' : 'action.hover' },
                 }}
               />
             );
@@ -169,7 +169,7 @@ export const MarketplaceTab: React.FC = () => {
                 variant="outlined"
                 component="article"
                 aria-label={item.title}
-                sx={{ ...cardSx, p: 0, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'border-color 0.2s', '&:hover': { borderColor: '#fcd34d' } }}
+                sx={{ ...cardSx, p: 0, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'border-color 0.2s', '&:hover': { borderColor: 'var(--ui-border-strong)' } }}
               >
                 {item.imageUrl ? (
                   <img
@@ -195,13 +195,13 @@ export const MarketplaceTab: React.FC = () => {
                       <Typography sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--ui-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
                         {item.title}
                       </Typography>
-                      <Typography sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.875rem', color: '#b45309', whiteSpace: 'nowrap' }}>
+                      <Typography sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.875rem', color: 'var(--ui-text)', whiteSpace: 'nowrap' }}>
                         ${item.price}
                       </Typography>
                     </Box>
 
                     {item.id.startsWith('draft-') && (
-                      <Chip size="small" label="Draft, this device only" sx={{ alignSelf: 'flex-start', fontSize: '0.6875rem', height: 22, bgcolor: '#fef3c7', color: '#92400e' }} />
+                      <Chip size="small" label="Draft, this device only" sx={{ alignSelf: 'flex-start', fontSize: '0.6875rem', height: 22, bgcolor: 'var(--ui-warning-soft)', color: 'var(--ui-warning)' }} />
                     )}
 
                     <Typography sx={{ ...mutedSx, fontSize: '0.8125rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -250,7 +250,7 @@ export const MarketplaceTab: React.FC = () => {
           New listing
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          <Typography role="note" sx={{ fontSize: '0.8125rem', color: '#92400e', bgcolor: '#fffbeb', borderRadius: 2, p: 1.25, border: '1px solid #fde68a', '.dark &': { color: '#fcd34d', bgcolor: 'rgba(120,53,15,0.25)', borderColor: 'rgba(146,64,14,0.5)' } }}>
+          <Typography role="note" sx={{ fontSize: '0.8125rem', color: 'var(--ui-text)', bgcolor: 'var(--ui-warning-soft)', borderRadius: 'var(--ui-radius-sm)', p: 1.25, border: '1px solid var(--ui-warning)' }}>
             Saved in this browser only. Listings are not published to the catalog yet.
           </Typography>
           <TextField
@@ -311,7 +311,7 @@ export const MarketplaceTab: React.FC = () => {
             variant="contained"
             onClick={handleCreateSubmit}
             disabled={!newTitle.trim() || !newPrice}
-            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, bgcolor: '#b45309', color: '#fff', '&:hover': { bgcolor: '#92400e' }, '&.Mui-disabled': { bgcolor: 'var(--ui-border)', color: 'var(--ui-muted)' } }}
+            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, '&.Mui-disabled': { bgcolor: 'var(--ui-border)', color: 'var(--ui-muted)' } }}
           >
             Save draft
           </Button>

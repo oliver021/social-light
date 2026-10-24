@@ -207,10 +207,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
             onClick={() => setActiveTab('home')}
             onKeyDown={(e) => { if (e.key === 'Enter') setActiveTab('home'); }}
           >
-            <Box className="p-1.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-500/10">
+            <Box className="p-1.5 brand-gradient rounded-xl flex items-center justify-center text-white shadow-lg">
               <Zap className="w-5 h-5 fill-current animate-bounce" />
             </Box>
-            <Typography variant="h6" className="hidden min-[480px]:block font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-fuchsia-600 tracking-tight leading-none text-xl whitespace-nowrap shrink-0">
+            <Typography variant="h6" className="hidden min-[480px]:block font-display font-bold text-transparent bg-clip-text brand-gradient tracking-tight leading-none text-xl whitespace-nowrap shrink-0">
               socialLight
             </Typography>
           </Box>
@@ -275,9 +275,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
                           <button
                             key={topic.text}
                             onClick={() => setSearchQuery(topic.value)}
-                            className="flex items-center gap-1.5 px-3 py-1 bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-100 dark:border-zinc-800 rounded-full text-xs text-zinc-600 dark:text-zinc-300 hover:bg-violet-50 dark:hover:bg-violet-950/25 hover:text-violet-600 dark:hover:text-violet-400 font-sans transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1 bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-100 dark:border-zinc-800 rounded-full text-xs text-zinc-600 dark:text-zinc-300 hover:bg-primary-soft hover:text-primary font-sans transition-all cursor-pointer"
                           >
-                            <topic.icon className="w-3 h-3 text-violet-500" />
+                            <topic.icon className="w-3 h-3 text-primary" />
                             {topic.text}
                           </button>
                         ))}
@@ -387,7 +387,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
                       {matchedPosts.length > 0 && (
                         <Box>
                           <Box className="px-2 py-1 flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 font-mono text-xs uppercase font-bold tracking-wider">
-                            <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+                            <Sparkles className="w-3.5 h-3.5 text-primary" />
                             Posts
                           </Box>
                           <List className="p-0">
@@ -615,7 +615,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
           >
             <Box className="p-2 flex items-center justify-between">
               <Typography variant="subtitle2" className="font-display font-semibold flex items-center gap-1 text-zinc-800 dark:text-zinc-200">
-                <Bell className="w-4 h-4 text-violet-500" />
+                <Bell className="w-4 h-4 text-primary" />
                 Notifications
               </Typography>
               <Typography variant="caption" className="font-mono text-zinc-600 dark:text-zinc-400">
@@ -634,7 +634,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
                 {notifications.map((notif) => (
                   <ListItem 
                     key={notif.id} 
-                    className={`px-2 py-1.5 rounded-xl my-1 gap-2 border border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer ${!notif.read ? 'bg-violet-50/20 dark:bg-violet-950/10 border-l-violet-500 border-l-2' : ''}`}
+                    className={`px-2 py-1.5 rounded-xl my-1 gap-2 border border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer ${!notif.read ? 'bg-primary-soft/20 border-l-primary border-l-2' : ''}`}
                     onClick={() => {
                       if (notif.postId) {
                         setActiveTab('home');
@@ -667,7 +667,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
               <Button 
                 size="small" 
                 onClick={handleCloseNotifMenu} 
-                className="text-violet-600 dark:text-violet-400 font-display text-xs normal-case"
+                className="text-primary dark:text-primary font-display text-xs normal-case"
               >
                 Close
               </Button>
@@ -678,7 +678,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileDrawer }) => {
           {isAuthenticated ? (
             <Box>
               <Tooltip title="Account">
-                <IconButton onClick={handleOpenUserMenu} aria-label="Account menu" className="w-11 h-11 p-0 border-2 border-transparent hover:border-violet-500/50 rounded-full">
+                <IconButton onClick={handleOpenUserMenu} aria-label="Account menu" className="w-11 h-11 p-0 border-2 border-transparent hover:border-primary/50 rounded-full">
                   <Avatar 
                     src={currentUser.avatar} 
                     alt={currentUser.name} 

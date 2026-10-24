@@ -20,7 +20,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ icon: Icon, title, body,
     sx={compact ? { display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5, py: 1 } : { ...cardSx, textAlign: 'center', p: 3 }}
   >
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, width: '100%', minWidth: 0 }}>
-      {Icon && !compact && <Icon aria-hidden="true" className="w-6 h-6 text-violet-500" />}
+      {Icon && !compact && <Icon aria-hidden="true" className="w-6 h-6 text-primary" />}
       <Typography component="h3" sx={compact ? { ...mutedSx, fontWeight: 600 } : { ...sectionTitleSx, fontSize: '0.9375rem' }}>
         {title}
       </Typography>

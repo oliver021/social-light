@@ -138,7 +138,7 @@ export const ProfileTab: React.FC = () => {
             <Box className="md:pb-1 min-w-0">
               <Typography variant="h6" className="font-display font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 leading-none text-base break-words">
                 {currentUser.name}
-                <CheckCircle className="w-4 h-4 text-violet-500 fill-current" />
+                <CheckCircle className="w-4 h-4 text-primary fill-current" />
               </Typography>
               <Typography variant="caption" className="font-mono text-zinc-600 dark:text-zinc-400 block text-xs mt-0.5">
                 {currentUser.handle}
@@ -163,7 +163,7 @@ export const ProfileTab: React.FC = () => {
         <Grid size={{ xs: 12, md: 7 }}>
           <Card variant="outlined" className="p-4 border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950 flex flex-col gap-3">
             <Box className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              <BookOpen className="w-4 h-4 text-primary dark:text-primary" />
               <Typography variant="subtitle2" className="font-display font-semibold text-zinc-800 dark:text-zinc-200">
                 About
               </Typography>
@@ -312,7 +312,7 @@ export const ProfileTab: React.FC = () => {
               type="submit"
               variant="contained" 
               disabled={saving}
-              className="bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs normal-case px-4.5"
+              className="bg-primary hover:bg-primary-hover text-on-primary rounded-lg text-xs normal-case px-4.5"
             >
               {saving ? 'Saving…' : 'Save profile'}
             </Button>

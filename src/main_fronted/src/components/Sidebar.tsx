@@ -8,11 +8,11 @@ export const Sidebar: React.FC = () => {
   const { currentUser, activeTab, setActiveTab, notifications } = useApp();
 
   const menuItems = [
-    { label: 'Home', tab: 'home' as const, icon: Home, color: 'text-violet-500' },
+    { label: 'Home', tab: 'home' as const, icon: Home, color: 'text-primary' },
     { label: 'Communities', tab: 'groups' as const, icon: Users2, color: 'text-emerald-500' },
     { label: 'Marketplace', tab: 'marketplace' as const, icon: ShoppingBag, color: 'text-amber-500' },
     { label: 'Reels', tab: 'reels' as const, icon: Clapperboard, color: 'text-rose-500' },
-    { label: 'My profile', tab: 'profile' as const, icon: User, color: 'text-fuchsia-500' }
+    { label: 'My profile', tab: 'profile' as const, icon: User, color: 'text-accent' }
   ];
 
   const unreadAlerts = notifications.filter(n => !n.read).length;
@@ -21,7 +21,7 @@ export const Sidebar: React.FC = () => {
     <Box id="desktop-sidebar-and-widgets" className="flex flex-col gap-4">
       {/* PROFILE SUMMARY */}
       <Card variant="outlined" id="sidebar-user-quickcard" component="section" aria-label="Your profile" sx={{ ...cardSx, position: 'relative', overflow: 'hidden', pt: 2 }}>
-        <Box className="absolute top-0 left-0 right-0 h-14 bg-gradient-to-r from-violet-600/30 via-fuchsia-600/30 to-rose-600/10 dark:from-violet-950/40 dark:via-fuchsia-950/40 dark:to-zinc-950" />
+        <Box className="absolute top-0 left-0 right-0 h-14 bg-gradient-to-r from-primary-soft via-accent-soft to-surface-2" />
         <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 3, textAlign: 'center', minWidth: 0 }}>
           <Box
             component="button"
@@ -36,7 +36,7 @@ export const Sidebar: React.FC = () => {
             component="button"
             type="button"
             onClick={() => setActiveTab('profile')}
-            sx={{ background: 'none', border: 0, p: 0, m: 0, cursor: 'pointer', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--ui-text)', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { color: 'var(--color-violet-500)' } }}
+            sx={{ background: 'none', border: 0, p: 0, m: 0, cursor: 'pointer', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--ui-text)', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { color: 'var(--ui-primary)' } }}
           >
             {currentUser.name}
           </Typography>
@@ -93,7 +93,7 @@ export const Sidebar: React.FC = () => {
                     border: '1px solid',
                     borderColor: isSelected ? 'var(--ui-border)' : 'transparent',
                     bgcolor: isSelected ? 'action.selected' : 'transparent',
-                    color: isSelected ? 'var(--color-violet-500)' : 'var(--ui-muted)',
+                    color: isSelected ? 'var(--ui-primary)' : 'var(--ui-muted)',
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 0, mr: 1.5, color: 'inherit' }}>
@@ -108,7 +108,7 @@ export const Sidebar: React.FC = () => {
                       label={unreadAlerts}
                       size="small"
                       aria-hidden="true"
-                      sx={{ bgcolor: 'var(--color-rose-500, #f43f5e)', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', height: 20 }}
+                      sx={{ bgcolor: 'var(--ui-danger)', color: 'var(--ui-on-primary)', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', height: 20 }}
                     />
                   )}
                 </ListItemButton>

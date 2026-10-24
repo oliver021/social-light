@@ -39,8 +39,8 @@ export const StoriesBar: React.FC = () => {
           sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, flexShrink: 0, background: 'none', border: 0, p: 0.5, cursor: 'pointer', color: 'inherit', minWidth: 64 }}
         >
           <Box sx={{ position: 'relative' }}>
-            <Avatar src={currentUser.avatar} alt="" sx={{ ...AVATAR, border: '2px dashed var(--color-violet-400)' }} />
-            <Box sx={{ position: 'absolute', bottom: -2, right: -2, bgcolor: 'var(--color-violet-600)', borderRadius: '50%', p: 0.25, border: '2px solid var(--ui-surface)', display: 'flex' }}>
+            <Avatar src={currentUser.avatar} alt="" sx={{ ...AVATAR, border: '2px dashed var(--ui-primary)' }} />
+            <Box sx={{ position: 'absolute', bottom: -2, right: -2, bgcolor: 'var(--ui-primary)', borderRadius: '50%', p: 0.25, border: '2px solid var(--ui-surface)', display: 'flex' }}>
               <Plus aria-hidden="true" className="w-3 h-3 text-white" />
             </Box>
           </Box>
@@ -56,7 +56,7 @@ export const StoriesBar: React.FC = () => {
             onClick={() => openStory(s)}
             sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, flexShrink: 0, background: 'none', border: 0, p: 0.5, cursor: 'pointer', color: 'inherit', minWidth: 64 }}
           >
-            <Box sx={{ borderRadius: '50%', p: '2px', background: 'linear-gradient(to top right, #8b5cf6, #d946ef)' }}>
+            <Box sx={{ borderRadius: '50%', p: '2px', background: 'linear-gradient(to top right, var(--ui-accent), var(--ui-primary))' }}>
               <Avatar src={s.authorAvatar} alt="" sx={{ ...AVATAR, border: '2px solid var(--ui-surface)' }} />
             </Box>
             <Typography sx={{ ...mutedSx, fontSize: '0.75rem', fontWeight: 500, maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -94,7 +94,7 @@ export const StoriesBar: React.FC = () => {
       {/* Viewer dialog */}
       <Dialog open={!!viewing} onClose={() => setViewing(null)} maxWidth="xs" aria-label="Story">
         <DialogContent sx={{ p: 0, position: 'relative' }}>
-          <IconButton aria-label="Close story" onClick={() => setViewing(null)} sx={{ ...touchTargetSx, position: 'absolute', top: 8, right: 8, zIndex: 1, bgcolor: 'rgba(0,0,0,0.5)', color: '#fff', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }}>
+          <IconButton aria-label="Close story" onClick={() => setViewing(null)} sx={{ ...touchTargetSx, position: 'absolute', top: 8, right: 8, zIndex: 1, bgcolor: 'rgba(0,0,0,0.5)', color: 'var(--ui-on-media)', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }}>
             <X aria-hidden="true" className="w-4 h-4" />
           </IconButton>
           {viewing && (

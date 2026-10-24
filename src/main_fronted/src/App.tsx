@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -12,7 +12,8 @@ import { Messenger } from './components/Messenger';
 import { AuthScreen } from './components/AuthScreen';
 
 // MUI components
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
+import { buildTheme } from './components/ui/theme';
 import CssBaseline from '@mui/material/CssBaseline';
 import { 
   Box, 
@@ -39,78 +40,8 @@ const AppContent: React.FC = () => {
   const { darkMode, activeTab, setActiveTab, isAuthenticated } = useApp();
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
-  // Dynamic Material UI design theme customization
-  const theme = createTheme({
-    // Same breakpoints as Tailwind (sm 640, md 768). Without this, MUI's md (900px) and
-    // Tailwind's md (768px) disagree, so the sidebar and the bottom nav clashed at 768.
-    breakpoints: { values: { xs: 0, sm: 640, md: 768, lg: 1200, xl: 1536 } },
-    palette: {
-      mode: darkMode ? 'dark' : 'light',
-      primary: {
-        main: darkMode ? '#60a5fa' : '#2563eb', // blue-400 on dark (contrast), blue-600 on light
-      },
-      secondary: {
-        main: '#7c3aed', // purple-600
-      },
-      background: {
-        default: darkMode ? '#0a0a0a' : '#fafafa', // High Density pure black/charcoal
-        paper: darkMode ? '#0f0f0f' : '#ffffff',   // High Density dark components
-      },
-      text: {
-        primary: darkMode ? '#e0e0e0' : '#18181b', // High Density primary text
-        secondary: darkMode ? '#9ca3af' : '#52525b', // High Density secondary text
-      },
-      divider: darkMode ? '#2a2a2a' : '#e4e4e7'
-    },
-    typography: {
-      fontFamily: '"Inter", "Helvetica Neue", sans-serif',
-      h1: { fontFamily: '"Space Grotesk", sans-serif', fontWeight: 700 },
-      h2: { fontFamily: '"Space Grotesk", sans-serif', fontWeight: 700 },
-      h3: { fontFamily: '"Space Grotesk", sans-serif', fontWeight: 600 },
-      h4: { fontFamily: '"Space Grotesk", sans-serif', fontWeight: 600 },
-      h5: { fontFamily: '"Space Grotesk", sans-serif', fontWeight: 600 },
-      h6: { fontFamily: '"Space Grotesk", sans-serif', fontWeight: 600 },
-      button: { textTransform: 'none', fontWeight: 600 }
-    },
-    shape: {
-      borderRadius: 12
-    },
-    components: {
-      MuiCard: {
-        styleOverrides: {
-          root: {
-            transition: 'box-shadow 0.3s, border-color 0.3s',
-            backgroundImage: 'none',
-            boxShadow: 'none',
-            borderColor: darkMode ? '#2a2a2a' : '#e5e7eb',
-            '&:hover': {
-              borderColor: darkMode ? '#3b82f6' : '#9ca3af',
-            }
-          }
-        }
-      },
-      MuiButton: {
-        styleOverrides: {
-          root: {
-            borderRadius: 8,
-            boxShadow: 'none',
-            fontWeight: 600,
-            '&:hover': {
-              boxShadow: 'none',
-            }
-          }
-        }
-      },
-      MuiPaper: {
-        styleOverrides: {
-          root: {
-            backgroundImage: 'none',
-            boxShadow: 'none'
-          }
-        }
-      }
-    }
-  });
+  // One MUI theme, built from the design tokens (components/ui/theme.ts).
+  const theme = useMemo(() => buildTheme(darkMode ? 'dark' : 'light'), [darkMode]);
 
   const handleToggleMobileDrawer = () => {
     setMobileDrawerOpen(!mobileDrawerOpen);
@@ -165,7 +96,7 @@ const AppContent: React.FC = () => {
         >
           <Box className="flex flex-col gap-4">
             <Box className="flex items-center gap-2 mb-2 pr-2">
-              <Box className="p-1 bg-gradient-to-tr from-violet-600 to-fuchsia-600 rounded text-white shrink-0">
+              <Box className="p-1 brand-gradient rounded text-white shrink-0">
                 <Zap className="w-4 h-4 fill-current" />
               </Box>
               <Typography variant="body2" className="font-display font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1 text-[13px]">

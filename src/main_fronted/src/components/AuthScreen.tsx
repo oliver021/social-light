@@ -39,16 +39,16 @@ export const AuthScreen: React.FC = () => {
         className="w-full max-w-md p-6 sm:p-8 border border-zinc-800 rounded-2xl bg-zinc-900/60"
       >
         <Box className="flex items-center gap-2 mb-6">
-          <Box className="p-1.5 bg-gradient-to-tr from-violet-600 to-fuchsia-600 rounded text-white">
+          <Box className="p-1.5 brand-gradient rounded text-white">
             <Zap className="w-5 h-5 fill-current" />
           </Box>
-          <Typography variant="h5" component="h1" className="font-display font-bold" sx={{ color: '#fafafa !important', fontWeight: 700 }}>
+          <Typography variant="h5" component="h1" className="font-display font-bold" sx={{ color: 'var(--ui-on-media)', fontWeight: 700 }}>
             socialLight
           </Typography>
           <Chip label="live" size="small" color="success" className="ml-auto scale-90" />
         </Box>
 
-        <Typography variant="body2" className="mb-6" sx={{ color: '#d4d4d8 !important' }}>
+        <Typography variant="body2" className="mb-6" sx={{ color: 'var(--ui-on-media-muted)' }}>
           {mode === 'signin' ? 'Sign in to your account.' : 'Create an account to get started.'}
         </Typography>
 
@@ -90,7 +90,7 @@ export const AuthScreen: React.FC = () => {
             type="submit"
             variant="contained"
             disabled={busy}
-            className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-2.5 rounded-lg font-semibold"
+            className="brand-gradient text-white py-2.5 rounded-lg font-semibold"
           >
             {busy ? <CircularProgress size={20} color="inherit" /> : mode === 'signin' ? 'Sign In' : 'Create Account'}
           </Button>
@@ -98,12 +98,12 @@ export const AuthScreen: React.FC = () => {
 
         <Divider className="my-5" />
 
-        <Typography variant="caption" className="block text-center" sx={{ color: '#a1a1aa !important' }}>
+        <Typography variant="caption" className="block text-center" sx={{ color: 'var(--ui-on-media-muted)' }}>
           {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
           <Button
             size="small"
             onClick={() => { setError(null); setMode(mode === 'signin' ? 'signup' : 'signin'); }}
-            className="normal-case text-violet-400 font-semibold p-0 min-w-0 align-baseline"
+            className="normal-case font-semibold p-0 min-w-0 align-baseline" sx={{ color: 'var(--ui-on-media)', textDecoration: 'underline' }}
           >
             {mode === 'signin' ? 'Sign up' : 'Sign in'}
           </Button>

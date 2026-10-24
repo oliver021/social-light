@@ -139,7 +139,7 @@ const ReelPlayer: React.FC<{
           </Box>
           {reel.caption && (
             <Box className="mt-2 flex items-start gap-1.5">
-              <Music2 className="w-3 h-3 text-violet-300 mt-0.5 shrink-0" />
+              <Music2 className="w-3 h-3 text-primary mt-0.5 shrink-0" />
               <Typography variant="body2" className="text-white text-xs break-words min-w-0">{reel.caption}</Typography>
             </Box>
           )}
@@ -196,10 +196,10 @@ export const ReelsTab: React.FC = () => {
     <Box className="relative">
       <Card variant="outlined" component="section" aria-label="Reels" sx={{ ...cardSx, mb: 1.5, p: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
         <Box className="flex items-center gap-2">
-          <Clapperboard aria-hidden="true" className="w-5 h-5 text-violet-500" />
+          <Clapperboard aria-hidden="true" className="w-5 h-5 text-primary" />
           <Typography component="h2" sx={sectionTitleSx}>Reels</Typography>
         </Box>
-        <Button variant="contained" onClick={() => setOpen(true)} sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, borderRadius: 999, px: 2, background: 'linear-gradient(to right, #7c3aed, #c026d3)' }}>
+        <Button variant="contained" onClick={() => setOpen(true)} sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, borderRadius: 999, px: 2, background: 'linear-gradient(to right, var(--ui-primary), var(--ui-accent))' }}>
           <Plus aria-hidden="true" className="w-4 h-4 mr-1" /> New reel
         </Button>
       </Card>
@@ -265,7 +265,7 @@ export const ReelsTab: React.FC = () => {
             variant="contained"
             onClick={handlePublish}
             disabled={!videoUrl || publishing}
-            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, background: 'linear-gradient(to right, #7c3aed, #c026d3)' }}
+            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, background: 'linear-gradient(to right, var(--ui-primary), var(--ui-accent))' }}
           >
             {publishing ? 'Publishing…' : 'Publish'}
           </Button>

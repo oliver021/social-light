@@ -355,7 +355,7 @@ export const FeedsTab: React.FC = () => {
             onClick={handlePostSubmit}
             disabled={(!postText.trim() && composerType === 'text') || attachmentMissing}
             endIcon={<Send aria-hidden="true" className="w-3 h-3" />}
-            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, borderRadius: 999, px: 2.5, background: 'linear-gradient(to right, #7c3aed, #c026d3)', color: '#fff', '&.Mui-disabled': { color: 'var(--ui-muted)', background: 'var(--ui-border)' } }}
+            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, borderRadius: 999, px: 2.5, background: 'linear-gradient(to right, var(--ui-primary), var(--ui-accent))', color: 'var(--ui-on-primary)', '&.Mui-disabled': { color: 'var(--ui-muted)', background: 'var(--ui-border)' } }}
           >
             Post
           </Button>
@@ -400,7 +400,7 @@ export const FeedsTab: React.FC = () => {
                 variant="outlined"
                 sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, borderRadius: 999, px: 3, color: 'var(--ui-text)', borderColor: 'var(--ui-border)' }}
               >
-                <Clock aria-hidden="true" className="w-3.5 h-3.5 mr-1 text-violet-500" />
+                <Clock aria-hidden="true" className="w-3.5 h-3.5 mr-1 text-primary" />
                 Show more posts
               </Button>
             ) : (

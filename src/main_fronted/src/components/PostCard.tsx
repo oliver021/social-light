@@ -165,18 +165,18 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                   onClick={() => votePoll(post.id, opt.id)}
                   className={`relative p-2.5 rounded-lg border cursor-pointer select-none overflow-hidden transition-all duration-350 ${
                     isUserVoted 
-                    ? 'border-violet-400 bg-violet-50/15 dark:bg-violet-950/10' 
+                    ? 'border-primary bg-primary-soft/15' 
                     : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100/40 dark:hover:bg-zinc-900/40'
                   }`}
                 >
                   {/* Graphical bar progress indicator background */}
                   <div 
-                    className="absolute top-0 bottom-0 left-0 bg-violet-600/10 dark:bg-violet-400/10 transition-all duration-500"
+                    className="absolute top-0 bottom-0 left-0 bg-primary/10 transition-all duration-500"
                     style={{ width: `${percentage}%` }}
                   />
 
                   <Box className="relative flex items-center justify-between z-10">
-                    <Typography variant="caption" className={`text-xs font-medium break-words min-w-0 ${isUserVoted ? 'text-violet-700 dark:text-violet-300 font-semibold' : 'text-zinc-700 dark:text-zinc-400'}`}>
+                    <Typography variant="caption" className={`text-xs font-medium break-words min-w-0 ${isUserVoted ? 'text-primary font-semibold' : 'text-zinc-700 dark:text-zinc-400'}`}>
                       {opt.text} {isUserVoted && '✓'}
                     </Typography>
                     <Typography variant="caption" className="font-mono text-xs text-zinc-600 dark:text-zinc-400">
@@ -227,7 +227,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
             </IconButton>
           </Box>
           <Box className="absolute bottom-2.5 left-2.5 bg-zinc-900/70 backdrop-blur px-2 py-0.5 rounded-full flex items-center gap-1.5 border border-zinc-700/50">
-            <FileVideo className="w-3" color="#a78bfa" />
+            <FileVideo className="w-3" color="var(--ui-accent)" />
             <Typography variant="caption" className="font-mono text-xs text-zinc-300">
               Interactive video preview
             </Typography>
@@ -238,7 +238,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
       {post.type === 'link' && post.linkUrl && (
         <Card 
           variant="outlined" 
-          className="rounded-xl border border-zinc-200 dark:border-zinc-850 overflow-hidden bg-zinc-50/50 dark:bg-zinc-900/30 hover:border-violet-300 hover:dark:border-violet-900 transition-all cursor-pointer flex flex-col md:flex-row"
+          className="rounded-xl border border-zinc-200 dark:border-zinc-850 overflow-hidden bg-zinc-50/50 dark:bg-zinc-900/30 hover:border-primary transition-all cursor-pointer flex flex-col md:flex-row"
           onClick={() => window.open(post.linkUrl, '_blank')}
         >
           {post.linkImage && (
@@ -258,7 +258,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                 {post.linkDesc}
               </Typography>
             </Box>
-            <Box className="flex items-center gap-1 mt-1 text-xs font-mono text-violet-600 dark:text-violet-400">
+            <Box className="flex items-center gap-1 mt-1 text-xs font-mono text-primary dark:text-primary">
               <ExternalLink className="w-3 h-3" />
               Source: chromium.org
             </Box>
@@ -330,7 +330,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                           setHoverReactionsOpen(false);
                         }}
                         className={`text-xl p-1 min-w-[40px] min-h-[40px] rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition ${
-                          isActive ? 'bg-violet-50/40 dark:bg-violet-950/30 font-bold border border-violet-300' : ''
+                          isActive ? 'bg-primary-soft/40 font-bold border border-primary' : ''
                         }`}
                       >
                         {cfg.emoji}
@@ -408,7 +408,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
               type="submit"
               aria-label="Post comment"
               disabled={!newCommentText.trim() || posting}
-              className="bg-violet-605 text-white hover:bg-violet-700 w-11 h-11 shrink-0 text-zinc-700 dark:text-zinc-300"
+              className="bg-primary text-on-primary hover:bg-primary-hover w-11 h-11 shrink-0 text-zinc-700 dark:text-zinc-300"
               size="small"
               style={{ borderRadius: '8px' }}
             >

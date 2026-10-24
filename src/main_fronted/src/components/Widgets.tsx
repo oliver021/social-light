@@ -83,7 +83,7 @@ export const Widgets: React.FC = () => {
                     display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, flex: 1,
                     background: 'none', border: 0, p: 0, m: 0, textAlign: 'left', color: 'inherit', cursor: 'pointer',
                     minHeight: 44,
-                    '&:hover .person-name': { color: 'var(--color-violet-500)' },
+                    '&:hover .person-name': { color: 'var(--ui-primary)' },
                   }}
                 >
                   <Avatar src={person.avatar} alt={person.name} sx={{ width: 36, height: 36 }} />
