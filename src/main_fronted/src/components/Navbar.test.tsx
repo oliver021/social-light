@@ -35,14 +35,14 @@ describe('Navbar', () => {
     expect(screen.getByText('@ana')).toBeInTheDocument();
   });
 
-  it('selecting a matching person opens a chat with them', async () => {
-    const openChatWithUser = vi.fn();
+  it('selecting a matching person opens their profile', async () => {
+    const openProfile = vi.fn();
     const { user } = renderWithProviders(<Navbar onToggleMobileDrawer={() => {}} />, {
-      context: { people: [ana], openChatWithUser },
+      context: { people: [ana], openProfile },
     });
     await user.type(screen.getByRole('textbox', { name: 'Search people, posts and items' }), 'ana');
     await user.click(screen.getByText('Ana Ruiz'));
-    expect(openChatWithUser).toHaveBeenCalledWith({ id: 'user-ana', name: 'Ana Ruiz', avatar: '', handle: '@ana' });
+    expect(openProfile).toHaveBeenCalledWith('user-ana');
   });
 
   it('the bell opens the notifications list and marks them read', async () => {

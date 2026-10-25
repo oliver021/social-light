@@ -33,7 +33,7 @@ const followButtonSx = (followed: boolean) => ({
 export const Widgets: React.FC = () => {
   // Real people to discover + follow come from the backend (Profile discovery +
   // SocialGraph). Following someone fans their posts into the home feed.
-  const { currentUser, openChatWithUser, people, peopleLoading, followUser, unfollowUser } = useApp();
+  const { currentUser, openProfile, people, peopleLoading, followUser, unfollowUser } = useApp();
   const [expanded, setExpanded] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -83,7 +83,7 @@ export const Widgets: React.FC = () => {
                   name={person.name}
                   handle={person.handle}
                   avatarSrc={unMediaUrl(person.avatar)}
-                  onOpen={() => openChatWithUser({ id: person.userId, name: person.name, avatar: person.avatar, handle: person.handle })}
+                  onOpen={() => openProfile(person.userId)}
                   trailing={
                     <Button
                       size="small"

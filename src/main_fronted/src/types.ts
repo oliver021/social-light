@@ -99,6 +99,8 @@ export interface NotificationItem {
     name: string;
     avatar: string;
   };
+  /** Backend user id of the person who acted, so their profile can open. */
+  actorId?: string;
   text: string;
   createdAt: string;
   read: boolean;

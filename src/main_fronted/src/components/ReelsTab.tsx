@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Box, Typography, Button, TextField, IconButton, Skeleton } from '@mui/material';
+import { Box, ButtonBase, Typography, Button, TextField, IconButton, Skeleton } from '@mui/material';
 import { Clapperboard, Plus, Play, Pause, Trash2, Volume2, VolumeX, Music2 } from 'lucide-react';
 import { MediaPicker } from './MediaPicker';
 import { mediaUrl } from '../api/gateway';
@@ -60,7 +60,7 @@ const ReelPlayer: React.FC<{
   onToggleMute: () => void;
   onActive: (reelId: string) => void;
 }> = ({ reel, muted, onToggleMute, onActive }) => {
-  const { currentUser, deleteReel, showToast } = useApp();
+  const { currentUser, deleteReel, showToast, openProfile } = useApp();
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   // Owner rule: only the creator gets the delete control.
   const isOwner = !!reel.creatorId && reel.creatorId === currentUser.id;
@@ -154,9 +154,17 @@ const ReelPlayer: React.FC<{
         <Box className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white pointer-events-none">
           <Box className="flex items-center gap-2 min-w-0">
             <UserAvatar name={reel.creatorName} src={reel.creatorAvatar} size="sm" />
-            <Typography className="font-semibold text-white text-sm break-words min-w-0">
-              {reel.creatorName}
-            </Typography>
+            {/* The overlay ignores the pointer, so the creator name switches it back on for itself. */}
+            <ButtonBase
+              onClick={() => openProfile(reel.creatorId)}
+              aria-label={`Open ${reel.creatorName}'s profile`}
+              className="pointer-events-auto min-w-0"
+              sx={{ justifyContent: 'flex-start', textAlign: 'left', borderRadius: 'var(--ui-radius-sm)', '&.Mui-focusVisible': { outline: `2px solid ${T.focus}` } }}
+            >
+              <Typography className="font-semibold text-white text-sm break-words min-w-0">
+                {reel.creatorName}
+              </Typography>
+            </ButtonBase>
             <Typography className="text-white/80 text-xs font-mono shrink-0">{reel.duration}s</Typography>
           </Box>
           {reel.caption && (

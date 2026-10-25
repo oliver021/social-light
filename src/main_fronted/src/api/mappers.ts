@@ -149,6 +149,7 @@ export function notificationToItem(n: NotificationDto, actor: ProfileDto | null)
     id: n.id,
     type,
     actor: { name, avatar: mediaUrl(actor?.avatarUrl) ?? defaultAvatar(n.actorId || name) },
+    actorId: n.actorId || undefined,
     text,
     createdAt: 'recently', // NotificationDto has no timestamp in the v0 schema.
     read: n.isRead,

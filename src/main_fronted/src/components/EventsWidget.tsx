@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp, type EventItem } from '../context/AppContext';
-import { Box, Button, IconButton, TextField, Typography } from '@mui/material';
+import { Box, Button, ButtonBase, IconButton, TextField, Typography } from '@mui/material';
 import { CalendarDays, CalendarX, MapPin, Plus, Check } from 'lucide-react';
 import { ConfirmDialog } from './ui/ConfirmDialog';
 import { EmptyState } from './ui/EmptyState';
@@ -34,7 +34,7 @@ const rsvpButtonSx = (attending: boolean) => ({
 
 // "Upcoming events" sidebar widget, backed by the generated Events module.
 export const EventsWidget: React.FC = () => {
-  const { currentUser, events, eventsLoading, createEvent, rsvpEvent, deleteEvent, showToast } = useApp();
+  const { currentUser, events, eventsLoading, createEvent, rsvpEvent, deleteEvent, showToast, openProfile } = useApp();
   const [open, setOpen] = useState(false);
   // The event whose cancellation is waiting for confirmation.
   const [cancelTarget, setCancelTarget] = useState<EventItem | null>(null);
@@ -95,6 +95,15 @@ export const EventsWidget: React.FC = () => {
                     </span>
                   )}
                   <span>{ev.attendeeCount} going</span>
+                  {ev.organizerId && (
+                    <ButtonBase
+                      onClick={() => openProfile(ev.organizerId)}
+                      aria-label={`Open ${ev.organizerName}'s profile`}
+                      sx={{ font: 'inherit', color: 'inherit', borderRadius: 'var(--ui-radius-sm)', minHeight: 24, '&:hover': { textDecoration: 'underline' }, '&.Mui-focusVisible': { outline: `2px solid ${T.focus}` } }}
+                    >
+                      {`Hosted by ${ev.organizerName}`}
+                    </ButtonBase>
+                  )}
                 </Box>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>

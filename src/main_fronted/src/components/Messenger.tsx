@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { messageOf } from '../api/gateway';
-import { Box, Typography, IconButton, InputBase } from '@mui/material';
+import { Box, ButtonBase, Typography, IconButton, InputBase } from '@mui/material';
 import { X, Minus, Send, ThumbsUp, Smile } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { EmptyState, T, UserAvatar } from './ui';
@@ -30,6 +30,7 @@ export const Messenger: React.FC = () => {
     minimizeChat,
     currentUser,
     showToast,
+    openProfile,
   } = useApp();
 
   const [inputStates, setInputStates] = useState<Record<string, string>>({});
@@ -113,6 +114,7 @@ export const Messenger: React.FC = () => {
               onLike={() => handleLikeClick(chat.userId)}
               onMinimize={() => minimizeChat(chat.userId)}
               onClose={() => closeChat(chat.userId)}
+              onOpenProfile={() => openProfile(chat.userId)}
               currentUser={currentUser}
             />
           );
@@ -133,6 +135,8 @@ interface ChatBoxProps {
   onLike: () => void;
   onMinimize: () => void;
   onClose: () => void;
+  /** Opens this chat's person's profile. */
+  onOpenProfile: () => void;
   currentUser: { id: string };
 }
 
@@ -147,6 +151,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   onLike,
   onMinimize,
   onClose,
+  onOpenProfile,
   currentUser,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -192,9 +197,16 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         <Box className="flex items-center gap-2 min-w-0">
           <UserAvatar name={chat.name} src={chat.avatar} size="xs" />
           <Box className="leading-tight min-w-0">
-            <Typography className="font-semibold text-fg text-xs block truncate max-w-[130px]">
-              {chat.name}
-            </Typography>
+            {/* The name opens the person's profile; the click does not also minimize the chat. */}
+            <ButtonBase
+              onClick={(e) => { e.stopPropagation(); onOpenProfile(); }}
+              aria-label={`Open ${chat.name}'s profile`}
+              sx={{ display: 'block', maxWidth: '100%', textAlign: 'left', borderRadius: 'var(--ui-radius-sm)', '&.Mui-focusVisible': { outline: `2px solid ${T.focus}` } }}
+            >
+              <Typography className="font-semibold text-fg text-xs block truncate max-w-[130px]">
+                {chat.name}
+              </Typography>
+            </ButtonBase>
             {/* No presence is tracked yet, so the header shows the handle, never a status. */}
             {chat.handle && (
               <Typography className="text-xs text-muted font-mono block truncate max-w-[130px]">

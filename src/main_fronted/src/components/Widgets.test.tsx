@@ -45,11 +45,11 @@ describe('Widgets: people you may know', () => {
     expect(unfollowUser).toHaveBeenCalledWith('u-bo');
   });
 
-  it('clicking a name opens a chat with that person', async () => {
-    const openChatWithUser = vi.fn();
-    const { user } = renderWithProviders(<Widgets />, { context: { people: [ana], peopleLoading: false, openChatWithUser } });
+  it('clicking a name opens that person\'s profile', async () => {
+    const openProfile = vi.fn();
+    const { user } = renderWithProviders(<Widgets />, { context: { people: [ana], peopleLoading: false, openProfile } });
     await user.click(screen.getByRole('button', { name: 'Ana Ruiz' }));
-    expect(openChatWithUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'u-ana', name: 'Ana Ruiz' }));
+    expect(openProfile).toHaveBeenCalledWith('u-ana');
   });
 
   it('shows at most five people until "See all" is pressed', async () => {

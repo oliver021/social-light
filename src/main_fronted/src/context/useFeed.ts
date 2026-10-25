@@ -1,9 +1,18 @@
-import { useRef, type MutableRefObject } from 'react';
+import { useCallback, useRef, useState, type MutableRefObject } from 'react';
 import { UserProfile, Post, Reactions } from '../types';
-import { postsApi, engagementApi, feedApi, getProfile, mediaUrl, describeApiError, messageOf } from '../api/gateway';
-import { feedItemToPost, newPostToPost, commentDtoToComment, toReactionKey, emptyReactions, withHandle } from '../api/mappers';
+import { postsApi, engagementApi, feedApi, mediaUrl, describeApiError, messageOf } from '../api/gateway';
+import { feedItemToPost, newPostToPost } from '../api/mappers';
 import { usePersistentState } from './usePersistentState';
 import { type ToastSeverity } from './useToast';
+import {
+  applyPatches,
+  enrichAuthors,
+  enrichComments,
+  enrichMedia,
+  enrichReactions,
+  enrichShares,
+  type PostPatch,
+} from './feedEnrichment';
 
 interface Deps {
   myUserId: MutableRefObject<string>;
@@ -13,137 +22,99 @@ interface Deps {
   showToast: (message: string, severity?: ToastSeverity) => void;
 }
 
+/** One person's posts (a profile timeline), with its own loading and error state. */
+export interface ProfileTimeline {
+  userId: string;
+  posts: Post[];
+  loading: boolean;
+  error: string | null;
+}
+
+/** Where an enrichment result lands: the home feed, or the timeline it was loaded for. */
+type Target = { list: 'feed' } | { list: 'timeline'; userId: string; seq: number };
+
 /**
- * The home feed and everything that mutates a post: create, react, share, vote,
- * comment. The feed is composed server-side (Feed.API) in one call; engagement
- * counts/threads/own-reactions are folded in afterwards from the Engagement module
- * (which has no per-target query in v0, so each is a fetch-all + group-by-post).
+ * The home feed, a profile timeline, and everything that mutates a post: create, react,
+ * share, vote, comment, delete. The feed is composed server-side (Feed.API) in one call;
+ * engagement counts/threads/own-reactions are folded in afterwards by the shared
+ * enrichment in feedEnrichment.ts, so the feed and a profile timeline use the same code.
  */
 export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
   const [posts, setPosts] = usePersistentState<Post[]>('nexus_posts', () => []);
+  // The timeline of the profile being viewed. Not persisted: it is re-read on open.
+  const [timeline, setTimeline] = useState<ProfileTimeline | null>(null);
   // Maps a postId -> the current user's reaction id on it, so a toggle can DELETE it.
   const myReactionIds = useRef<Map<string, string>>(new Map());
+  // Bumped by every timeline load, so a slow response for a previous profile is dropped.
+  const timelineSeq = useRef(0);
+
+  // Post lists are updated only through these, so one change lands in both the home feed and
+  // a profile timeline when the post appears in both.
+  const updatePost = (postId: string, fn: (post: Post) => Post) => {
+    const map = (list: Post[]) => list.map((p) => (p.id === postId ? fn(p) : p));
+    setPosts((prev) => map(prev));
+    setTimeline((t) => (t ? { ...t, posts: map(t.posts) } : t));
+  };
+
+  const findPost = (postId: string): Post | undefined =>
+    posts.find((p) => p.id === postId) ?? timeline?.posts.find((p) => p.id === postId);
+
+  // Apply one enrichment result to the list it was loaded for. A timeline result is dropped
+  // when that timeline was replaced while the request was in flight.
+  const commit = (target: Target, patch: PostPatch | null) => {
+    if (!patch) return;
+    if (target.list === 'feed') {
+      setPosts((prev) => applyPatches(prev, [patch]));
+      return;
+    }
+    if (timelineSeq.current !== target.seq) return;
+    setTimeline((t) => (t && t.userId === target.userId ? { ...t, posts: applyPatches(t.posts, [patch]) } : t));
+  };
+
+  // Each enrichment paints as soon as it resolves; a failed one leaves its field as it was.
+  const enrichAll = (list: Post[], target: Target) => {
+    enrichAuthors(list).then((patch) => commit(target, patch)).catch(() => {});
+    enrichComments(list).then((patch) => commit(target, patch)).catch(() => {});
+    enrichReactions(list, myUserId.current)
+      .then((result) => {
+        if (!result) return;
+        // Replace my reaction ids for these posts only, so the other list keeps its own.
+        for (const p of list) myReactionIds.current.delete(p.id);
+        for (const [postId, mine] of result.mine) myReactionIds.current.set(postId, mine.reactionId);
+        commit(target, result.patch);
+      })
+      .catch(() => {});
+    enrichShares(list).then((patch) => commit(target, patch)).catch(() => {});
+    enrichMedia(list).then((patch) => commit(target, patch)).catch(() => {});
+  };
 
   const loadFeed = async () => {
     const { data } = await feedApi.GET('/api/feed/home');
     if (!data) return;
     const mapped = data.map(feedItemToPost);
     setPosts(mapped);
-    // Fold real comment threads + reaction tallies in afterwards so the feed paints
-    // immediately and the (slower) engagement + author-profile resolution happens in
-    // the background.
-    enrichAuthors(mapped).catch(() => {});
-    enrichComments(mapped).catch(() => {});
-    enrichReactions(mapped).catch(() => {});
-    enrichShares(mapped).catch(() => {});
-    enrichMedia(mapped).catch(() => {});
+    // The feed paints immediately; engagement and author resolution follow in the background.
+    enrichAll(mapped, { list: 'feed' });
   };
 
-  // The feed DTO carries names and avatars but no handle; take the handle from Profile
-  // (cached per author). Authors without a handle keep an empty one, which the UI hides.
-  const enrichAuthors = async (forPosts: Post[]) => {
-    const authorIds = [...new Set(forPosts.map((p) => p.authorId).filter((id): id is string => !!id))];
-    const profiles = await Promise.all(authorIds.map((id) => getProfile(id).catch(() => null)));
-    const handleById = new Map(authorIds.map((id, i) => [id, withHandle(profiles[i]?.handle)]));
-    setPosts((prev) =>
-      prev.map((p) => (p.authorId && handleById.has(p.authorId)
-        ? { ...p, author: { ...p.author, handle: handleById.get(p.authorId)! } }
-        : p)),
-    );
-  };
-
-  // The feed DTO carries no media; attachments are a separate Posts resource
-  // (`post-medias`). Same fetch-all + group-by-post pattern as comments/reactions.
-  const enrichMedia = async (forPosts: Post[]) => {
-    const postIds = new Set(forPosts.map((p) => p.id));
-    const { data } = await postsApi.GET('/api/post-medias');
-    if (!data) return;
-    const first = new Map<string, { fileUrl: string; mediaType: string; position: number }>();
-    for (const m of data) {
-      if (!postIds.has(m.postId)) continue;
-      const position = Number(m.position) || 0;
-      const cur = first.get(m.postId);
-      if (!cur || position < cur.position) first.set(m.postId, { fileUrl: m.fileUrl, mediaType: m.mediaType, position });
+  // The posts of one user (their own profile or someone else's), from Feed.API. A slow
+  // response for a profile I already left is ignored.
+  const loadTimeline = async (userId: string) => {
+    const seq = ++timelineSeq.current;
+    // Keep the posts already shown for this user while reloading, so a refresh does not blank them.
+    setTimeline((t) => ({ userId, posts: t?.userId === userId ? t.posts : [], loading: true, error: null }));
+    try {
+      const { data, error, response } = await feedApi.GET('/api/feed/user/{userId}', { params: { path: { userId } } });
+      if (seq !== timelineSeq.current) return;
+      if (!data) throw new Error(describeApiError(error, response, 'Could not load these posts'));
+      const mapped = data.map(feedItemToPost);
+      setTimeline({ userId, posts: mapped, loading: false, error: null });
+      enrichAll(mapped, { list: 'timeline', userId, seq });
+    } catch (err) {
+      if (seq !== timelineSeq.current) return;
+      const message = messageOf(err, 'Could not load these posts');
+      setTimeline((t) => ({ userId, posts: t?.userId === userId ? t.posts : [], loading: false, error: message }));
     }
-    if (first.size === 0) return;
-    setPosts((prev) =>
-      prev.map((p) => {
-        const m = first.get(p.id);
-        if (!m) return p;
-        const isVideo = /video/i.test(m.mediaType);
-        return isVideo
-          ? { ...p, type: 'video', videoUrl: mediaUrl(m.fileUrl) }
-          : { ...p, type: 'image', imageUrl: mediaUrl(m.fileUrl) };
-      }),
-    );
-  };
-
-  // Same global-list pattern as comments/reactions: hydrate each post's share count.
-  const enrichShares = async (forPosts: Post[]) => {
-    const postIds = new Set(forPosts.map((p) => p.id));
-    const { data } = await engagementApi.GET('/api/shares');
-    if (!data) return;
-    const counts = new Map<string, number>();
-    for (const s of data) {
-      if (s.targetType !== 'Post' || !postIds.has(s.targetId)) continue;
-      counts.set(s.targetId, (counts.get(s.targetId) ?? 0) + 1);
-    }
-    setPosts((prev) => prev.map((p) => ({ ...p, sharesCount: counts.get(p.id) ?? 0 })));
-  };
-
-  // Fetch all reactions once, group by post into per-kind tallies, and record THIS
-  // user's own reaction (+ its id, kept in myReactionIds so a later toggle can DELETE it).
-  const enrichReactions = async (forPosts: Post[]) => {
-    const postIds = new Set(forPosts.map((p) => p.id));
-    const { data } = await engagementApi.GET('/api/reactions');
-    if (!data) return;
-    const relevant = data.filter((r) => r.targetType === 'Post' && postIds.has(r.targetId));
-
-    const myId = myUserId.current;
-    const tallies = new Map<string, ReturnType<typeof emptyReactions>>();
-    const mine = new Map<string, keyof ReturnType<typeof emptyReactions>>();
-    myReactionIds.current.clear();
-    for (const r of relevant) {
-      const key = toReactionKey(r.reactionType);
-      const tally = tallies.get(r.targetId) ?? emptyReactions();
-      tally[key] += 1;
-      tallies.set(r.targetId, tally);
-      if (r.userId === myId) {
-        mine.set(r.targetId, key);
-        myReactionIds.current.set(r.targetId, r.id);
-      }
-    }
-    setPosts((prev) =>
-      prev.map((p) =>
-        tallies.has(p.id)
-          ? { ...p, reactions: tallies.get(p.id)!, currentUserReaction: mine.get(p.id) ?? null }
-          : { ...p, reactions: emptyReactions(), currentUserReaction: null },
-      ),
-    );
-  };
-
-  // ListComments returns every comment; fetch once, group by post, and resolve each
-  // distinct author through the cached Profile lookup. Best-effort.
-  const enrichComments = async (forPosts: Post[]) => {
-    const postIds = new Set(forPosts.map((p) => p.id));
-    const { data } = await engagementApi.GET('/api/comments');
-    if (!data) return;
-    const relevant = data.filter((c) => c.targetType === 'Post' && postIds.has(c.targetId));
-    if (relevant.length === 0) return;
-
-    const authorIds = [...new Set(relevant.map((c) => c.authorId))];
-    const profiles = await Promise.all(authorIds.map((id) => getProfile(id).catch(() => null)));
-    const profileById = new Map(authorIds.map((id, i) => [id, profiles[i]]));
-
-    const byPost = new Map<string, ReturnType<typeof commentDtoToComment>[]>();
-    for (const c of relevant) {
-      const list = byPost.get(c.targetId) ?? [];
-      list.push(commentDtoToComment(c, profileById.get(c.authorId) ?? null));
-      byPost.set(c.targetId, list);
-    }
-    setPosts((prev) =>
-      prev.map((p) => (byPost.has(p.id) ? { ...p, comments: byPost.get(p.id)! } : p)),
-    );
   };
 
   // Create through Posts API (authorId bound from the JWT, not the body), prepend
@@ -190,6 +161,8 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
       }
     }
     setPosts((prev) => [created, ...prev]);
+    // My own new post also shows at the top of my profile timeline.
+    setTimeline((t) => (t && t.userId === currentUser.id ? { ...t, posts: [created, ...t.posts] } : t));
     // Reconcile with the server's composed view (ordering, counts) without blocking the UI.
     loadFeed().catch(() => {});
   };
@@ -198,20 +171,16 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
   // optimistic count update. Clicking the active reaction removes it; clicking a
   // different one swaps (delete old + create new) so a user holds one reaction.
   const reactToPost = (postId: string, reactionType: keyof Reactions) => {
-    const post = posts.find((p) => p.id === postId);
-    const previousReaction = post?.currentUserReaction ?? null;
+    const previousReaction = findPost(postId)?.currentUserReaction ?? null;
     const previousId = myReactionIds.current.get(postId);
     const removing = previousReaction === reactionType;
 
-    setPosts((prevPosts) =>
-      prevPosts.map((p) => {
-        if (p.id !== postId) return p;
-        const reactions = { ...p.reactions };
-        if (previousReaction) reactions[previousReaction] = Math.max(0, reactions[previousReaction] - 1);
-        if (!removing) reactions[reactionType] += 1;
-        return { ...p, reactions, currentUserReaction: removing ? null : reactionType };
-      }),
-    );
+    updatePost(postId, (p) => {
+      const reactions = { ...p.reactions };
+      if (previousReaction) reactions[previousReaction] = Math.max(0, reactions[previousReaction] - 1);
+      if (!removing) reactions[reactionType] += 1;
+      return { ...p, reactions, currentUserReaction: removing ? null : reactionType };
+    });
 
     (async () => {
       try {
@@ -230,8 +199,10 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
         }
       } catch (err) {
         showToast(messageOf(err, 'Your reaction was not saved'));
-        // Re-read the server's tallies so the optimistic count does not stay wrong.
+        // Re-read the server's tallies so the optimistic count does not stay wrong, in the
+        // home feed and in the profile timeline the post came from.
         loadFeed().catch(() => {});
+        if (timeline?.posts.some((p) => p.id === postId)) loadTimeline(timeline.userId).catch(() => {});
       }
     })();
   };
@@ -239,7 +210,7 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
   // Persist through the Engagement API (sharerId bound from the JWT), optimistically
   // bump the count.
   const sharePost = (postId: string) => {
-    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, sharesCount: p.sharesCount + 1 } : p)));
+    updatePost(postId, (p) => ({ ...p, sharesCount: p.sharesCount + 1 }));
     (async () => {
       try {
         const { error, response } = await engagementApi.POST('/api/shares', {
@@ -247,38 +218,34 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
         });
         if (!response.ok) throw new Error(describeApiError(error, response, 'The post was not shared'));
       } catch (err) {
-        setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, sharesCount: Math.max(0, p.sharesCount - 1) } : p)));
+        updatePost(postId, (p) => ({ ...p, sharesCount: Math.max(0, p.sharesCount - 1) }));
         showToast(messageOf(err, 'The post was not shared'));
       }
     })();
   };
 
   const votePoll = (postId: string, optionId: string) => {
-    setPosts((prevPosts) => {
-      return prevPosts.map((post) => {
-        if (post.id === postId && post.poll) {
-          let alreadyVoted = post.poll.userVotedOptionId;
-          if (alreadyVoted === optionId) return post; // No duplicate votes
+    updatePost(postId, (post) => {
+      if (!post.poll) return post;
+      const alreadyVoted = post.poll.userVotedOptionId;
+      if (alreadyVoted === optionId) return post; // No duplicate votes
 
-          const updatedOptions = post.poll.options.map((opt) => {
-            let change = 0;
-            if (opt.id === optionId) change = 1;
-            else if (opt.id === alreadyVoted) change = -1;
-            return { ...opt, votes: opt.votes + change };
-          });
-
-          return {
-            ...post,
-            poll: {
-              ...post.poll,
-              options: updatedOptions,
-              totalVotes: post.poll.totalVotes + (alreadyVoted ? 0 : 1),
-              userVotedOptionId: optionId
-            }
-          };
-        }
-        return post;
+      const updatedOptions = post.poll.options.map((opt) => {
+        let change = 0;
+        if (opt.id === optionId) change = 1;
+        else if (opt.id === alreadyVoted) change = -1;
+        return { ...opt, votes: opt.votes + change };
       });
+
+      return {
+        ...post,
+        poll: {
+          ...post.poll,
+          options: updatedOptions,
+          totalVotes: post.poll.totalVotes + (alreadyVoted ? 0 : 1),
+          userVotedOptionId: optionId,
+        },
+      };
     });
   };
 
@@ -298,22 +265,20 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
       content,
       createdAt: 'Just now',
     };
-    setPosts((prevPosts) =>
-      prevPosts.map((post) =>
-        post.id === postId ? { ...post, comments: [...post.comments, newComment] } : post,
-      ),
-    );
+    updatePost(postId, (post) => ({ ...post, comments: [...post.comments, newComment] }));
     // Notify the post's author that I commented (no-op if it's my own post).
-    notify(posts.find((p) => p.id === postId)?.authorId, 'comment', 'Post', postId);
+    notify(findPost(postId)?.authorId, 'comment', 'Post', postId);
   };
 
-  // Delete my post (Posts module). On success the post leaves the feed, and its media rows
-  // (same module) are removed best-effort. Engagement rows (comments, reactions, shares) are
-  // left to the Engagement module's event consumer (track B, B6), never deleted from here.
+  // Delete my post (Posts module). On success the post leaves the feed and any timeline, and
+  // its media rows (same module) are removed best-effort. Engagement rows (comments,
+  // reactions, shares) are left to the Engagement module's event consumer (track B, B6),
+  // never deleted from here.
   const deletePost = async (postId: string): Promise<void> => {
     const { error, response } = await postsApi.DELETE('/api/posts/{id}', { params: { path: { id: postId } } });
     if (!response.ok) throw new Error(describeApiError(error, response, 'The post was not deleted'));
     setPosts((prev) => prev.filter((p) => p.id !== postId));
+    setTimeline((t) => (t ? { ...t, posts: t.posts.filter((p) => p.id !== postId) } : t));
     myReactionIds.current.delete(postId);
     deletePostMedia(postId).catch(() => {});
   };
@@ -334,16 +299,35 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
   const deleteComment = async (postId: string, commentId: string): Promise<void> => {
     const { error, response } = await engagementApi.DELETE('/api/comments/{id}', { params: { path: { id: commentId } } });
     if (!response.ok) throw new Error(describeApiError(error, response, 'The comment was not deleted'));
-    setPosts((prev) =>
-      prev.map((p) => (p.id === postId ? { ...p, comments: p.comments.filter((c) => c.id !== commentId) } : p)),
-    );
+    updatePost(postId, (p) => ({ ...p, comments: p.comments.filter((c) => c.id !== commentId) }));
   };
 
   // Forget the previous account's cached posts (used when the signed-in user changes).
   const reset = () => {
     myReactionIds.current.clear();
+    timelineSeq.current += 1; // drop any timeline response still in flight
+    setTimeline(null);
     setPosts([]);
   };
 
-  return { posts, loadFeed, addPost, reactToPost, sharePost, votePoll, addComment, deletePost, deleteComment, reset };
+  // loadTimeline is handed to effects as a dependency, so its identity must not change on
+  // every render (a load re-renders, which would re-run the effect and load again forever).
+  const loadTimelineLatest = useRef(loadTimeline);
+  loadTimelineLatest.current = loadTimeline;
+  const stableLoadTimeline = useCallback((userId: string) => loadTimelineLatest.current(userId), []);
+
+  return {
+    posts,
+    timeline,
+    loadFeed,
+    loadTimeline: stableLoadTimeline,
+    addPost,
+    reactToPost,
+    sharePost,
+    votePoll,
+    addComment,
+    deletePost,
+    deleteComment,
+    reset,
+  };
 }

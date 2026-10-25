@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp, type Story } from '../context/AppContext';
-import { Box, Button, Dialog, DialogContent, IconButton, TextField, Typography, Skeleton } from '@mui/material';
+import { Box, Button, ButtonBase, Dialog, DialogContent, IconButton, TextField, Typography, Skeleton } from '@mui/material';
 import { Plus, Trash2, X } from 'lucide-react';
 import { MediaPicker } from './MediaPicker';
 import { mediaUrl } from '../api/gateway';
@@ -42,7 +42,7 @@ const LABEL_SX = {
 
 // Stories strip atop the home feed, backed by the generated Stories module.
 export const StoriesBar: React.FC = () => {
-  const { currentUser, stories, addStory, viewStory, deleteStory } = useApp();
+  const { currentUser, stories, addStory, viewStory, deleteStory, openProfile } = useApp();
   const [creating, setCreating] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [uploadedMedia, setUploadedMedia] = useState('');
@@ -134,7 +134,17 @@ export const StoriesBar: React.FC = () => {
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5 }}>
                 <UserAvatar name={viewing.authorName} src={viewing.authorAvatar} size="sm" />
-                <Typography sx={{ fontWeight: 700, fontSize: 'var(--ui-fs-sm)', color: T.text }}>{viewing.authorName}</Typography>
+                {viewing.authorId ? (
+                  <ButtonBase
+                    onClick={() => { setViewing(null); openProfile(viewing.authorId); }}
+                    aria-label={`Open ${viewing.authorName}'s profile`}
+                    sx={{ fontWeight: 700, fontSize: 'var(--ui-fs-sm)', color: T.text, borderRadius: 'var(--ui-radius-sm)', '&:hover': { textDecoration: 'underline' }, '&.Mui-focusVisible': { outline: `2px solid ${T.focus}` } }}
+                  >
+                    {viewing.authorName}
+                  </ButtonBase>
+                ) : (
+                  <Typography sx={{ fontWeight: 700, fontSize: 'var(--ui-fs-sm)', color: T.text }}>{viewing.authorName}</Typography>
+                )}
                 {/* Owner rule: only the author sees the delete control. The right margin keeps it clear of Close. */}
                 {!!viewing.authorId && viewing.authorId === currentUser.id && (
                   <IconButton

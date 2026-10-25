@@ -8,7 +8,7 @@ import { badgeSx, menuRowSx, navIconButtonSx, popoverPaperSx } from './menuSx';
 
 /** The bell in the navbar and its notifications popover. Opening it marks them read. */
 export const NotificationsMenu: React.FC = () => {
-  const { notifications, notificationsLoading, markNotificationsAsRead, dismissNotification, clearNotifications, setActiveTab } = useApp();
+  const { notifications, notificationsLoading, markNotificationsAsRead, dismissNotification, clearNotifications, setActiveTab, openProfile } = useApp();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -75,6 +75,9 @@ export const NotificationsMenu: React.FC = () => {
                     if (notif.postId) {
                       setActiveTab(TAB_ID.home);
                       // Expand or highlight matching post
+                    } else if (notif.actorId) {
+                      // A notification about a person (a new follower) opens that person's profile.
+                      openProfile(notif.actorId);
                     }
                     handleClose();
                   }}

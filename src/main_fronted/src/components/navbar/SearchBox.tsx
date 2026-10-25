@@ -26,7 +26,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
     setSelectedGroupId,
     setActiveTab,
     people,
-    openChatWithUser,
+    openProfile,
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,7 +75,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
       ).slice(0, 3)
     : [];
 
-  // 4. Matches for people (opens a conversation with them, the only action they support)
+  // 4. Matches for people (opens their profile)
   const matchedPeople = query
     ? people.filter(p =>
         p.userId !== currentUser.id &&
@@ -98,7 +98,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
     } else if (type === 'post') {
       setActiveTab(TAB_ID.home);
     } else if (type === 'person') {
-      openChatWithUser({ id: item.userId, name: item.name, avatar: item.avatar, handle: item.handle });
+      openProfile(item.userId);
     }
   };
 

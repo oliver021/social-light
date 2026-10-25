@@ -7,20 +7,18 @@ import { UserLine } from '../ui/UserLine';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { OverflowMenu } from '../ui/OverflowMenu';
 import { T } from '../ui/tokens';
-import { canChatWith } from './chat';
 
 export interface PostHeaderProps {
   post: Post;
 }
 
 /**
- * Author line of a post: avatar, name (opens a chat), "@handle · time", the type tag, and,
+ * Author line of a post: avatar, name (opens their profile), "@handle · time", the type tag, and,
  * for the author only, the "More actions" menu with delete.
  */
 export const PostHeader: React.FC<PostHeaderProps> = ({ post }) => {
-  const { currentUser, openChatWithUser, deletePost, showToast } = useApp();
+  const { currentUser, openProfile, deletePost, showToast } = useApp();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const chatTarget = canChatWith(post.authorId, currentUser.id) ? post.authorId : undefined;
   // Owner rule: no owner id means no delete control.
   const isOwner = !!post.authorId && post.authorId === currentUser.id;
 
@@ -32,11 +30,7 @@ export const PostHeader: React.FC<PostHeaderProps> = ({ post }) => {
           handle={post.author.handle}
           avatarSrc={post.author.avatar}
           meta={post.createdAt}
-          onOpen={
-            chatTarget
-              ? () => openChatWithUser({ id: chatTarget, name: post.author.name, avatar: post.author.avatar, handle: post.author.handle })
-              : undefined
-          }
+          onOpen={post.authorId ? () => openProfile(post.authorId!) : undefined}
         />
       </Box>
       {post.type !== 'text' && (

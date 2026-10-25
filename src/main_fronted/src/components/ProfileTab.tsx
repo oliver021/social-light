@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Alert,
@@ -24,6 +24,8 @@ import {
   subtleSx,
 } from './ui';
 import { MediaPicker } from './MediaPicker';
+import { PersonProfile } from './profile/PersonProfile';
+import { ProfilePosts } from './profile/ProfilePosts';
 import { mediaUrl, unMediaUrl, messageOf } from '../api/gateway';
 
 const TOUCH_TARGET = { minHeight: 44, minWidth: 44 };
@@ -45,8 +47,23 @@ const Stat: React.FC<{ value: number; label: string }> = ({ value, label }) => (
   </Box>
 );
 
+/**
+ * The Profile tab. With no profile selected it shows my own profile; otherwise the profile of
+ * the person opened (see openProfile in the app context).
+ */
 export const ProfileTab: React.FC = () => {
-  const { currentUser, updateProfile, showToast } = useApp();
+  const { viewedProfileId } = useApp();
+  if (viewedProfileId) return <PersonProfile key={viewedProfileId} userId={viewedProfileId} />;
+  return <OwnProfile />;
+};
+
+const OwnProfile: React.FC = () => {
+  const { currentUser, updateProfile, showToast, loadTimeline } = useApp();
+
+  // My posts come from Feed.API (the same timeline other people's profiles use).
+  useEffect(() => {
+    if (currentUser.id) loadTimeline(currentUser.id).catch(() => {});
+  }, [currentUser.id, loadTimeline]);
 
   // Local edit states. editedAvatar holds the backend url (root-relative after an upload).
   const [editOpen, setEditOpen] = useState(false);
@@ -253,6 +270,8 @@ export const ProfileTab: React.FC = () => {
           </Surface>
         </Box>
       </Box>
+
+      <ProfilePosts userId={currentUser.id} />
 
       {/* EDIT PROFILE */}
       <ResponsiveDialog

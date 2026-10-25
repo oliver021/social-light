@@ -6,8 +6,8 @@ import { type ActiveTab, useUiPreferences } from './useUiPreferences';
 import { useSessionState } from './session';
 import { useToast, type ToastSeverity } from './useToast';
 import { useNotifications } from './useNotifications';
-import { useFeed } from './useFeed';
-import { useSocial, type Person } from './useSocial';
+import { useFeed, type ProfileTimeline } from './useFeed';
+import { useSocial, type Person, type FollowCounts } from './useSocial';
 import { useGroups, type NewGroup } from './useGroups';
 import { useMarketplace } from './useMarketplace';
 import { useProfile } from './useProfile';
@@ -39,7 +39,18 @@ export interface AppContextType {
   marketplaceLoading?: boolean;
   notifications: NotificationItem[];
   activeTab: ActiveTab;
+  /** Selecting a tab shows my own profile on the Profile tab. */
   setActiveTab: (tab: ActiveTab) => void;
+  /** The profile being viewed on the Profile tab; null means my own profile. */
+  viewedProfileId: string | null;
+  /** Opens a person's profile (my own id opens my profile). Not persisted. */
+  openProfile: (userId: string) => void;
+  /** Closes a profile opened from elsewhere and returns to the tab it came from. */
+  closeProfile: () => void;
+  /** The posts of one user (for a profile). Null until one is loaded. */
+  timeline: ProfileTimeline | null;
+  /** Loads one user's posts from Feed.API (GET /api/feed/user/{userId}). */
+  loadTimeline: (userId: string) => Promise<void>;
   selectedGroupId: string | null;
   setSelectedGroupId: (id: string | null) => void;
   darkMode: boolean;
@@ -81,6 +92,10 @@ export interface AppContextType {
   peopleLoading?: boolean;
   followUser: (userId: string) => void;
   unfollowUser: (userId: string) => void;
+  /** Follower and following counts for any person, from the follow list. */
+  countsFor: (userId: string) => FollowCounts;
+  /** Whether the signed-in user follows this person. */
+  isFollowing: (userId: string) => boolean;
   markNotificationsAsRead: () => void;
   /** Dismisses one notification (no confirm). Reports a failure with a toast. */
   dismissNotification: (id: string) => Promise<void>;
@@ -171,6 +186,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notifications.reset();
     chat.reset();
     marketplace.reset();
+    ui.resetProfileView();
     session.myUserId.current = ownerId ?? '';
     session.setCurrentUser(() => ({ ...INITIAL_USER, id: ownerId ?? INITIAL_USER.id }));
   };
@@ -200,6 +216,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notificationsLoading: notifications.loading,
     activeTab: ui.activeTab,
     setActiveTab: ui.setActiveTab,
+    viewedProfileId: ui.viewedProfileId,
+    openProfile: (userId: string) => ui.openProfile(userId, session.currentUser.id),
+    closeProfile: ui.closeProfile,
+    timeline: feed.timeline,
+    loadTimeline: feed.loadTimeline,
     selectedGroupId: ui.selectedGroupId,
     setSelectedGroupId: ui.setSelectedGroupId,
     darkMode: ui.darkMode,
@@ -228,6 +249,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     peopleLoading: social.peopleLoading,
     followUser: social.followUser,
     unfollowUser: social.unfollowUser,
+    countsFor: social.countsFor,
+    isFollowing: social.isFollowing,
     markNotificationsAsRead: notifications.markNotificationsAsRead,
     dismissNotification: notifications.dismissNotification,
     clearNotifications: notifications.clearNotifications,

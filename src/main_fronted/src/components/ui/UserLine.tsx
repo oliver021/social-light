@@ -9,7 +9,7 @@ export interface UserLineProps {
   avatarSrc?: string | null;
   /** Shown after the handle, e.g. a relative time. */
   meta?: React.ReactNode;
-  /** When set, the name becomes a button that opens the person. */
+  /** When set, the name becomes a button that opens the person's profile. */
   onOpen?: () => void;
   trailing?: React.ReactNode;
   size?: UserAvatarSize;
@@ -20,7 +20,7 @@ export const UserLine: React.FC<UserLineProps> = ({ name, handle, avatarSrc, met
   const nameNode = onOpen ? (
     <ButtonBase
       onClick={onOpen}
-      title={`Chat with ${name}`}
+      title={`Open ${name}'s profile`}
       sx={{ ...sectionTitleSx, fontSize: '0.8125rem', maxWidth: '100%', justifyContent: 'flex-start', textAlign: 'left', borderRadius: 1, minHeight: 24, '&:hover': { textDecoration: 'underline' }, '&.Mui-focusVisible': { outline: '2px solid var(--ui-focus)' } }}
     >
       <Box component="span" sx={{ overflowWrap: 'anywhere' }}>{name}</Box>

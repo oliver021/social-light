@@ -8,7 +8,6 @@ import { EmptyState } from '../ui/EmptyState';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { OverflowMenu } from '../ui/OverflowMenu';
 import { T } from '../ui/tokens';
-import { canChatWith } from './chat';
 
 export interface CommentThreadProps {
   post: Post;
@@ -20,7 +19,7 @@ export interface CommentThreadProps {
  * The text is cleared only once the server has accepted the comment.
  */
 export const CommentThread: React.FC<CommentThreadProps> = ({ post, open }) => {
-  const { currentUser, addComment, deleteComment, openChatWithUser, showToast } = useApp();
+  const { currentUser, addComment, deleteComment, openProfile, showToast } = useApp();
   const [newCommentText, setNewCommentText] = useState('');
   const [posting, setPosting] = useState(false);
   // The comment awaiting delete confirmation (only ever one at a time).
@@ -46,11 +45,6 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ post, open }) => {
   // Owner rule: only comments whose author is me get the menu.
   const isOwnComment = (comment: Comment) => !!comment.authorId && comment.authorId === currentUser.id;
 
-  const chatWith = (userId: string | undefined, name: string, avatar: string, handle: string) => {
-    if (canChatWith(userId, currentUser.id)) {
-      openChatWithUser({ id: userId, name, avatar, handle });
-    }
-  };
 
   return (
     <Collapse in={open}>
@@ -97,15 +91,15 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ post, open }) => {
         {post.comments.length > 0 ? (
           <List disablePadding aria-label="Comments" sx={{ maxHeight: 208, overflowY: 'auto', '& > li + li': { borderTop: `1px solid ${T.border}` } }}>
             {post.comments.map((comment) => {
-              const chatable = canChatWith(comment.authorId, currentUser.id);
-              const openChat = () => chatWith(comment.authorId, comment.author.name, comment.author.avatar, comment.author.handle);
+              const linkable = !!comment.authorId;
+              const openAuthor = () => { if (comment.authorId) openProfile(comment.authorId); };
               return (
                 <ListItem key={comment.id} disableGutters sx={{ py: 1, alignItems: 'flex-start', gap: 1.25, minWidth: 0 }}>
-                  {chatable ? (
-                    <Tooltip title={`Chat with ${comment.author.name}`} placement="top-start">
+                  {linkable ? (
+                    <Tooltip title={`Open ${comment.author.name}'s profile`} placement="top-start">
                       <ButtonBase
-                        onClick={openChat}
-                        aria-label={`Chat with ${comment.author.name}`}
+                        onClick={openAuthor}
+                        aria-label={`Open ${comment.author.name}'s profile`}
                         sx={{ borderRadius: 'var(--ui-radius-full)', minWidth: 44, minHeight: 44, flexShrink: 0, '&.Mui-focusVisible': { outline: `2px solid ${T.focus}` } }}
                       >
                         <UserAvatar name={comment.author.name} src={comment.author.avatar} size="sm" />
@@ -116,9 +110,9 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ post, open }) => {
                   )}
                   <Box sx={{ minWidth: 0, maxWidth: '85%', px: 1.5, py: 1, bgcolor: T.surface, border: `1px solid ${T.border}`, borderRadius: 'var(--ui-radius-lg)', overflowWrap: 'anywhere' }}>
                     <Box sx={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 0.75, mb: 0.25 }}>
-                      {chatable ? (
+                      {linkable ? (
                         <ButtonBase
-                          onClick={openChat}
+                          onClick={openAuthor}
                           sx={{ fontWeight: 700, fontSize: 'var(--ui-fs-xs)', color: T.text, borderRadius: 'var(--ui-radius-sm)', '&:hover': { textDecoration: 'underline' }, '&.Mui-focusVisible': { outline: `2px solid ${T.focus}` } }}
                         >
                           {comment.author.name}
