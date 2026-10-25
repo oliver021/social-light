@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Box, Typography, Button, TextField, IconButton, Skeleton } from '@mui/material';
-import { Clapperboard, Plus, Play, Pause, Volume2, VolumeX, Music2 } from 'lucide-react';
+import { Clapperboard, Plus, Play, Pause, Trash2, Volume2, VolumeX, Music2 } from 'lucide-react';
 import { MediaPicker } from './MediaPicker';
 import { mediaUrl } from '../api/gateway';
 import type { Reel } from '../context/useReels';
-import { EmptyState, PageHeader, ResponsiveDialog, UserAvatar, T, touchTargetSx } from './ui';
+import { ConfirmDialog, EmptyState, OverflowMenu, PageHeader, ResponsiveDialog, UserAvatar, T, touchTargetSx } from './ui';
 
 const MAX_REEL_SECONDS = 90;
 const MAX_CAPTION = 200;
@@ -60,6 +60,10 @@ const ReelPlayer: React.FC<{
   onToggleMute: () => void;
   onActive: (reelId: string) => void;
 }> = ({ reel, muted, onToggleMute, onActive }) => {
+  const { currentUser, deleteReel, showToast } = useApp();
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  // Owner rule: only the creator gets the delete control.
+  const isOwner = !!reel.creatorId && reel.creatorId === currentUser.id;
   const slotRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const viewedRef = useRef(false);
@@ -132,6 +136,21 @@ const ReelPlayer: React.FC<{
           {muted ? <VolumeX aria-hidden="true" className="w-5 h-5" strokeWidth={1.75} /> : <Volume2 aria-hidden="true" className="w-5 h-5" strokeWidth={1.75} />}
         </IconButton>
 
+        {isOwner && (
+          // The overlay sits on video, so the menu button gets a dark backing and a white icon.
+          <Box
+            className="absolute top-2 left-2"
+            sx={{
+              '& .MuiIconButton-root': { color: T.onMedia, bgcolor: 'rgba(0,0,0,0.4)', '&:hover': { bgcolor: 'rgba(0,0,0,0.6)' } },
+            }}
+          >
+            <OverflowMenu
+              label="More actions for your reel"
+              items={[{ id: 'delete', label: 'Delete reel', icon: Trash2, danger: true, onSelect: () => setConfirmDeleteOpen(true) }]}
+            />
+          </Box>
+        )}
+
         <Box className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white pointer-events-none">
           <Box className="flex items-center gap-2 min-w-0">
             <UserAvatar name={reel.creatorName} src={reel.creatorAvatar} size="sm" />
@@ -148,6 +167,21 @@ const ReelPlayer: React.FC<{
           )}
         </Box>
       </Box>
+
+      {isOwner && (
+        <ConfirmDialog
+          open={confirmDeleteOpen}
+          title="Delete this reel?"
+          body="It will be removed from Reels. This cannot be undone."
+          confirmLabel="Delete"
+          destructive
+          onConfirm={async () => {
+            await deleteReel(reel.id);
+            showToast('Reel deleted', 'success');
+          }}
+          onClose={() => setConfirmDeleteOpen(false)}
+        />
+      )}
     </Box>
   );
 };

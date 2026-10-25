@@ -8,7 +8,7 @@ const ME = 'me-0000-0000-0000-000000000001';
 describe('useNotifications loading flag', () => {
   it('is true before the first load and false once it succeeds', async () => {
     mockApi({ 'GET /api/notifications': [] });
-    const { result } = renderHook(() => useNotifications({ myUserId: { current: ME } }));
+    const { result } = renderHook(() => useNotifications({ myUserId: { current: ME }, showToast: vi.fn() }));
     expect(result.current.loading).toBe(true);
     await act(async () => {
       await result.current.loadNotifications();
@@ -18,7 +18,7 @@ describe('useNotifications loading flag', () => {
 
   it('becomes false when the server answers 500, and the list stays empty', async () => {
     mockApi({ 'GET /api/notifications': { status: 500, body: { title: 'boom' } } });
-    const { result } = renderHook(() => useNotifications({ myUserId: { current: ME } }));
+    const { result } = renderHook(() => useNotifications({ myUserId: { current: ME }, showToast: vi.fn() }));
     await act(async () => {
       await result.current.loadNotifications();
     });

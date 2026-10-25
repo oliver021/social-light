@@ -3,9 +3,11 @@ import { NotificationItem } from '../types';
 import { notificationsApi, getProfile } from '../api/gateway';
 import { notificationToItem } from '../api/mappers';
 import { usePersistentState } from './usePersistentState';
+import { type ToastSeverity } from './useToast';
 
 interface Deps {
   myUserId: MutableRefObject<string>;
+  showToast: (message: string, severity?: ToastSeverity) => void;
 }
 
 /**
@@ -13,7 +15,7 @@ interface Deps {
  * module, plus the client-side producers (`notify`) that other domains call on
  * follow/comment. `addNotification` is still client-only (not persisted server-side).
  */
-export function useNotifications({ myUserId }: Deps) {
+export function useNotifications({ myUserId, showToast }: Deps) {
   const [notifications, setNotifications] = usePersistentState<NotificationItem[]>(
     'nexus_notifications',
     () => [],
@@ -81,8 +83,50 @@ export function useNotifications({ myUserId }: Deps) {
     setNotifications((prev) => [newNotif, ...prev]);
   };
 
+  // Remove one notification. Client-only items (`notif-*`, from addNotification) are dropped
+  // locally; the rest are deleted on the server first. Resolves false when it was not removed.
+  const removeNotification = async (id: string): Promise<boolean> => {
+    if (id.startsWith('notif-')) {
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      return true;
+    }
+    try {
+      const { response } = await notificationsApi.DELETE('/api/notifications/{id}', { params: { path: { id } } });
+      if (!response.ok) return false;
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // Dismiss one notification. Notifications are low stakes, so there is no confirm step.
+  const dismissNotification = async (id: string): Promise<void> => {
+    const removed = await removeNotification(id);
+    if (!removed) showToast('The notification was not removed');
+  };
+
+  // Dismiss every listed notification, one request at a time. Failures stay in the list.
+  const clearNotifications = async (): Promise<void> => {
+    const failed: string[] = [];
+    for (const n of notifications) {
+      if (!(await removeNotification(n.id))) failed.push(n.id);
+    }
+    if (failed.length > 0) showToast('Some notifications could not be removed');
+  };
+
   // Forget the previous account's notifications (used when the signed-in user changes).
   const reset = () => setNotifications([]);
 
-  return { notifications, loading, loadNotifications, notify, addNotification, markNotificationsAsRead, reset };
+  return {
+    notifications,
+    loading,
+    loadNotifications,
+    notify,
+    addNotification,
+    markNotificationsAsRead,
+    dismissNotification,
+    clearNotifications,
+    reset,
+  };
 }

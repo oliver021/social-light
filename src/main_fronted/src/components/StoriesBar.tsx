@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useApp, type Story } from '../context/AppContext';
 import { Box, Button, Dialog, DialogContent, IconButton, TextField, Typography, Skeleton } from '@mui/material';
-import { Plus, X } from 'lucide-react';
+import { Plus, Trash2, X } from 'lucide-react';
 import { MediaPicker } from './MediaPicker';
 import { mediaUrl } from '../api/gateway';
 import { EmptyState } from './ui/EmptyState';
 import { ResponsiveDialog } from './ui/ResponsiveDialog';
+import { ConfirmDialog } from './ui/ConfirmDialog';
 import { Surface } from './ui/Surface';
 import { UserAvatar } from './ui/UserAvatar';
 import { useSettled } from './ui/useSettled';
@@ -41,8 +42,9 @@ const LABEL_SX = {
 
 // Stories strip atop the home feed, backed by the generated Stories module.
 export const StoriesBar: React.FC = () => {
-  const { currentUser, stories, addStory, viewStory } = useApp();
+  const { currentUser, stories, addStory, viewStory, deleteStory } = useApp();
   const [creating, setCreating] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [uploadedMedia, setUploadedMedia] = useState('');
   const [caption, setCaption] = useState('');
   const [viewing, setViewing] = useState<Story | null>(null);
@@ -133,6 +135,17 @@ export const StoriesBar: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5 }}>
                 <UserAvatar name={viewing.authorName} src={viewing.authorAvatar} size="sm" />
                 <Typography sx={{ fontWeight: 700, fontSize: 'var(--ui-fs-sm)', color: T.text }}>{viewing.authorName}</Typography>
+                {/* Owner rule: only the author sees the delete control. The right margin keeps it clear of Close. */}
+                {!!viewing.authorId && viewing.authorId === currentUser.id && (
+                  <IconButton
+                    aria-label="Delete your story"
+                    title="Delete story"
+                    onClick={() => setConfirmDeleteOpen(true)}
+                    sx={{ ...touchTargetSx, ml: 'auto', mr: '52px', color: T.text }}
+                  >
+                    <Trash2 aria-hidden="true" size={18} strokeWidth={1.75} />
+                  </IconButton>
+                )}
               </Box>
               <Box
                 component="img"
@@ -146,6 +159,21 @@ export const StoriesBar: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Outside the viewer so that closing the viewer after a delete does not unmount it. */}
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title="Delete this story?"
+        body="It will be removed for everyone who can see it. This cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={async () => {
+          if (!viewing) return;
+          await deleteStory(viewing.id);
+          setViewing(null);
+        }}
+        onClose={() => setConfirmDeleteOpen(false)}
+      />
     </Surface>
   );
 };

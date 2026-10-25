@@ -55,10 +55,18 @@ export interface AppContextType {
   votePoll: (postId: string, optionId: string) => void;
   /** Rejects with a readable message when the comment is not saved. */
   addComment: (postId: string, content: string) => Promise<void>;
+  /** Deletes my post. Rejects with a readable message when the server does not delete it. */
+  deletePost: (postId: string) => Promise<void>;
+  /** Deletes my comment on a post. Rejects with a readable message. */
+  deleteComment: (postId: string, commentId: string) => Promise<void>;
   /** Resolves true when the membership changed on the server. */
   toggleJoinGroup: (groupId: string) => Promise<boolean>;
   /** Creates a community and makes the creator a member. Rejects with a readable message. */
   createGroup: (input: NewGroup) => Promise<void>;
+  /** Deletes a community I own. Rejects with a readable message. */
+  deleteGroup: (groupId: string) => Promise<void>;
+  /** My role per community id ('owner' for a community I created). Absent means not a member. */
+  myRoleByGroup: ReadonlyMap<string, string>;
   /** True until the first groups load settles. Optional: absent means settled. */
   groupsLoading?: boolean;
   buyMarketItem: (itemId: string) => void;
@@ -74,6 +82,10 @@ export interface AppContextType {
   followUser: (userId: string) => void;
   unfollowUser: (userId: string) => void;
   markNotificationsAsRead: () => void;
+  /** Dismisses one notification (no confirm). Reports a failure with a toast. */
+  dismissNotification: (id: string) => Promise<void>;
+  /** Dismisses every listed notification. Failed ones stay listed, with a toast. */
+  clearNotifications: () => Promise<void>;
   /** True until the first notifications load settles. Optional: absent means settled. */
   notificationsLoading?: boolean;
   addNotification: (type: NotificationItem['type'], actorName: string, text: string, postId?: string) => void;
@@ -94,16 +106,22 @@ export interface AppContextType {
   stories: Story[];
   addStory: (mediaUrl: string, caption: string) => void;
   viewStory: (storyId: string) => void;
+  /** Deletes my story. Rejects with a readable message. */
+  deleteStory: (storyId: string) => Promise<void>;
   reels: Reel[];
   /** True until the first reels load settles. Optional: absent means settled. */
   reelsLoading?: boolean;
   addReel: (videoUrl: string, caption: string, duration: number) => Promise<void>;
   viewReel: (reelId: string) => void;
+  /** Deletes my reel. Rejects with a readable message. */
+  deleteReel: (reelId: string) => Promise<void>;
   events: EventItem[];
   /** True until the first events load settles. Optional: absent means settled. */
   eventsLoading?: boolean;
   createEvent: (title: string, description: string, location: string, startDate: string, endDate: string, capacity: number | null) => void;
   rsvpEvent: (eventId: string) => void;
+  /** Cancels my event. Rejects with a readable message. */
+  deleteEvent: (eventId: string) => Promise<void>;
 }
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -116,7 +134,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const session = useSessionState();
   const { toast, showToast, closeToast } = useToast();
 
-  const notifications = useNotifications({ myUserId: session.myUserId });
+  const notifications = useNotifications({ myUserId: session.myUserId, showToast });
   const feed = useFeed({
     myUserId: session.myUserId,
     currentUser: session.currentUser,
@@ -196,8 +214,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     sharePost: feed.sharePost,
     votePoll: feed.votePoll,
     addComment: feed.addComment,
+    deletePost: feed.deletePost,
+    deleteComment: feed.deleteComment,
     toggleJoinGroup: groups.toggleJoinGroup,
     createGroup: groups.createGroup,
+    deleteGroup: groups.deleteGroup,
+    myRoleByGroup: groups.myRoleByGroup,
     showToast,
     buyMarketItem: marketplace.buyMarketItem,
     createMarketItem: marketplace.createMarketItem,
@@ -207,6 +229,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     followUser: social.followUser,
     unfollowUser: social.unfollowUser,
     markNotificationsAsRead: notifications.markNotificationsAsRead,
+    dismissNotification: notifications.dismissNotification,
+    clearNotifications: notifications.clearNotifications,
     addNotification: notifications.addNotification,
     activeChats: chat.activeChats,
     chatMessages: chat.chatMessages,
@@ -219,14 +243,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     stories: storiesState.stories,
     addStory: storiesState.addStory,
     viewStory: storiesState.viewStory,
+    deleteStory: storiesState.deleteStory,
     reels: reelsState.reels,
     reelsLoading: reelsState.loading,
     addReel: reelsState.addReel,
     viewReel: reelsState.viewReel,
+    deleteReel: reelsState.deleteReel,
     events: eventsState.events,
     eventsLoading: eventsState.loading,
     createEvent: eventsState.createEvent,
     rsvpEvent: eventsState.rsvpEvent,
+    deleteEvent: eventsState.deleteEvent,
   };
 
   return (

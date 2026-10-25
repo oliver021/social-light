@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Box, Typography } from '@mui/material';
+import { Trash2 } from 'lucide-react';
 import type { Post } from '../../types';
 import { UserLine } from '../ui/UserLine';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { OverflowMenu } from '../ui/OverflowMenu';
 import { T } from '../ui/tokens';
 import { canChatWith } from './chat';
 
@@ -10,10 +13,16 @@ export interface PostHeaderProps {
   post: Post;
 }
 
-/** Author line of a post: avatar, name (opens a chat), "@handle · time", and the type tag. */
+/**
+ * Author line of a post: avatar, name (opens a chat), "@handle · time", the type tag, and,
+ * for the author only, the "More actions" menu with delete.
+ */
 export const PostHeader: React.FC<PostHeaderProps> = ({ post }) => {
-  const { currentUser, openChatWithUser } = useApp();
+  const { currentUser, openChatWithUser, deletePost, showToast } = useApp();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const chatTarget = canChatWith(post.authorId, currentUser.id) ? post.authorId : undefined;
+  // Owner rule: no owner id means no delete control.
+  const isOwner = !!post.authorId && post.authorId === currentUser.id;
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
@@ -36,6 +45,33 @@ export const PostHeader: React.FC<PostHeaderProps> = ({ post }) => {
             {post.type}
           </Typography>
         </Box>
+      )}
+      <OverflowMenu
+        label="More actions for this post"
+        items={[
+          {
+            id: 'delete',
+            label: 'Delete post',
+            icon: Trash2,
+            danger: true,
+            hidden: !isOwner,
+            onSelect: () => setConfirmOpen(true),
+          },
+        ]}
+      />
+      {isOwner && (
+        <ConfirmDialog
+          open={confirmOpen}
+          title="Delete this post?"
+          body="It will be removed from your profile and from your followers' feeds."
+          confirmLabel="Delete"
+          destructive
+          onConfirm={async () => {
+            await deletePost(post.id);
+            showToast('Post deleted', 'success');
+          }}
+          onClose={() => setConfirmOpen(false)}
+        />
       )}
     </Box>
   );

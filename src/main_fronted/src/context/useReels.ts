@@ -1,5 +1,5 @@
 import { useState, type MutableRefObject } from 'react';
-import { reelsApi, getProfile } from '../api/gateway';
+import { reelsApi, getProfile, describeApiError } from '../api/gateway';
 
 /** A reel (generated Reels module) joined with its resolved creator profile. */
 export interface Reel {
@@ -78,6 +78,13 @@ export function useReels({ myUserId }: Deps) {
     await loadReels().catch(() => {});
   };
 
+  // Delete my reel. Rejects with a readable message so the player can keep it on screen.
+  const deleteReel = async (reelId: string): Promise<void> => {
+    const { error, response } = await reelsApi.DELETE('/api/reels/{id}', { params: { path: { id: reelId } } });
+    if (!response.ok) throw new Error(describeApiError(error, response, 'The reel was not deleted'));
+    setReels((prev) => prev.filter((r) => r.id !== reelId));
+  };
+
   const viewReel = (reelId: string) => {
     reelsApi
       .POST('/api/reel-views', {
@@ -86,5 +93,5 @@ export function useReels({ myUserId }: Deps) {
       .catch(() => {});
   };
 
-  return { reels, loading, loadReels, addReel, viewReel };
+  return { reels, loading, loadReels, addReel, viewReel, deleteReel };
 }

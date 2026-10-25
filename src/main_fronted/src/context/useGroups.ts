@@ -25,6 +25,9 @@ export function useGroups({ myUserId, showToast }: Deps) {
   const [groups, setGroups] = usePersistentState<Group[]>('nexus_groups', () => []);
   // Maps a groupId -> this user's group-member id, so leaving a group can DELETE it.
   const myGroupMemberIds = useRef<Map<string, string>>(new Map());
+  // Maps a groupId -> my role in it ('owner' for the creator). A community has no owner
+  // field of its own, so ownership is read from the creator's membership.
+  const [myRoleByGroup, setMyRoleByGroup] = useState<Map<string, string>>(() => new Map());
   // True until the first list load settles (success or failure), so the tab can show a skeleton.
   const [loading, setLoading] = useState(true);
 
@@ -44,11 +47,16 @@ export function useGroups({ myUserId, showToast }: Deps) {
     if (!groupList) return;
     const myId = myUserId.current;
     const memberCounts = new Map<string, number>();
+    const myRoles = new Map<string, string>();
     myGroupMemberIds.current.clear();
     for (const m of members ?? []) {
       memberCounts.set(m.groupId, (memberCounts.get(m.groupId) ?? 0) + 1);
-      if (m.userId === myId) myGroupMemberIds.current.set(m.groupId, m.id);
+      if (m.userId === myId) {
+        myGroupMemberIds.current.set(m.groupId, m.id);
+        myRoles.set(m.groupId, m.role);
+      }
     }
+    setMyRoleByGroup(myRoles);
     setGroups(
       groupList.map((g) => ({
         id: g.id,
@@ -62,8 +70,8 @@ export function useGroups({ myUserId, showToast }: Deps) {
     );
   };
 
-  // Create the community, then make its creator a member. Rejects with a readable message
-  // so the dialog stays open. Reloads the list on success.
+  // Create the community, then make its creator the owner member. Rejects with a readable
+  // message so the dialog stays open. Reloads the list on success.
   const createGroup = async (input: NewGroup): Promise<void> => {
     const myId = myUserId.current;
     if (!myId) throw new Error('Your session is still loading. Try again in a moment.');
@@ -80,7 +88,7 @@ export function useGroups({ myUserId, showToast }: Deps) {
     if (!group || !response.ok) throw new Error(describeApiError(error, response, 'The community was not created'));
 
     const join = await groupsApi.POST('/api/group-members', {
-      body: { groupId: group.id, userId: myId, role: 'member' },
+      body: { groupId: group.id, userId: myId, role: 'owner' },
     });
     if (!join.response.ok) {
       await loadGroups().catch(() => {});
@@ -133,11 +141,30 @@ export function useGroups({ myUserId, showToast }: Deps) {
     }
   };
 
-  // Forget the previous account's memberships (used when the signed-in user changes).
+  // Delete a community I own. On success it leaves the list and my own membership row is
+  // removed best-effort. Rejects with a readable message so the dialog stays open.
+  const deleteGroup = async (groupId: string): Promise<void> => {
+    const { error, response } = await groupsApi.DELETE('/api/groups/{id}', { params: { path: { id: groupId } } });
+    if (!response.ok) throw new Error(describeApiError(error, response, 'The community was not deleted'));
+    setGroups((prev) => prev.filter((g) => g.id !== groupId));
+    setMyRoleByGroup((prev) => {
+      const next = new Map(prev);
+      next.delete(groupId);
+      return next;
+    });
+    const memberId = myGroupMemberIds.current.get(groupId);
+    myGroupMemberIds.current.delete(groupId);
+    if (memberId) {
+      groupsApi.DELETE('/api/group-members/{id}', { params: { path: { id: memberId } } }).catch(() => {});
+    }
+  };
+
+  // Forget the previous account's memberships and roles (used when the signed-in user changes).
   const reset = () => {
     myGroupMemberIds.current.clear();
+    setMyRoleByGroup(new Map());
     setGroups([]);
   };
 
-  return { groups, loading, loadGroups, toggleJoinGroup, createGroup, reset };
+  return { groups, loading, loadGroups, toggleJoinGroup, createGroup, deleteGroup, myRoleByGroup, reset };
 }

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, type EventItem } from '../context/AppContext';
 import { Box, Button, IconButton, TextField, Typography } from '@mui/material';
-import { CalendarDays, MapPin, Plus, Check } from 'lucide-react';
+import { CalendarDays, CalendarX, MapPin, Plus, Check } from 'lucide-react';
+import { ConfirmDialog } from './ui/ConfirmDialog';
 import { EmptyState } from './ui/EmptyState';
+import { OverflowMenu } from './ui/OverflowMenu';
 import { ListSkeleton } from './ui/Skeletons';
 import { ResponsiveDialog } from './ui/ResponsiveDialog';
 import { SectionHeader } from './ui/SectionHeader';
@@ -32,8 +34,10 @@ const rsvpButtonSx = (attending: boolean) => ({
 
 // "Upcoming events" sidebar widget, backed by the generated Events module.
 export const EventsWidget: React.FC = () => {
-  const { events, eventsLoading, createEvent, rsvpEvent } = useApp();
+  const { currentUser, events, eventsLoading, createEvent, rsvpEvent, deleteEvent, showToast } = useApp();
   const [open, setOpen] = useState(false);
+  // The event whose cancellation is waiting for confirmation.
+  const [cancelTarget, setCancelTarget] = useState<EventItem | null>(null);
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [date, setDate] = useState('');
@@ -93,20 +97,43 @@ export const EventsWidget: React.FC = () => {
                   <span>{ev.attendeeCount} going</span>
                 </Box>
               </Box>
-              <Button
-                size="small"
-                variant="outlined"
-                aria-label={ev.attending ? `Going to ${ev.title}` : `I'm going to ${ev.title}`}
-                aria-pressed={ev.attending}
-                onClick={() => rsvpEvent(ev.id)}
-                sx={rsvpButtonSx(ev.attending)}
-              >
-                {ev.attending ? <><Check aria-hidden="true" size={12} strokeWidth={1.75} style={{ marginRight: 4 }} />Going</> : "I'm going"}
-              </Button>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  aria-label={ev.attending ? `Going to ${ev.title}` : `I'm going to ${ev.title}`}
+                  aria-pressed={ev.attending}
+                  onClick={() => rsvpEvent(ev.id)}
+                  sx={rsvpButtonSx(ev.attending)}
+                >
+                  {ev.attending ? <><Check aria-hidden="true" size={12} strokeWidth={1.75} style={{ marginRight: 4 }} />Going</> : "I'm going"}
+                </Button>
+                {/* Owner rule: only the organizer can cancel the event. */}
+                {!!ev.organizerId && ev.organizerId === currentUser.id && (
+                  <OverflowMenu
+                    label={`More actions for ${ev.title}`}
+                    items={[{ id: 'cancel', label: 'Cancel event', icon: CalendarX, danger: true, onSelect: () => setCancelTarget(ev) }]}
+                  />
+                )}
+              </Box>
             </Box>
           ))}
         </Box>
       )}
+
+      <ConfirmDialog
+        open={cancelTarget !== null}
+        title="Cancel this event?"
+        body="People who said they are going will no longer see it."
+        confirmLabel="Cancel event"
+        destructive
+        onConfirm={async () => {
+          if (!cancelTarget) return;
+          await deleteEvent(cancelTarget.id);
+          showToast('Event cancelled', 'success');
+        }}
+        onClose={() => setCancelTarget(null)}
+      />
 
       <ResponsiveDialog
         open={open}

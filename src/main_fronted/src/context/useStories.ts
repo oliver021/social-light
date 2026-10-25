@@ -1,5 +1,5 @@
 import { useState, type MutableRefObject } from 'react';
-import { storiesApi, getProfile } from '../api/gateway';
+import { storiesApi, getProfile, describeApiError } from '../api/gateway';
 
 /** A story (generated Stories module) joined with its resolved author profile. */
 export interface Story {
@@ -64,6 +64,13 @@ export function useStories({ myUserId }: Deps) {
     if (data) loadStories().catch(() => {});
   };
 
+  // Delete my story. Rejects with a readable message so the viewer can keep it open.
+  const deleteStory = async (storyId: string): Promise<void> => {
+    const { error, response } = await storiesApi.DELETE('/api/stories/{id}', { params: { path: { id: storyId } } });
+    if (!response.ok) throw new Error(describeApiError(error, response, 'The story was not deleted'));
+    setStories((prev) => prev.filter((s) => s.id !== storyId));
+  };
+
   // Record that this user viewed a story (fire-and-forget).
   const viewStory = (storyId: string) => {
     storiesApi
@@ -73,5 +80,5 @@ export function useStories({ myUserId }: Deps) {
       .catch(() => {});
   };
 
-  return { stories, loadStories, addStory, viewStory };
+  return { stories, loadStories, addStory, viewStory, deleteStory };
 }

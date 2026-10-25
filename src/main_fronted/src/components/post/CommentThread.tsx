@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Box, ButtonBase, Collapse, IconButton, List, ListItem, TextField, Tooltip, Typography } from '@mui/material';
-import { Send } from 'lucide-react';
-import type { Post } from '../../types';
+import { Send, Trash2 } from 'lucide-react';
+import type { Comment, Post } from '../../types';
 import { UserAvatar } from '../ui/UserAvatar';
 import { EmptyState } from '../ui/EmptyState';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { OverflowMenu } from '../ui/OverflowMenu';
 import { T } from '../ui/tokens';
 import { canChatWith } from './chat';
 
@@ -18,9 +20,11 @@ export interface CommentThreadProps {
  * The text is cleared only once the server has accepted the comment.
  */
 export const CommentThread: React.FC<CommentThreadProps> = ({ post, open }) => {
-  const { currentUser, addComment, openChatWithUser, showToast } = useApp();
+  const { currentUser, addComment, deleteComment, openChatWithUser, showToast } = useApp();
   const [newCommentText, setNewCommentText] = useState('');
   const [posting, setPosting] = useState(false);
+  // The comment awaiting delete confirmation (only ever one at a time).
+  const [pendingDelete, setPendingDelete] = useState<Comment | null>(null);
 
   // Enter in the field submits this form. The text is cleared only once the server has
   // accepted the comment; otherwise it stays so nothing typed is lost.
@@ -38,6 +42,9 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ post, open }) => {
       setPosting(false);
     }
   };
+
+  // Owner rule: only comments whose author is me get the menu.
+  const isOwnComment = (comment: Comment) => !!comment.authorId && comment.authorId === currentUser.id;
 
   const chatWith = (userId: string | undefined, name: string, avatar: string, handle: string) => {
     if (canChatWith(userId, currentUser.id)) {
@@ -127,6 +134,12 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ post, open }) => {
                       {comment.content}
                     </Typography>
                   </Box>
+                  {isOwnComment(comment) && (
+                    <OverflowMenu
+                      label={`More actions for your comment: ${comment.content.slice(0, 40)}`}
+                      items={[{ id: 'delete', label: 'Delete comment', icon: Trash2, danger: true, onSelect: () => setPendingDelete(comment) }]}
+                    />
+                  )}
                 </ListItem>
               );
             })}
@@ -135,6 +148,17 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ post, open }) => {
           <EmptyState compact title="No comments yet" body="Be the first to comment." />
         )}
       </Box>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete this comment?"
+        body="It will be removed from the thread."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={async () => {
+          if (pendingDelete) await deleteComment(post.id, pendingDelete.id);
+        }}
+        onClose={() => setPendingDelete(null)}
+      />
     </Collapse>
   );
 };

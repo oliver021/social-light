@@ -44,6 +44,12 @@ export function makeAppContext(overrides: Partial<AppContextType> = {}): AppCont
     addComment: asyncFn(),
     toggleJoinGroup: vi.fn(async () => true),
     createGroup: asyncFn(),
+    deleteGroup: asyncFn(),
+    myRoleByGroup: new Map(),
+    deletePost: asyncFn(),
+    deleteComment: asyncFn(),
+    dismissNotification: asyncFn(),
+    clearNotifications: asyncFn(),
     buyMarketItem: vi.fn(),
     createMarketItem: vi.fn(),
     updateProfile: asyncFn(),
@@ -63,12 +69,15 @@ export function makeAppContext(overrides: Partial<AppContextType> = {}): AppCont
     stories: [],
     addStory: vi.fn(),
     viewStory: vi.fn(),
+    deleteStory: asyncFn(),
     reels: [],
     addReel: asyncFn(),
     viewReel: vi.fn(),
+    deleteReel: asyncFn(),
     events: [],
     createEvent: vi.fn(),
     rsvpEvent: vi.fn(),
+    deleteEvent: asyncFn(),
   };
   return { ...base, ...overrides };
 }

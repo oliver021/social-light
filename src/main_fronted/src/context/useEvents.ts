@@ -1,5 +1,5 @@
 import { useRef, useState, type MutableRefObject } from 'react';
-import { eventsApi, getProfile } from '../api/gateway';
+import { eventsApi, getProfile, describeApiError } from '../api/gateway';
 
 /** An event (generated Events module) joined with its organizer + this user's RSVP. */
 export interface EventItem {
@@ -128,5 +128,18 @@ export function useEvents({ myUserId }: Deps) {
     })();
   };
 
-  return { events, loading, loadEvents, createEvent, rsvpEvent };
+  // Cancel my event. On success it leaves the list and my own RSVP row is removed
+  // best-effort (same module). Rejects with a readable message so the dialog stays open.
+  const deleteEvent = async (eventId: string): Promise<void> => {
+    const { error, response } = await eventsApi.DELETE('/api/events/{id}', { params: { path: { id: eventId } } });
+    if (!response.ok) throw new Error(describeApiError(error, response, 'The event was not deleted'));
+    setEvents((prev) => prev.filter((e) => e.id !== eventId));
+    const attendanceId = myAttendanceIds.current.get(eventId);
+    myAttendanceIds.current.delete(eventId);
+    if (attendanceId) {
+      eventsApi.DELETE('/api/event-attendances/{id}', { params: { path: { id: attendanceId } } }).catch(() => {});
+    }
+  };
+
+  return { events, loading, loadEvents, createEvent, rsvpEvent, deleteEvent };
 }

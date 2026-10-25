@@ -307,11 +307,43 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     notify(posts.find((p) => p.id === postId)?.authorId, 'comment', 'Post', postId);
   };
 
+  // Delete my post (Posts module). On success the post leaves the feed, and its media rows
+  // (same module) are removed best-effort. Engagement rows (comments, reactions, shares) are
+  // left to the Engagement module's event consumer (track B, B6), never deleted from here.
+  const deletePost = async (postId: string): Promise<void> => {
+    const { error, response } = await postsApi.DELETE('/api/posts/{id}', { params: { path: { id: postId } } });
+    if (!response.ok) throw new Error(describeApiError(error, response, 'The post was not deleted'));
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+    myReactionIds.current.delete(postId);
+    deletePostMedia(postId).catch(() => {});
+  };
+
+  // Attachments are separate post-media rows; they are invisible orphans if left behind,
+  // so each failure is ignored on purpose.
+  const deletePostMedia = async (postId: string) => {
+    const { data } = await postsApi.GET('/api/post-medias');
+    if (!data) return;
+    await Promise.all(
+      data
+        .filter((m) => m.postId === postId)
+        .map((m) => postsApi.DELETE('/api/post-medias/{id}', { params: { path: { id: m.id } } }).catch(() => {})),
+    );
+  };
+
+  // Delete my comment (Engagement module) and remove it from that post's thread.
+  const deleteComment = async (postId: string, commentId: string): Promise<void> => {
+    const { error, response } = await engagementApi.DELETE('/api/comments/{id}', { params: { path: { id: commentId } } });
+    if (!response.ok) throw new Error(describeApiError(error, response, 'The comment was not deleted'));
+    setPosts((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, comments: p.comments.filter((c) => c.id !== commentId) } : p)),
+    );
+  };
+
   // Forget the previous account's cached posts (used when the signed-in user changes).
   const reset = () => {
     myReactionIds.current.clear();
     setPosts([]);
   };
 
-  return { posts, loadFeed, addPost, reactToPost, sharePost, votePoll, addComment, reset };
+  return { posts, loadFeed, addPost, reactToPost, sharePost, votePoll, addComment, deletePost, deleteComment, reset };
 }

@@ -5,7 +5,9 @@ import { PostCard } from './PostCard';
 import { messageOf } from '../api/gateway';
 import {
   CardGridSkeleton,
+  ConfirmDialog,
   EmptyState,
+  OverflowMenu,
   PageHeader,
   ResponsiveDialog,
   SectionHeader,
@@ -27,7 +29,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { ArrowLeft, Search, SlidersHorizontal, Users } from 'lucide-react';
+import { ArrowLeft, Search, SlidersHorizontal, Trash2, Users } from 'lucide-react';
 
 const TOUCH_TARGET = { minHeight: 44, minWidth: 44 };
 /** The pill button: a 44px target with the full radius token. */
@@ -38,7 +40,7 @@ const EMPTY_FORM = { name: '', description: '', privacy: 'public' as 'public' | 
 const CATEGORIES = ['All', 'Technology', 'Artificial Intelligence', 'Gaming', 'Design Systems'];
 
 export const GroupsTab: React.FC = () => {
-  const { groups, groupsLoading, toggleJoinGroup, createGroup, posts, selectedGroupId, setSelectedGroupId, addNotification, showToast } = useApp();
+  const { groups, groupsLoading, toggleJoinGroup, createGroup, deleteGroup, myRoleByGroup, posts, selectedGroupId, setSelectedGroupId, addNotification, showToast } = useApp();
   // The first groups load is pending: show placeholder cards, not a false "no communities".
   const listPending = Boolean(groupsLoading) && groups.length === 0;
   const [filter, setFilter] = useState('');
@@ -49,6 +51,7 @@ export const GroupsTab: React.FC = () => {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const handleToggleJoin = async (group: Group) => {
     const changed = await toggleJoinGroup(group.id);
@@ -168,7 +171,14 @@ export const GroupsTab: React.FC = () => {
                   </Typography>
                 </Box>
               </Box>
-              <Box sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', md: 'center' } }}>{joinButton(activeGroup)}</Box>
+              <Box sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', md: 'center' }, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                {joinButton(activeGroup)}
+                {/* Owner rule: only the creator (owner membership) sees delete. Groups created before owners were recorded show none. */}
+                <OverflowMenu
+                  label="More actions for this community"
+                  items={[{ id: 'delete', label: 'Delete community', icon: Trash2, danger: true, hidden: myRoleByGroup.get(activeGroup.id) !== 'owner', onSelect: () => setConfirmDeleteOpen(true) }]}
+                />
+              </Box>
             </Box>
           </Surface>
 
@@ -183,6 +193,22 @@ export const GroupsTab: React.FC = () => {
               <EmptyState title="No posts in this community yet" body="Posts shared here will appear in this list." />
             )}
           </Box>
+
+          {myRoleByGroup.get(activeGroup.id) === 'owner' && (
+            <ConfirmDialog
+              open={confirmDeleteOpen}
+              title="Delete this community?"
+              body="It is removed for everyone. This cannot be undone."
+              confirmLabel="Delete"
+              destructive
+              onConfirm={async () => {
+                await deleteGroup(activeGroup.id);
+                setSelectedGroupId(null);
+                showToast('Community deleted', 'success');
+              }}
+              onClose={() => setConfirmDeleteOpen(false)}
+            />
+          )}
         </Box>
       ) : (
         // COMMUNITIES DISCOVERY VIEW
