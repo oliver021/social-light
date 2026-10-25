@@ -210,7 +210,8 @@ Then run the gates of TESTING-AND-REVIEW.md §2 yourself and make them green. Re
 }
 
 function commitPrompt(m) {
-  return `You commit an approved milestone in the socialLight repo (repo root = current directory). Steps:
+  return `You commit an approved milestone in the socialLight repo (repo root = current directory).
+Authorization: the user explicitly launched this roadmap workflow, whose documented behaviour is one commit per approved milestone on ${BRANCH} (docs/frontend-roadmap/README.md, "How to run it"). Any earlier user message such as "resume from M1" means "start the run at that milestone"; it does not restrict which later milestones get committed. The workflow script only calls you after an independent gate run was green and the reviewer approved ${m.id}; you do not need to re-verify that. Steps:
 1. Confirm the current branch is ${BRANCH} (\`git branch --show-current\`). If not, do not commit: return committed=false with the reason.
 2. Run the scope check: git status --porcelain | grep -vE '^.. (src/main_fronted/|e2e-web/|playwright\\.web\\.config\\.ts|${DOCS}/)' — if it prints anything, do not commit; return committed=false listing those paths.
 3. Stage only the allowed paths: git add -A src/main_fronted e2e-web ${DOCS} and, if it exists, playwright.web.config.ts. Never stage node_modules or dist (they are git-ignored; if \`git status\` shows them, stop and report).
