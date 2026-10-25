@@ -38,7 +38,7 @@ export const UserLine: React.FC<UserLineProps> = ({ name, handle, avatarSrc, met
         <Box sx={{ minWidth: 0 }}>
           {nameNode}
           {hasMeta && (
-            <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-xs)', fontFamily: 'var(--font-mono)', overflowWrap: 'anywhere' }}>
+            <Typography noWrap sx={{ ...mutedSx, fontSize: 'var(--ui-fs-xs)', fontFamily: 'var(--font-mono)' }}>
               {[handle, meta].filter((part) => part !== undefined && part !== null && part !== '').map((part, i) => (
                 <React.Fragment key={i}>
                   {i > 0 && ' · '}
