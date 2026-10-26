@@ -9,7 +9,7 @@ import sys, yaml
 
 KEEP = ["postgres", "eventbus", "identity-api", "profile-api", "posts-api",
         "engagement-api", "socialgraph-api", "feed-api", "media-service",
-        "groups-api", "events-api", "stories-api", "reels-api", "notifications-api",
+        "groups-api", "organizations-api", "events-api", "stories-api", "reels-api", "notifications-api",
         "chat-api", "catalog-api", "social-bff"]
 APIS = [s for s in KEEP if s.endswith(("-api", "-service"))]
 
