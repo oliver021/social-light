@@ -19,6 +19,14 @@ describe('FeedsTab', () => {
     expect(screen.getByRole('button', { name: 'Find people to follow' })).toBeInTheDocument();
   });
 
+  it('keeps the skeleton, not the empty state, while blocks and mutes are still loading', async () => {
+    renderWithProviders(<FeedsTab />, { context: { posts: [], relationsLoading: true } });
+    // Past the 1.5 s settle delay the feed would normally show its empty state.
+    await new Promise((resolve) => setTimeout(resolve, 1700));
+    expect(screen.getByLabelText('Loading post')).toBeInTheDocument();
+    expect(screen.queryByText('Follow a few people to fill your feed')).toBeNull();
+  });
+
   it('shows the "no posts yet" empty state when the viewer already follows someone', async () => {
     renderWithProviders(<FeedsTab />, {
       context: { posts: [], people: [{ userId: 'p1', name: 'Bo', handle: '@bo', avatar: '', bio: '', followed: true }] },

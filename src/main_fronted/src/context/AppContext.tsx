@@ -48,6 +48,8 @@ export { groupStoriesByAuthor, isEventFull };
 export interface AppContextType {
   currentUser: UserProfile;
   posts: Post[];
+  /** True until blocks and mutes have been read once; filtered lists stay empty meanwhile. Optional: absent means settled. */
+  relationsLoading?: boolean;
   groups: Group[];
   marketItems: MarketItem[];
   marketCategories: string[];
@@ -288,6 +290,8 @@ export interface AppContextType {
   openOrganization: (organizationId: string) => void;
 }
 
+const NO_POSTS: Post[] = [];
+
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -315,7 +319,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const groups = useGroups({
     myUserId: session.myUserId,
     showToast,
-    feed: { createPostRaw: feed.createPostRaw, setGroupFeed: feed.setGroupFeed, deletePost: feed.deletePost, loadFeed: feed.loadFeed },
+    feed: { createPostRaw: feed.createPostRaw, setGroupFeed: feed.setGroupFeed, deletePost: feed.deletePost, addToFeed: feed.addToFeed },
   });
 
   const organizations = useOrganizations({ myUserId: session.myUserId, showToast });
@@ -344,23 +348,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const blockedSet = relations.blockedIds;
   const hiddenSet = relations.hiddenPostIds;
   const mutedSet = relations.mutedIds;
+  // Until blocks and mutes have been read once, lists they filter show nothing (the feed shows
+  // its skeleton), so a blocked author's post or story never paints before the filter applies.
+  const relationsReady = relations.loaded;
   const feedPosts = useMemo(
-    () => visiblePosts(feed.posts, { blocked: blockedSet, hidden: hiddenSet, muted: mutedSet }, 'feed'),
-    [feed.posts, blockedSet, hiddenSet, mutedSet],
+    () => (relationsReady ? visiblePosts(feed.posts, { blocked: blockedSet, hidden: hiddenSet, muted: mutedSet }, 'feed') : NO_POSTS),
+    [relationsReady, feed.posts, blockedSet, hiddenSet, mutedSet],
   );
   const timelineView = useMemo(
-    () => (feed.timeline ? { ...feed.timeline, posts: visiblePosts(feed.timeline.posts, { blocked: blockedSet }, 'profile') } : null),
-    [feed.timeline, blockedSet],
+    () => (feed.timeline
+      ? { ...feed.timeline, posts: relationsReady ? visiblePosts(feed.timeline.posts, { blocked: blockedSet }, 'profile') : NO_POSTS }
+      : null),
+    [relationsReady, feed.timeline, blockedSet],
   );
   const visiblePeople = useMemo(() => withoutBlocked(social.people, (p) => p.userId, blockedSet), [social.people, blockedSet]);
-  // The community being viewed: its posts, filtered like the home feed.
-  const openGroupPosts = feed.groupFeed && feed.groupFeed.groupId === ui.selectedGroupId ? feed.groupFeed.posts : [];
+  // The community being viewed: only blocks apply there. Hide, mute and snooze are home-feed
+  // preferences (M4), so a muted person's community posts stay visible, as on their profile.
+  const openGroupPosts = feed.groupFeed && feed.groupFeed.groupId === ui.selectedGroupId ? feed.groupFeed.posts : NO_POSTS;
   const visibleGroupPosts = useMemo(
-    () => visiblePosts(openGroupPosts, { blocked: blockedSet, hidden: hiddenSet, muted: mutedSet }, 'feed'),
-    [openGroupPosts, blockedSet, hiddenSet, mutedSet],
+    () => (relationsReady ? visiblePosts(openGroupPosts, { blocked: blockedSet }, 'profile') : NO_POSTS),
+    [relationsReady, openGroupPosts, blockedSet],
   );
-  const visibleStories = storiesState.stories.filter((s) => !blockedSet.has(s.authorId) && !mutedSet.has(s.authorId));
-  const visibleReels = withoutBlocked(reelsState.reels, (r) => r.creatorId, blockedSet);
+  const visibleStories = relationsReady
+    ? storiesState.stories.filter((s) => !blockedSet.has(s.authorId) && !mutedSet.has(s.authorId))
+    : [];
+  const visibleReels = relationsReady ? withoutBlocked(reelsState.reels, (r) => r.creatorId, blockedSet) : [];
   const visibleThreads = withoutBlocked(chat.chatThreads, (t) => t.userId, blockedSet);
   const visibleChats = withoutBlocked(chat.activeChats, (c) => c.userId, blockedSet);
 
@@ -375,6 +387,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ui.setSelectedOrganizationId(null);
     eventsState.reset();
     storiesState.reset();
+    reelsState.reset();
     notifications.reset();
     chat.reset();
     marketplace.reset();
@@ -402,6 +415,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const value: AppContextType = {
     currentUser: session.currentUser,
     posts: feedPosts,
+    relationsLoading: !relationsReady,
     groups: groups.groups,
     groupsLoading: groups.loading,
     openGroup: (groupId: string) => {

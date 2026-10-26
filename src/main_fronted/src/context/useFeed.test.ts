@@ -126,4 +126,24 @@ describe('useFeed.reactToPost', () => {
     expect(message.length).toBeGreaterThan(0);
     await waitFor(() => expect(result.current.posts[0].reactions.like).toBe(0));
   });
+
+  it('undoes a failed reaction inside a community view too (no loader re-reads that list)', async () => {
+    mockApi({
+      'GET /api/feed/home': [],
+      'POST /api/reactions': { status: 500, body: { title: 'boom' } },
+    });
+    const { result, deps } = setup();
+    const post = {
+      id: 'gp1', type: 'text' as const, authorId: 'a1', author: { name: 'Ana', handle: '', avatar: '' },
+      content: 'In the community', createdAt: '', comments: [], sharesCount: 0, currentUserReaction: null,
+      reactions: { like: 2, love: 0, laugh: 0, wow: 0, sad: 0, angry: 0 },
+    };
+    act(() => result.current.setGroupFeed('g1', [post as never]));
+    act(() => result.current.reactToPost('gp1', 'like'));
+    expect(result.current.groupFeed!.posts[0].reactions.like).toBe(3);
+
+    await waitFor(() => expect(deps.showToast).toHaveBeenCalled());
+    await waitFor(() => expect(result.current.groupFeed!.posts[0].reactions.like).toBe(2));
+    expect(result.current.groupFeed!.posts[0].currentUserReaction).toBeNull();
+  });
 });

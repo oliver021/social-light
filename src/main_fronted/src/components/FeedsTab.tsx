@@ -51,7 +51,7 @@ const ComposerDrawer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 );
 
 export const FeedsTab: React.FC = () => {
-  const { currentUser, posts, addPost, people } = useApp();
+  const { currentUser, posts, addPost, people, relationsLoading } = useApp();
   const settled = useSettled();
   const followingSomeone = people.some((p) => p.followed);
   const firstName = currentUser.name.split(' ')[0] || currentUser.name;
@@ -378,9 +378,9 @@ export const FeedsTab: React.FC = () => {
       </Surface>
 
       {/* FEED: skeleton while loading, empty state when the feed is genuinely empty, else posts */}
-      {posts.length === 0 && !settled && <PostSkeleton />}
+      {posts.length === 0 && (!settled || relationsLoading) && <PostSkeleton />}
 
-      {posts.length === 0 && settled && (
+      {posts.length === 0 && settled && !relationsLoading && (
         followingSomeone ? (
           <EmptyState
             icon={Users}

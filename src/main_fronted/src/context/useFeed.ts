@@ -239,13 +239,18 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     return created;
   };
 
+  // Show a post I just created at the top of my home feed and of my own profile timeline.
+  // Used by createPost, and by a community post (which arrives with its community link).
+  const addToFeed = (created: Post) => {
+    setPosts((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
+    setTimeline((t) => (t && t.userId === currentUser.id ? { ...t, posts: [created, ...t.posts.filter((p) => p.id !== created.id)] } : t));
+  };
+
   // Create through Posts API (authorId bound from the JWT, not the body), prepend
   // optimistically, then refresh the composed feed in the background.
   const createPost = async (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', _extraData?: any) => {
     const created = await createPostRaw(content, type, _extraData);
-    setPosts((prev) => [created, ...prev]);
-    // My own new post also shows at the top of my profile timeline.
-    setTimeline((t) => (t && t.userId === currentUser.id ? { ...t, posts: [created, ...t.posts] } : t));
+    addToFeed(created);
     // Reconcile with the server's composed view (ordering, counts) without blocking the UI.
     loadFeed().catch(() => {});
   };
@@ -274,11 +279,14 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     });
 
     (async () => {
+      // Whether the old reaction is already gone on the server, so a failure can be undone exactly.
+      let previousRemoved = !previousId;
       try {
         if (previousId) {
           const del = await engagementApi.DELETE('/api/reactions/{id}', { params: { path: { id: previousId } } });
           if (!del.response.ok) throw new Error(describeApiError(del.error, del.response, 'Your reaction was not removed'));
           myReactionIds.current.delete(postId);
+          previousRemoved = true;
         }
         if (!removing) {
           // openapi-fetch resolves on HTTP errors instead of throwing, so check the response.
@@ -290,8 +298,16 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
         }
       } catch (err) {
         showToast(messageOf(err, 'Your reaction was not saved'));
-        // Re-read the server's tallies so the optimistic count does not stay wrong, in the
-        // home feed and in the profile timeline the post came from.
+        // Undo the optimistic change in every list (home, timeline, community) to what the
+        // server now holds: the new reaction was not saved; the old one is gone only if its
+        // DELETE went through.
+        updatePost(postId, (p) => {
+          const reactions = { ...p.reactions };
+          if (!removing) reactions[reactionType] = Math.max(0, reactions[reactionType] - 1);
+          if (previousReaction && !previousRemoved) reactions[previousReaction] += 1;
+          return { ...p, reactions, currentUserReaction: previousRemoved ? null : previousReaction };
+        });
+        // Then re-read the server's tallies where a loader exists.
         loadFeed().catch(() => {});
         if (timeline?.posts.some((p) => p.id === postId)) loadTimeline(timeline.userId).catch(() => {});
       }
@@ -477,6 +493,7 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     groupFeed,
     setGroupFeed,
     createPostRaw,
+    addToFeed,
     addPost,
     reactToPost,
     sharePost,

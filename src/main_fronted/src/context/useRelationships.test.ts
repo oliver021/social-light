@@ -274,7 +274,9 @@ describe('useRelationships: unfriend', () => {
     await act(async () => { ok = await result.current.unfriend(ANA); });
 
     expect(ok).toBe(false);
-    expect(showToast).toHaveBeenCalledWith('Could not remove the friendship completely');
+    // One toast, with the server's reason (not a second copy of the same text).
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith('Could not remove the friendship completely: boom');
     await waitFor(() => expect(calls.filter((c) => c.method === 'GET' && c.path === '/api/friends').length).toBeGreaterThan(friendReadsBefore));
   });
 });
@@ -460,5 +462,29 @@ describe('useRelationships: hide, snooze and mute', () => {
     expect(result.current.isMuted(BO)).toBe(true);
     expect(showToast).toHaveBeenCalledWith(expect.stringMatching(/.+/));
     expect(showToast.mock.calls[0][0]).toContain('nope');
+  });
+});
+
+describe('loaded (lists wait for blocks and mutes)', () => {
+  it('is false before the first read, true once the rows are in, and false again after reset', async () => {
+    mockGraph({ blocks: [{ id: 'b1', blockerId: ME, blockedId: ANA, reason: null }] });
+    const { result } = setup();
+    expect(result.current.loaded).toBe(false);
+    await act(async () => { await result.current.loadRelationships(); });
+    expect(result.current.loaded).toBe(true);
+    expect(result.current.isBlocked(ANA)).toBe(true);
+    act(() => result.current.reset());
+    expect(result.current.loaded).toBe(false);
+  });
+
+  it('becomes true even when the reads fail, so nothing stays hidden for good', async () => {
+    mockApi({
+      'GET /api/friends': { status: 500, body: { title: 'down' } },
+      'GET /api/blocks': { status: 500, body: { title: 'down' } },
+      'GET /api/user-preferences': { status: 500, body: { title: 'down' } },
+    });
+    const { result } = setup();
+    await act(async () => { await result.current.loadRelationships(); });
+    expect(result.current.loaded).toBe(true);
   });
 });

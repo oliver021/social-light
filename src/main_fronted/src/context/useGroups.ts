@@ -10,8 +10,8 @@ export interface GroupFeedDeps {
   createPostRaw: (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', extra?: any) => Promise<Post>;
   setGroupFeed: (groupId: string, posts: Post[]) => void;
   deletePost: (postId: string) => Promise<void>;
-  /** Re-read the home feed, so my new community post shows there with its community link. */
-  loadFeed: () => Promise<void>;
+  /** Show my new post at the top of the home feed (and my profile), with its community link. */
+  addToFeed: (post: Post) => void;
 }
 
 interface Deps {
@@ -243,7 +243,11 @@ export function useGroups({ myUserId, showToast, feed }: Deps) {
       feed.deletePost(created.id).catch(() => {});
       throw new Error(linkError);
     }
-    await Promise.all([loadGroupPosts(groupId), feed.loadFeed().catch(() => {})]);
+    // The home feed gets the new post directly (with its community link), instead of a second
+    // full feed load and enrichment pass.
+    const groupName = groups.find((g) => g.id === groupId)?.name ?? 'Community';
+    feed.addToFeed({ ...created, groupId, groupName });
+    await loadGroupPosts(groupId);
   };
 
   // The members of one community, owners first, with profiles resolved. The owner row is

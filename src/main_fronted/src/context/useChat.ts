@@ -150,8 +150,8 @@ export function useChat({ myUserId, currentUserId, isAuthenticated, showToast }:
     if (!response.ok) throw new Error(describeApiError(error, response, failure));
   };
 
-  const registerDm = (peer: Peer, chatId: string) => {
-    chatInfo.current.set(chatId, {
+  const registerDm = (peer: Peer, chatId: string, into: Map<string, ChatInfo> = chatInfo.current) => {
+    into.set(chatId, {
       chatId, kind: 'dm', peer, name: peer.name, avatar: peer.avatar, handle: peer.handle, memberCount: 2,
     });
     dmChatByPeer.current.set(peer.userId, chatId);
@@ -252,7 +252,7 @@ export function useChat({ myUserId, currentUserId, isAuthenticated, showToast }:
     if (!parts) return;
     const myChatIds = [...new Set(parts.filter((p) => p.userId === myId).map((p) => p.chatId))];
     if (myChatIds.length === 0) {
-      chatInfo.current.clear();
+      chatInfo.current = new Map();
       setChatThreads([]);
       await refreshMeta();
       return;
@@ -264,7 +264,10 @@ export function useChat({ myUserId, currentUserId, isAuthenticated, showToast }:
     const threads: ChatThread[] = [];
     const messagesByChat: Record<string, ChatMessage[]> = {};
     const names: Record<string, string> = {};
-    chatInfo.current.clear();
+    // Build the new map aside and swap it in at the end: the hub handler and openChat keep
+    // reading the current one while profiles load, so nothing is "missing" mid-refresh.
+    const next = new Map<string, ChatInfo>();
+    const knownAtStart = new Set(chatInfo.current.keys());
 
     for (const chatId of myChatIds) {
       const members = parts.filter((p) => p.chatId === chatId);
@@ -284,7 +287,7 @@ export function useChat({ myUserId, currentUserId, isAuthenticated, showToast }:
         const info: ChatInfo = {
           chatId, kind: 'group', peer: null, name: dto?.title || 'Group', avatar: '', handle: '', memberCount: members.length,
         };
-        chatInfo.current.set(chatId, info);
+        next.set(chatId, info);
         threads.push(threadFrom(info, last ? previewOf(last) : 'Say hello!'));
       } else {
         const other = others[0];
@@ -295,9 +298,17 @@ export function useChat({ myUserId, currentUserId, isAuthenticated, showToast }:
           avatar: mediaUrl(profile?.avatarUrl) ?? defaultAvatar(other.userId),
           handle: withHandle(profile?.handle),
         };
-        registerDm(peer, chatId);
-        threads.push(threadFrom(chatInfo.current.get(chatId)!, last ? previewOf(last) : 'Say hello!'));
+        registerDm(peer, chatId, next);
+        threads.push(threadFrom(next.get(chatId)!, last ? previewOf(last) : 'Say hello!'));
       }
+    }
+    // Keep chats registered while this refresh ran (a DM opened meanwhile), then swap.
+    for (const [id, info] of chatInfo.current) if (!knownAtStart.has(id) && !next.has(id)) next.set(id, info);
+    chatInfo.current = next;
+    // Messages that arrived over the hub while the history loaded are kept after it.
+    for (const [id, history] of Object.entries(messagesByChat)) {
+      const ids = new Set(history.map((m) => m.id));
+      messagesByChat[id] = [...history, ...(messagesRef.current[id] ?? []).filter((m) => !ids.has(m.id))];
     }
     messagesRef.current = { ...messagesRef.current, ...messagesByChat };
     setChatMessages(messagesRef.current);

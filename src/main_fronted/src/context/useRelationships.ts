@@ -158,6 +158,9 @@ export function useRelationships({ myUserId, notify, showToast, showActionToast,
   const [prefRows, setPrefRows] = useState<PreferenceDto[]>([]);
   // Names and avatars for the people in the rows above, keyed by userId.
   const [views, setViews] = useState<Record<string, PersonView>>({});
+  // False until the first read of the rows above settles (success or failure). Lists filtered by
+  // blocks and mutes wait for it, so a blocked author's post never paints before the filter.
+  const [loaded, setLoaded] = useState(false);
 
   const viewOf = (userId: string): PersonView => views[userId] ?? { name: 'Member', avatar: defaultAvatar(userId), handle: '' };
 
@@ -220,11 +223,18 @@ export function useRelationships({ myUserId, notify, showToast, showActionToast,
   // Read my friend rows, blocks and preferences together. A list that fails to load keeps what
   // was shown before. Expired preferences are dropped and deleted on the server (best-effort).
   const loadRelationships = async () => {
-    const [friendsRes, blocksRes, prefsRes] = await Promise.all([
-      socialGraphApi.GET('/api/friends'),
-      socialGraphApi.GET('/api/blocks'),
-      socialGraphApi.GET('/api/user-preferences'),
-    ]);
+    let results;
+    try {
+      results = await Promise.all([
+        socialGraphApi.GET('/api/friends'),
+        socialGraphApi.GET('/api/blocks'),
+        socialGraphApi.GET('/api/user-preferences'),
+      ]);
+    } catch (err) {
+      setLoaded(true); // a network failure must not keep every list hidden
+      throw err;
+    }
+    const [friendsRes, blocksRes, prefsRes] = results;
     const friendList = friendsRes.data;
     const blockList = blocksRes.data;
     const prefList = prefsRes.data;
@@ -236,6 +246,8 @@ export function useRelationships({ myUserId, notify, showToast, showActionToast,
     if (friendList) setFriendRows(friendList);
     if (blockList) setBlockRows(blockList);
     if (prefList) setPrefRows(live);
+    // Same batch as the rows, so no render sees `loaded` without the block list.
+    setLoaded(true);
 
     // Resolve names for everyone these rows point at (one cached Profile read each).
     const me = myUserId.current;
@@ -324,8 +336,8 @@ export function useRelationships({ myUserId, notify, showToast, showActionToast,
     return deleteFriendRow(row, 'The friend request was not cancelled');
   };
 
-  // Unfriend: delete every row of the pair, one by one. A failure stops, reloads the real state
-  // and says so, because some rows may already be gone.
+  // Unfriend: delete every row of the pair, one by one. A failure stops and reloads the real
+  // state, because some rows may already be gone. deleteFriendRow has already shown the reason.
   const unfriend = async (userId: string): Promise<boolean> => {
     const me = myUserId.current;
     const pair = friendRows.filter(
@@ -335,7 +347,6 @@ export function useRelationships({ myUserId, notify, showToast, showActionToast,
       const removed = await deleteFriendRow(row, 'Could not remove the friendship completely');
       if (!removed) {
         loadRelationships().catch(() => {});
-        showToast('Could not remove the friendship completely');
         return false;
       }
     }
@@ -451,6 +462,7 @@ export function useRelationships({ myUserId, notify, showToast, showActionToast,
     setBlockRows([]);
     setPrefRows([]);
     setViews({});
+    setLoaded(false);
   };
 
   return {
@@ -468,6 +480,7 @@ export function useRelationships({ myUserId, notify, showToast, showActionToast,
     hiddenPosts,
     blockedUsers,
     mutedEntries,
+    loaded,
     loadRelationships,
     sendFriendRequest,
     acceptFriend,

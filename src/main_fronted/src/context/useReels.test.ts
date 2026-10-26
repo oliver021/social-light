@@ -26,3 +26,20 @@ describe('useReels loading flag', () => {
     expect(result.current.reels).toEqual([]);
   });
 });
+
+describe('useReels.reset', () => {
+  it('forgets the loaded reels and shows the loading state again for the next account', async () => {
+    mockApi({
+      'GET /api/reels': [{ id: 'r1', creatorId: ME, videoUrl: '/blobs/a.webm', caption: 'mine', duration: 3, visibility: 'public', musicTrackId: null }],
+      'GET /api/profiles/{userId}': { userId: ME, displayName: 'Me', handle: 'me', avatarUrl: null },
+    });
+    const { result } = renderHook(() => useReels({ myUserId: { current: ME } }));
+    await act(async () => {
+      await result.current.loadReels();
+    });
+    expect(result.current.reels).toHaveLength(1);
+    act(() => result.current.reset());
+    expect(result.current.reels).toEqual([]);
+    expect(result.current.loading).toBe(true);
+  });
+});

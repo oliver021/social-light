@@ -30,7 +30,7 @@ function setup(routes: Record<string, unknown> = {}) {
     const groups = useGroups({
       myUserId: { current: ME },
       showToast,
-      feed: { createPostRaw: feed.createPostRaw, setGroupFeed: feed.setGroupFeed, deletePost: feed.deletePost, loadFeed: feed.loadFeed },
+      feed: { createPostRaw: feed.createPostRaw, setGroupFeed: feed.setGroupFeed, deletePost: feed.deletePost, addToFeed: feed.addToFeed },
     });
     return { feed, groups };
   });
@@ -67,7 +67,7 @@ describe('useGroups loading flag', () => {
 });
 
 function stubFeed() {
-  return { createPostRaw: vi.fn(), setGroupFeed: vi.fn(), deletePost: vi.fn(async () => {}), loadFeed: vi.fn(async () => {}) };
+  return { createPostRaw: vi.fn(), setGroupFeed: vi.fn(), deletePost: vi.fn(async () => {}), addToFeed: vi.fn() };
 }
 
 describe('useGroups.loadGroupPosts', () => {
@@ -134,8 +134,9 @@ describe('useGroups.createGroupPost', () => {
     expect(link?.body).toEqual({ postId: 'p-new', feedType: 'group', targetId: 'g-1' });
     expect(calls.some((c) => isCall(c, 'DELETE', '/api/posts/p-new'))).toBe(false);
     expect(calls.filter((c) => isCall(c, 'GET', '/api/post-feeds')).length).toBeGreaterThan(0);
-    // The home feed is re-read too, so the new post shows there with its community link.
-    expect(calls.some((c) => isCall(c, 'GET', '/api/feed/home'))).toBe(true);
+    // The new post lands on the home feed with its community link, without re-reading the feed.
+    expect(result.current.feed.posts[0]).toMatchObject({ id: 'p-new', groupId: 'g-1' });
+    expect(calls.some((c) => isCall(c, 'GET', '/api/feed/home'))).toBe(false);
   });
 
   it('when the link cannot be saved, deletes the just-created post and rejects with the reason', async () => {

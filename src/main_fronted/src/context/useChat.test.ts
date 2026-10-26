@@ -645,3 +645,31 @@ describe('refresh cadence', () => {
     expect(refreshGets(calls)).toEqual(opened.map((n) => n + 2));
   });
 });
+
+describe('refreshChats', () => {
+  it('keeps the known chats usable while it reloads: an incoming message is kept and openChat works', async () => {
+    let deliver: ((m: MessageDto) => void) | undefined;
+    vi.mocked(onChatMessage).mockImplementation((h) => { deliver = h; return () => {}; });
+    mockApi(baseRoutes());
+    const showToast = vi.fn();
+    const { result } = setup(showToast);
+    await waitFor(() => expect(result.current.threadsLoading).toBe(false));
+
+    // Hold the refresh inside its per-chat loop (it joins each chat's hub group there).
+    let release: () => void = () => {};
+    vi.mocked(joinChat).mockImplementationOnce(() => new Promise<void>((resolve) => { release = resolve; }));
+    let refresh: Promise<void> = Promise.resolve();
+    act(() => { refresh = result.current.refreshChats(); });
+    await waitFor(() => expect(vi.mocked(joinChat)).toHaveBeenCalledTimes(2));
+
+    // Mid-refresh: a message arrives and the chat is opened from the list.
+    act(() => deliver!({ id: 'm9', chatId: DM, senderId: ANA, contentType: 'text', content: 'during refresh', editedAt: null }));
+    act(() => result.current.openChat(DM));
+    expect(showToast).not.toHaveBeenCalledWith('This conversation is no longer available.');
+
+    await act(async () => { release(); await refresh; });
+    // The refreshed history (m1..m3) does not drop the message that arrived meanwhile.
+    expect(result.current.chatMessages[DM].map((m) => m.id)).toContain('m9');
+    expect(result.current.activeChats.some((c) => c.chatId === DM)).toBe(true);
+  });
+});

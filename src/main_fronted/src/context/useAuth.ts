@@ -70,9 +70,11 @@ export function useAuth(session: SessionState, loaders: Loaders) {
       myUserId.current = sub;
     }
     await loadCurrentUser();
+    // Blocks and mutes load next to the feed: the app shows no posts until they settle.
+    const relations = loadRelationships().catch(() => {});
     await loadFeed();
+    await relations;
     loadPeople().catch(() => {});
-    loadRelationships().catch(() => {});
     loadGroups().catch(() => {});
     loadOrganizations().catch(() => {});
     loadNotifications().catch(() => {});

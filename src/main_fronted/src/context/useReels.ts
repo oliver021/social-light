@@ -93,5 +93,11 @@ export function useReels({ myUserId }: Deps) {
       .catch(() => {});
   };
 
-  return { reels, loading, loadReels, addReel, viewReel, deleteReel };
+  // Forget the previous account's reels (used when the signed-in user changes or logs out).
+  const reset = () => {
+    setReels([]);
+    setLoading(true);
+  };
+
+  return { reels, loading, loadReels, addReel, viewReel, deleteReel, reset };
 }
