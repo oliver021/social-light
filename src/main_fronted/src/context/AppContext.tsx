@@ -12,9 +12,10 @@ import { useGroups, type NewGroup } from './useGroups';
 import { useMarketplace } from './useMarketplace';
 import { useProfile } from './useProfile';
 import { useChat } from './useChat';
-import { useStories, type Story } from './useStories';
+import { useStories, groupStoriesByAuthor, type Story, type StoryGroup, type StoryReply } from './useStories';
 import { useReels, type Reel } from './useReels';
-import { useEvents, type EventItem } from './useEvents';
+import { useEvents, isEventFull, type EventItem, type RsvpStatus, type Attendee } from './useEvents';
+import { type GroupMember } from './useGroups';
 import { useAuth } from './useAuth';
 import {
   useRelationships,
@@ -30,7 +31,8 @@ import {
 import { clearUserScopedStorage } from './usePersistentState';
 
 // Re-exported for any consumer that wants these view shapes.
-export type { Person, Story, Reel, EventItem, IncomingRequest, BlockedEntry, HiddenPostEntry, MutedEntry, PersonView, Relation };
+export type { Person, Story, StoryGroup, StoryReply, Reel, EventItem, RsvpStatus, Attendee, GroupMember, IncomingRequest, BlockedEntry, HiddenPostEntry, MutedEntry, PersonView, Relation };
+export { groupStoriesByAuthor, isEventFull };
 
 /**
  * The app's single seam: components only ever call `useApp()`. The implementation
@@ -88,6 +90,20 @@ export interface AppContextType {
   toggleJoinGroup: (groupId: string) => Promise<boolean>;
   /** Creates a community and makes the creator a member. Rejects with a readable message. */
   createGroup: (input: NewGroup) => Promise<void>;
+  /** Opens a community's page on the Communities tab. */
+  openGroup: (groupId: string) => void;
+  /** The posts of the community being viewed (newest first). Empty for any other community. */
+  groupPosts: Post[];
+  /** True while the open community's posts are being read. */
+  groupPostsLoading?: boolean;
+  /** Reads a community's posts through its post-feed rows. */
+  loadGroupPosts: (groupId: string) => Promise<void>;
+  /** Posts inside a community; only members can. Rejects with a readable message; the composer keeps the text. */
+  createGroupPost: (groupId: string, content: string, type?: 'text' | 'link' | 'image' | 'video' | 'poll', extra?: any) => Promise<void>;
+  /** Members per community id, filled by loadMembers. */
+  groupMembers: Record<string, GroupMember[]>;
+  /** Reads a community's members with their roles. */
+  loadMembers: (groupId: string) => Promise<void>;
   /** Deletes a community I own. Rejects with a readable message. */
   deleteGroup: (groupId: string) => Promise<void>;
   /** My role per community id ('owner' for a community I created). Absent means not a member. */
@@ -166,10 +182,15 @@ export interface AppContextType {
 
   // Generated modules (Stories / Reels / Events): real CRUD over the gateway.
   stories: Story[];
-  addStory: (mediaUrl: string, caption: string) => void;
+  /** Shares a story. Rejects with a readable message so the dialog can stay open. */
+  addStory: (mediaUrl: string, caption: string, mediaType?: 'image' | 'video') => Promise<void>;
   viewStory: (storyId: string) => void;
   /** Deletes my story. Rejects with a readable message. */
   deleteStory: (storyId: string) => Promise<void>;
+  /** Replies to a story. Rejects with "Your reply was not sent" (plus the reason). */
+  replyToStory: (storyId: string, body: string) => Promise<void>;
+  /** The replies to one story. Rejects with a readable message when they cannot be read. */
+  loadReplies: (storyId: string) => Promise<StoryReply[]>;
   reels: Reel[];
   /** True until the first reels load settles. Optional: absent means settled. */
   reelsLoading?: boolean;
@@ -180,8 +201,10 @@ export interface AppContextType {
   events: EventItem[];
   /** True until the first events load settles. Optional: absent means settled. */
   eventsLoading?: boolean;
-  createEvent: (title: string, description: string, location: string, startDate: string, endDate: string, capacity: number | null) => void;
-  rsvpEvent: (eventId: string) => void;
+  /** Creates an event. Rejects with a readable message so the dialog can stay open. */
+  createEvent: (title: string, description: string, location: string, startDate: string, endDate: string, capacity: number | null) => Promise<void>;
+  /** Sets my answer (going, interested, not going), or clears it with null. Rolls back and toasts on failure. */
+  setRsvp: (eventId: string, status: RsvpStatus | null) => Promise<void>;
   /** Cancels my event. Rejects with a readable message. */
   deleteEvent: (eventId: string) => Promise<void>;
 }
@@ -210,7 +233,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notify: notifications.notify,
     showToast,
   });
-  const groups = useGroups({ myUserId: session.myUserId, showToast });
+  const groups = useGroups({
+    myUserId: session.myUserId,
+    showToast,
+    feed: { createPostRaw: feed.createPostRaw, setGroupFeed: feed.setGroupFeed, deletePost: feed.deletePost },
+  });
+
   const chat = useChat({
     myUserId: session.myUserId,
     currentUserId: session.currentUser.id,
@@ -219,9 +247,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const marketplace = useMarketplace({ currentUser: session.currentUser, addNotification: notifications.addNotification });
   const profile = useProfile({ currentUser: session.currentUser, setCurrentUser: session.setCurrentUser });
-  const storiesState = useStories({ myUserId: session.myUserId });
+  const storiesState = useStories({ myUserId: session.myUserId, notify: notifications.notify });
   const reelsState = useReels({ myUserId: session.myUserId });
-  const eventsState = useEvents({ myUserId: session.myUserId });
+  const eventsState = useEvents({ myUserId: session.myUserId, showToast });
   const relations = useRelationships({
     myUserId: session.myUserId,
     notify: notifications.notify,
@@ -244,6 +272,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [feed.timeline, blockedSet],
   );
   const visiblePeople = useMemo(() => withoutBlocked(social.people, (p) => p.userId, blockedSet), [social.people, blockedSet]);
+  // The community being viewed: its posts, filtered like the home feed.
+  const openGroupPosts = feed.groupFeed && feed.groupFeed.groupId === ui.selectedGroupId ? feed.groupFeed.posts : [];
+  const visibleGroupPosts = useMemo(
+    () => visiblePosts(openGroupPosts, { blocked: blockedSet, hidden: hiddenSet, muted: mutedSet }, 'feed'),
+    [openGroupPosts, blockedSet, hiddenSet, mutedSet],
+  );
   const visibleStories = storiesState.stories.filter((s) => !blockedSet.has(s.authorId) && !mutedSet.has(s.authorId));
   const visibleReels = withoutBlocked(reelsState.reels, (r) => r.creatorId, blockedSet);
   const visibleThreads = withoutBlocked(chat.chatThreads, (t) => t.userId, blockedSet);
@@ -256,6 +290,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     feed.reset();
     social.reset();
     groups.reset();
+    eventsState.reset();
+    storiesState.reset();
     notifications.reset();
     chat.reset();
     marketplace.reset();
@@ -284,6 +320,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     posts: feedPosts,
     groups: groups.groups,
     groupsLoading: groups.loading,
+    openGroup: (groupId: string) => {
+      ui.setActiveTab('groups');
+      ui.setSelectedGroupId(groupId);
+    },
+    groupPosts: visibleGroupPosts,
+    groupPostsLoading: groups.groupPostsLoading,
+    loadGroupPosts: groups.loadGroupPosts,
+    createGroupPost: groups.createGroupPost,
+    groupMembers: groups.membersByGroup,
+    loadMembers: groups.loadMembers,
     marketItems: marketplace.marketItems,
     marketCategories: marketplace.marketCategories,
     marketplaceLoading: marketplace.loading,
@@ -370,6 +416,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addStory: storiesState.addStory,
     viewStory: storiesState.viewStory,
     deleteStory: storiesState.deleteStory,
+    replyToStory: storiesState.replyToStory,
+    loadReplies: storiesState.loadReplies,
     reels: visibleReels,
     reelsLoading: reelsState.loading,
     addReel: reelsState.addReel,
@@ -378,7 +426,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     events: eventsState.events,
     eventsLoading: eventsState.loading,
     createEvent: eventsState.createEvent,
-    rsvpEvent: eventsState.rsvpEvent,
+    setRsvp: eventsState.setRsvp,
     deleteEvent: eventsState.deleteEvent,
   };
 

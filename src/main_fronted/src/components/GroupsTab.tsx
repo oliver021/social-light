@@ -1,18 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Group } from '../types';
 import { PostCard } from './PostCard';
+import { MediaPicker } from './MediaPicker';
 import { messageOf } from '../api/gateway';
 import {
   CardGridSkeleton,
   ConfirmDialog,
   EmptyState,
+  ListSkeleton,
   OverflowMenu,
   PageHeader,
   ResponsiveDialog,
   SectionHeader,
+  StatusChip,
   Surface,
   T,
+  UserLine,
   mutedSx,
   sectionTitleSx,
   subtleSx,
@@ -26,6 +30,8 @@ import {
   Chip,
   InputAdornment,
   MenuItem,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
@@ -35,12 +41,38 @@ const TOUCH_TARGET = { minHeight: 44, minWidth: 44 };
 /** The pill button: a 44px target with the full radius token. */
 const PILL_BUTTON = { ...TOUCH_TARGET, borderRadius: 'var(--ui-radius-full)', px: 2 };
 
-const EMPTY_FORM = { name: '', description: '', privacy: 'public' as 'public' | 'private' };
+const EMPTY_FORM = {
+  name: '',
+  description: '',
+  privacy: 'public' as 'public' | 'private',
+  coverImage: '',
+  avatar: '',
+};
 
 const CATEGORIES = ['All', 'Technology', 'Artificial Intelligence', 'Gaming', 'Design Systems'];
 
+type CommunityTab = 'posts' | 'members';
+
 export const GroupsTab: React.FC = () => {
-  const { groups, groupsLoading, toggleJoinGroup, createGroup, deleteGroup, myRoleByGroup, posts, selectedGroupId, setSelectedGroupId, addNotification, showToast } = useApp();
+  const {
+    groups,
+    groupsLoading,
+    toggleJoinGroup,
+    createGroup,
+    deleteGroup,
+    myRoleByGroup,
+    groupPosts,
+    groupPostsLoading,
+    loadGroupPosts,
+    createGroupPost,
+    groupMembers,
+    loadMembers,
+    selectedGroupId,
+    setSelectedGroupId,
+    openProfile,
+    addNotification,
+    showToast,
+  } = useApp();
   // The first groups load is pending: show placeholder cards, not a false "no communities".
   const listPending = Boolean(groupsLoading) && groups.length === 0;
   const [filter, setFilter] = useState('');
@@ -52,6 +84,24 @@ export const GroupsTab: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
+  // The community page: which tab is open, and the composer while a post is being sent.
+  const [tab, setTab] = useState<CommunityTab>('posts');
+  const [composerText, setComposerText] = useState('');
+  const [composerError, setComposerError] = useState<string | null>(null);
+  const [posting, setPosting] = useState(false);
+
+  // Opening a community reads its posts; the Members tab reads its members when it is opened.
+  useEffect(() => {
+    setTab('posts');
+    setComposerText('');
+    setComposerError(null);
+    if (selectedGroupId) loadGroupPosts(selectedGroupId).catch(() => {});
+  }, [selectedGroupId]);
+
+  useEffect(() => {
+    if (selectedGroupId && tab === 'members') loadMembers(selectedGroupId).catch(() => {});
+  }, [selectedGroupId, tab]);
 
   const handleToggleJoin = async (group: Group) => {
     const changed = await toggleJoinGroup(group.id);
@@ -78,8 +128,16 @@ export const GroupsTab: React.FC = () => {
     }
     setCreating(true);
     setFormError(null);
+    // Only the fields that are set are sent; the cover and the avatar are optional.
+    const input = {
+      name: form.name,
+      description: form.description,
+      privacy: form.privacy,
+      ...(form.coverImage ? { coverImage: form.coverImage } : {}),
+      ...(form.avatar ? { avatar: form.avatar } : {}),
+    };
     try {
-      await createGroup(form);
+      await createGroup(input);
       setCreateOpen(false);
       showToast(`Community "${form.name.trim()}" created. You are a member.`, 'success');
     } catch (err) {
@@ -96,18 +154,24 @@ export const GroupsTab: React.FC = () => {
     return matchSearch && matchCategory;
   });
 
-  // Posts shown in a community's feed. Only the demo communities have linked posts yet.
-  const getGroupPosts = (groupId: string) => {
-    if (groupId === 'group-1') {
-      return posts.filter(p => p.id === 'post-1' || p.id === 'post-5'); // React 19 + accessibility details
-    }
-    if (groupId === 'group-3') {
-      return posts.filter(p => p.id === 'post-4' || p.id === 'post-3'); // project neon grids + webGPU links
-    }
-    return []; // no posts are linked to this community yet
-  };
-
   const activeGroup = groups.find(g => g.id === selectedGroupId);
+
+  const handleGroupPost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeGroup) return;
+    const text = composerText.trim();
+    if (!text) return;
+    setPosting(true);
+    setComposerError(null);
+    try {
+      await createGroupPost(activeGroup.id, text, 'text');
+      setComposerText('');
+    } catch (err) {
+      setComposerError(messageOf(err, 'Your post was not added to the community'));
+    } finally {
+      setPosting(false);
+    }
+  };
 
   // One join control per community. Its state is shown by the variant and the label.
   const joinButton = (group: Group) => (
@@ -136,14 +200,18 @@ export const GroupsTab: React.FC = () => {
             All communities
           </Button>
 
-          {/* COMMUNITY BANNER */}
+          {/* COMMUNITY BANNER: cover (when there is one), name, privacy, member count, join and more. */}
           <Surface as="section" padding="none" sx={{ overflow: 'hidden' }}>
-            <Box aria-hidden="true" sx={{ height: 80, bgcolor: T.successSoft }} />
+            {activeGroup.coverImage ? (
+              <Box component="img" src={activeGroup.coverImage} alt={`Cover image of ${activeGroup.name}`} sx={{ display: 'block', width: '100%', height: 120, objectFit: 'cover' }} />
+            ) : (
+              <Box aria-hidden="true" sx={{ height: 80, bgcolor: T.successSoft }} />
+            )}
             <Box
               sx={{
                 px: 'var(--ui-card-pad)',
                 pb: 'var(--ui-card-pad)',
-                mt: -4,
+                mt: activeGroup.coverImage ? -3 : -4,
                 display: 'flex',
                 flexDirection: { xs: 'column', md: 'row' },
                 alignItems: { md: 'center' },
@@ -155,7 +223,7 @@ export const GroupsTab: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, minWidth: 0 }}>
                 <Avatar
                   src={activeGroup.coverUrl}
-                  alt={activeGroup.name}
+                  alt=""
                   variant="rounded"
                   sx={{ width: 64, height: 64, flexShrink: 0, border: `2px solid ${T.surface}`, borderRadius: 'var(--ui-radius-lg)' }}
                 />
@@ -163,9 +231,12 @@ export const GroupsTab: React.FC = () => {
                   <Typography component="h1" sx={{ ...sectionTitleSx, fontSize: 'var(--ui-fs-xl)', overflowWrap: 'anywhere' }}>
                     {activeGroup.name}
                   </Typography>
-                  <Typography sx={{ ...subtleSx, color: T.success, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', mt: 0.5 }}>
-                    {activeGroup.category} · {activeGroup.memberCount.toLocaleString()} {activeGroup.memberCount === 1 ? 'member' : 'members'}
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
+                    <StatusChip label={activeGroup.privacy === 'private' ? 'Private' : 'Public'} tone="neutral" />
+                    <Typography sx={{ ...subtleSx, color: T.success, fontWeight: 600 }}>
+                      {activeGroup.memberCount.toLocaleString()} {activeGroup.memberCount === 1 ? 'member' : 'members'}
+                    </Typography>
+                  </Box>
                   <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-sm)', mt: 0.5, maxWidth: 560 }}>
                     {activeGroup.description}
                   </Typography>
@@ -182,17 +253,75 @@ export const GroupsTab: React.FC = () => {
             </Box>
           </Surface>
 
-          <SectionHeader title={`Posts in ${activeGroup.name}`} />
+          <Tabs
+            value={tab}
+            onChange={(_, value: CommunityTab) => setTab(value)}
+            aria-label="Community sections"
+            sx={{ minHeight: 44, borderBottom: `1px solid ${T.border}` }}
+          >
+            <Tab value="posts" label="Posts" sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }} />
+            <Tab value="members" label="Members" sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }} />
+          </Tabs>
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--ui-gap)' }}>
-            {getGroupPosts(activeGroup.id).length > 0 ? (
-              getGroupPosts(activeGroup.id).map((post) => (
+          {tab === 'posts' && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--ui-gap)' }}>
+              {/* Only members see the composer. */}
+              {activeGroup.joined && (
+                <Surface as="section" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Box component="form" onSubmit={handleGroupPost} noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      placeholder="Share something with this community"
+                      value={composerText}
+                      disabled={posting}
+                      onChange={(e) => setComposerText(e.target.value)}
+                      slotProps={{ htmlInput: { 'aria-label': 'Post in this community' } }}
+                    />
+                    {composerError && <Alert severity="error">{composerError}</Alert>}
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button type="submit" variant="contained" disabled={posting || !composerText.trim()} sx={PILL_BUTTON}>
+                        {posting ? 'Posting…' : 'Post'}
+                      </Button>
+                    </Box>
+                  </Box>
+                </Surface>
+              )}
+
+              <SectionHeader title={`Posts in ${activeGroup.name}`} />
+
+              {groupPostsLoading && groupPosts.length === 0 && <ListSkeleton rows={2} />}
+              {!(groupPostsLoading && groupPosts.length === 0) && groupPosts.length === 0 && (
+                <EmptyState title="No posts in this community yet" body="Posts shared here will appear in this list." />
+              )}
+              {groupPosts.map((post) => (
                 <PostCard key={post.id} post={post} />
-              ))
-            ) : (
-              <EmptyState title="No posts in this community yet" body="Posts shared here will appear in this list." />
-            )}
-          </Box>
+              ))}
+            </Box>
+          )}
+
+          {tab === 'members' && (() => {
+            const members = groupMembers[activeGroup.id];
+            if (members === undefined) return <ListSkeleton rows={3} />;
+            if (members.length === 0) return <EmptyState title="No members yet" body="People who join this community will appear here." />;
+            return (
+              <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {members.map((m) => (
+                  <Box component="li" key={m.id}>
+                    <UserLine
+                      name={m.name}
+                      handle={m.handle}
+                      avatarSrc={m.avatar}
+                      onOpen={() => openProfile(m.userId)}
+                      meta={<StatusChip label={m.role === 'owner' ? 'Owner' : 'Member'} tone={m.role === 'owner' ? 'primary' : 'neutral'} />}
+                    />
+                  </Box>
+                ))}
+              </Box>
+            );
+          })()}
 
           {myRoleByGroup.get(activeGroup.id) === 'owner' && (
             <ConfirmDialog
@@ -322,10 +451,23 @@ export const GroupsTab: React.FC = () => {
                   label="Who can see it"
                   value={form.privacy}
                   onChange={(e) => setForm({ ...form, privacy: e.target.value as 'public' | 'private' })}
+                  helperText="Posts in this community can be seen by anyone signed in."
                 >
-                  <MenuItem value="public">Public: anyone can find and join</MenuItem>
-                  <MenuItem value="private">Private: only people you add</MenuItem>
+                  <MenuItem value="public">Public: shown in the list to everyone</MenuItem>
+                  <MenuItem value="private">Private: shown as private (joining is still open)</MenuItem>
                 </TextField>
+                <MediaPicker
+                  kind="image"
+                  label="Cover image (optional)"
+                  value={form.coverImage || undefined}
+                  onChange={(url) => setForm({ ...form, coverImage: url ?? '' })}
+                />
+                <MediaPicker
+                  kind="image"
+                  label="Avatar (optional)"
+                  value={form.avatar || undefined}
+                  onChange={(url) => setForm({ ...form, avatar: url ?? '' })}
+                />
               </Box>
             </form>
           </ResponsiveDialog>

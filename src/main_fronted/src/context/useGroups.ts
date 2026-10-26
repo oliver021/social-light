@@ -1,27 +1,56 @@
 import { useRef, useState, type MutableRefObject } from 'react';
-import { Group } from '../types';
-import { groupsApi, describeApiError, messageOf } from '../api/gateway';
+import { Group, Post } from '../types';
+import { groupsApi, postsApi, describeApiError, messageOf, getProfile, mediaUrl } from '../api/gateway';
+import { defaultAvatar, postDtoToPost, withHandle } from '../api/mappers';
 import { usePersistentState } from './usePersistentState';
 import { type ToastSeverity } from './useToast';
+
+/** What the communities need from the feed: create a post row, show a community's posts, delete a post. */
+export interface GroupFeedDeps {
+  createPostRaw: (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', extra?: any) => Promise<Post>;
+  setGroupFeed: (groupId: string, posts: Post[]) => void;
+  deletePost: (postId: string) => Promise<void>;
+}
 
 interface Deps {
   myUserId: MutableRefObject<string>;
   showToast: (message: string, severity?: ToastSeverity) => void;
+  feed: GroupFeedDeps;
 }
 
 export interface NewGroup {
   name: string;
   description: string;
   privacy: 'public' | 'private';
+  /** Uploaded cover image url (root-relative, as stored). Optional. */
+  coverImage?: string;
+  /** Uploaded avatar url (root-relative, as stored). Optional. */
+  avatar?: string;
 }
 
+/** A member of a community, with the profile resolved. */
+export interface GroupMember {
+  id: string;
+  userId: string;
+  name: string;
+  handle: string;
+  avatar: string;
+  role: string;
+}
+
+const timeOf = (iso: string | null | undefined) => {
+  const t = Date.parse(iso ?? '');
+  return Number.isNaN(t) ? 0 : t;
+};
+
 /**
- * Groups (M6): the real Groups module. Loads groups + their memberships (member
+ * Groups (M6, M5): the real Groups module. Loads groups + their memberships (member
  * counts and whether I've joined), creates communities (the creator becomes a member),
- * and joins/leaves through group-members (userId is not JWT-bound on this v0 module,
- * so we pass my id).
+ * joins/leaves through group-members, and lists a community's posts (through the Posts
+ * module's post-feed rows) and its members. The member's userId is not JWT-bound on this
+ * v0 module, so we pass my id.
  */
-export function useGroups({ myUserId, showToast }: Deps) {
+export function useGroups({ myUserId, showToast, feed }: Deps) {
   const [groups, setGroups] = usePersistentState<Group[]>('nexus_groups', () => []);
   // Maps a groupId -> this user's group-member id, so leaving a group can DELETE it.
   const myGroupMemberIds = useRef<Map<string, string>>(new Map());
@@ -30,6 +59,10 @@ export function useGroups({ myUserId, showToast }: Deps) {
   const [myRoleByGroup, setMyRoleByGroup] = useState<Map<string, string>>(() => new Map());
   // True until the first list load settles (success or failure), so the tab can show a skeleton.
   const [loading, setLoading] = useState(true);
+  // Members per community id, filled when its Members tab is opened.
+  const [membersByGroup, setMembersByGroup] = useState<Record<string, GroupMember[]>>({});
+  // True while a community's posts are being read.
+  const [groupPostsLoading, setGroupPostsLoading] = useState(false);
 
   const loadGroups = async () => {
     try {
@@ -65,7 +98,9 @@ export function useGroups({ myUserId, showToast }: Deps) {
         category: g.privacyType ? g.privacyType[0].toUpperCase() + g.privacyType.slice(1) : 'Community',
         memberCount: memberCounts.get(g.id) ?? 0,
         joined: myGroupMemberIds.current.has(g.id),
-        coverUrl: g.coverImage ?? g.avatar ?? 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=400&q=80',
+        coverUrl: mediaUrl(g.coverImage) ?? mediaUrl(g.avatar) ?? 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=400&q=80',
+        coverImage: mediaUrl(g.coverImage),
+        privacy: g.privacyType,
       })),
     );
   };
@@ -79,8 +114,8 @@ export function useGroups({ myUserId, showToast }: Deps) {
       body: {
         name: input.name.trim(),
         description: input.description.trim() || null,
-        avatar: null,
-        coverImage: null,
+        avatar: input.avatar || null,
+        coverImage: input.coverImage || null,
         privacyType: input.privacy,
         approvalRequired: false,
       },
@@ -159,12 +194,106 @@ export function useGroups({ myUserId, showToast }: Deps) {
     }
   };
 
-  // Forget the previous account's memberships and roles (used when the signed-in user changes).
+  // The posts of one community: the Posts module's post-feed rows with feedType 'group' and this
+  // targetId, resolved to posts (authors through Profile), newest first. Errors are reported
+  // with a toast; the list keeps what it had.
+  const loadGroupPosts = async (groupId: string): Promise<void> => {
+    setGroupPostsLoading(true);
+    try {
+      const [{ data: feeds }, { data: postList }] = await Promise.all([
+        postsApi.GET('/api/post-feeds'),
+        postsApi.GET('/api/posts'),
+      ]);
+      if (!feeds || !postList) throw new Error('The community posts could not be loaded');
+      const postIds = new Set(feeds.filter((f) => f.feedType === 'group' && f.targetId === groupId).map((f) => f.postId));
+      const mine = postList
+        .filter((p) => postIds.has(p.id))
+        .sort((a, b) => timeOf(b.publishedAt) - timeOf(a.publishedAt));
+      const authorIds = [...new Set(mine.map((p) => p.authorId))];
+      const profiles = await Promise.all(authorIds.map((id) => getProfile(id).catch(() => null)));
+      const profileById = new Map(authorIds.map((id, i) => [id, profiles[i]]));
+      feed.setGroupFeed(groupId, mine.map((p) => postDtoToPost(p, profileById.get(p.authorId) ?? null)));
+    } catch (err) {
+      showToast(messageOf(err, 'The community posts could not be loaded'));
+    } finally {
+      setGroupPostsLoading(false);
+    }
+  };
+
+  // Post inside a community: the post is created through the Posts module (the same path as a
+  // home post), then linked to the community with a post-feed row. If the link is refused or
+  // cannot be sent, the just-created post is deleted again, so no orphan post stays in my feed.
+  // Rejects with a readable message; the composer keeps the text.
+  const createGroupPost = async (
+    groupId: string,
+    content: string,
+    type: 'text' | 'link' | 'image' | 'video' | 'poll' = 'text',
+    extra?: any,
+  ): Promise<void> => {
+    const created = await feed.createPostRaw(content, type, extra);
+    const linkError = await postsApi.POST('/api/post-feeds', {
+      body: { postId: created.id, feedType: 'group', targetId: groupId },
+    }).then(
+      (res) => (res.response.ok ? null : describeApiError(res.error, res.response, 'Your post was not added to the community')),
+      (err) => messageOf(err, 'Your post was not added to the community'),
+    );
+    if (linkError) {
+      feed.deletePost(created.id).catch(() => {});
+      throw new Error(linkError);
+    }
+    await loadGroupPosts(groupId);
+  };
+
+  // The members of one community, owners first, with profiles resolved. The owner row is
+  // what the Owner label is read from.
+  const loadMembers = async (groupId: string): Promise<void> => {
+    try {
+      const { data, error, response } = await groupsApi.GET('/api/group-members');
+      if (!data) throw new Error(describeApiError(error, response, 'The members could not be loaded'));
+      const rows = data
+        .filter((m) => m.groupId === groupId)
+        .sort((a, b) => Number(b.role === 'owner') - Number(a.role === 'owner'));
+      const userIds = [...new Set(rows.map((m) => m.userId))];
+      const profiles = await Promise.all(userIds.map((id) => getProfile(id).catch(() => null)));
+      const profileById = new Map(userIds.map((id, i) => [id, profiles[i]]));
+      const members: GroupMember[] = rows.map((m) => {
+        const p = profileById.get(m.userId);
+        return {
+          id: m.id,
+          userId: m.userId,
+          name: p?.displayName || 'Member',
+          handle: withHandle(p?.handle),
+          avatar: mediaUrl(p?.avatarUrl) ?? defaultAvatar(m.userId),
+          role: m.role,
+        };
+      });
+      setMembersByGroup((prev) => ({ ...prev, [groupId]: members }));
+    } catch (err) {
+      showToast(messageOf(err, 'The members could not be loaded'));
+    }
+  };
+
+  // Forget the previous account's memberships, roles and community data (used when the signed-in user changes).
   const reset = () => {
     myGroupMemberIds.current.clear();
     setMyRoleByGroup(new Map());
+    setMembersByGroup({});
     setGroups([]);
   };
 
-  return { groups, loading, loadGroups, toggleJoinGroup, createGroup, deleteGroup, myRoleByGroup, reset };
+  return {
+    groups,
+    loading,
+    loadGroups,
+    toggleJoinGroup,
+    createGroup,
+    deleteGroup,
+    myRoleByGroup,
+    reset,
+    loadGroupPosts,
+    groupPostsLoading,
+    createGroupPost,
+    loadMembers,
+    membersByGroup,
+  };
 }

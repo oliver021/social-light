@@ -138,3 +138,64 @@ describe('GroupsTab loading state', () => {
     expect(screen.getByRole('heading', { name: 'No communities yet' })).toBeInTheDocument();
   });
 });
+
+const member = { id: 'm-1', userId: 'me-0000-0000-0000-000000000001', name: 'Test User', handle: '@me', avatar: '', role: 'owner' };
+
+describe('GroupsTab community posts and members', () => {
+  it('only a member sees the composer', () => {
+    const { unmount } = renderWithProviders(<GroupsTab />, { context: { groups: [gaming], selectedGroupId: 'g2' } });
+    expect(screen.getByRole('textbox', { name: 'Post in this community' })).toBeInTheDocument();
+    unmount();
+    renderWithProviders(<GroupsTab />, { context: { groups: [design], selectedGroupId: 'g1' } });
+    expect(screen.queryByRole('textbox', { name: 'Post in this community' })).not.toBeInTheDocument();
+  });
+
+  it('a member posts into the community through createGroupPost, and the text clears on success', async () => {
+    const createGroupPost = vi.fn(async () => {});
+    const { user } = renderWithProviders(<GroupsTab />, { context: { groups: [gaming], selectedGroupId: 'g2', createGroupPost } });
+    await user.type(screen.getByRole('textbox', { name: 'Post in this community' }), 'Who plays tonight?');
+    await user.click(screen.getByRole('button', { name: 'Post' }));
+    await waitFor(() => expect(createGroupPost).toHaveBeenCalledWith('g2', 'Who plays tonight?', 'text'));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Post in this community' })).toHaveValue(''));
+  });
+
+  it('a refused community post keeps the text and shows the reason', async () => {
+    const createGroupPost = vi.fn(async () => {
+      throw new Error('Your post was not added to the community: Not a member');
+    });
+    const { user } = renderWithProviders(<GroupsTab />, { context: { groups: [gaming], selectedGroupId: 'g2', createGroupPost } });
+    await user.type(screen.getByRole('textbox', { name: 'Post in this community' }), 'Hi');
+    await user.click(screen.getByRole('button', { name: 'Post' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your post was not added to the community: Not a member');
+    expect(screen.getByRole('textbox', { name: 'Post in this community' })).toHaveValue('Hi');
+  });
+
+  it('lists the community posts it was given', () => {
+    renderWithProviders(<GroupsTab />, {
+      context: {
+        groups: [design],
+        selectedGroupId: 'g1',
+        groupPosts: [{ id: 'p-1', type: 'text', author: { name: 'Ana', handle: '', avatar: '' }, content: 'Tokens are live', createdAt: 'now', reactions: { like: 0, love: 0, laugh: 0, wow: 0, sad: 0, angry: 0 }, comments: [], sharesCount: 0 }],
+      },
+    });
+    expect(screen.getByText('Tokens are live')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'No posts in this community yet' })).not.toBeInTheDocument();
+  });
+
+  it('the Members tab shows the owner with an Owner label', async () => {
+    const loadMembers = vi.fn(async () => {});
+    const { user } = renderWithProviders(<GroupsTab />, {
+      context: { groups: [design], selectedGroupId: 'g1', loadMembers, groupMembers: { g1: [member] } },
+    });
+    await user.click(screen.getByRole('tab', { name: 'Members' }));
+    expect(await screen.findByText('Owner')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Test User' })).toBeInTheDocument();
+    expect(loadMembers).toHaveBeenCalledWith('g1');
+  });
+
+  it('a community with a cover image shows it', () => {
+    renderWithProviders(<GroupsTab />, { context: { groups: [{ ...design, coverImage: '/blobs/cover.png', privacy: 'private' }], selectedGroupId: 'g1' } });
+    expect(screen.getByRole('img', { name: 'Cover image of Design Systems' })).toBeInTheDocument();
+    expect(screen.getByText('Private')).toBeInTheDocument();
+  });
+});

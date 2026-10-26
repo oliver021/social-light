@@ -78,6 +78,9 @@ export interface Post {
   comments: Comment[];
   sharesCount: number;
   currentUserReaction?: keyof Reactions | null;
+  /** The community this post was shared into (M5), from its post-feed row. */
+  groupId?: string;
+  groupName?: string;
 }
 
 export interface Group {
@@ -88,6 +91,10 @@ export interface Group {
   memberCount: number;
   joined: boolean;
   coverUrl: string;
+  /** Cover image url, display-ready, when the community has one (M5). */
+  coverImage?: string;
+  /** Privacy as stored by the Groups module ('public' | 'private'). A label only (M5). */
+  privacy?: string;
 }
 
 export interface MarketItem {
@@ -104,7 +111,7 @@ export interface MarketItem {
 
 export interface NotificationItem {
   id: string;
-  type: 'like' | 'comment' | 'reaction' | 'mention' | 'follow' | 'group' | 'live' | 'friend_request' | 'friend_accept';
+  type: 'like' | 'comment' | 'reaction' | 'mention' | 'follow' | 'group' | 'live' | 'friend_request' | 'friend_accept' | 'story_reply';
   actor: {
     name: string;
     avatar: string;

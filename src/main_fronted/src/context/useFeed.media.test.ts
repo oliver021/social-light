@@ -142,3 +142,34 @@ describe('useFeed.createPost with several images', () => {
     expect(result.current.posts.find((p) => p.id === 'post-new')?.type).toBe('image');
   });
 });
+
+describe('useFeed.createPost when an attachment request never gets a response', () => {
+  it('keeps the post, shows the others, and toasts "1 of 3" for the one that failed on the network', async () => {
+    let n = 0;
+    const { result, deps } = setup({
+      'GET /api/feed/home': [feedItem, newFeedItem],
+      'GET /api/post-medias': [mediaRow(0, '/blobs/a.png'), mediaRow(2, '/blobs/c.png')],
+      'POST /api/posts': { status: 201, body: { ...feedItem, id: 'post-new', authorId: ME, body: 'Trip' } },
+      'POST /api/post-medias': () => {
+        n += 1;
+        if (n === 2) throw new TypeError('Failed to fetch');
+        return { status: 201, body: { id: `m-${n}` } };
+      },
+    });
+    await act(async () => {
+      await result.current.loadFeed();
+    });
+    let error: unknown = null;
+    await act(async () => {
+      try {
+        await result.current.addPost('Trip', 'image', { imageUrls: ['/blobs/a.png', '/blobs/b.png', '/blobs/c.png'] });
+      } catch (e) {
+        error = e;
+      }
+    });
+    expect(error).toBeNull();
+    expect(deps.showToast).toHaveBeenCalledWith('1 of 3 images were not attached');
+    await waitFor(() => expect(result.current.posts.find((p) => p.id === 'post-new')?.images).toHaveLength(2));
+  });
+});
+

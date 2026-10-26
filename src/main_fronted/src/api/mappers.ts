@@ -129,7 +129,7 @@ export function commentDtoToComment(c: CommentDto, author: ProfileDto | null): C
 }
 
 /** The UI's notification kinds keyed by the backend's free-form `type` string. */
-const NOTIFICATION_TYPES: NotificationItem['type'][] = ['like', 'comment', 'reaction', 'mention', 'follow', 'group', 'live', 'friend_request', 'friend_accept'];
+const NOTIFICATION_TYPES: NotificationItem['type'][] = ['like', 'comment', 'reaction', 'mention', 'follow', 'group', 'live', 'friend_request', 'friend_accept', 'story_reply'];
 
 /**
  * NotificationDto -> the UI's NotificationItem. The v0 module stores no message or
@@ -147,6 +147,7 @@ export function notificationToItem(n: NotificationDto, actor: ProfileDto | null)
     : type === 'group' ? 'updated a community you are in.'
     : type === 'friend_request' ? 'sent you a friend request.'
     : type === 'friend_accept' ? 'accepted your friend request.'
+    : type === 'story_reply' ? 'replied to your story.'
     : `sent you a ${type}.`;
   return {
     id: n.id,
@@ -183,15 +184,21 @@ export function catalogItemToMarketItem(dto: CatalogItemDto, imageUrl: string, c
 }
 
 /**
- * A PostDto loaded by id (a shared post, M3) -> a read-only UI Post. The author's name and
- * avatar are filled in by the caller from Profile; attachments from the post-media rows.
+ * A PostDto -> a read-only UI Post. The author's name, handle and avatar come from the caller's
+ * Profile lookup when it has one (community posts, M5); otherwise they are placeholders.
+ * Attachments and engagement are filled in afterwards by the shared enrichment.
  */
-export function postDtoToPost(p: PostDto): Post {
+export function postDtoToPost(p: PostDto, profile?: ProfileDto | null): Post {
+  const name = profile?.displayName || 'Unknown User';
   return {
     id: p.id,
     type: 'text',
     authorId: p.authorId || undefined,
-    author: { name: 'Unknown User', handle: '', avatar: defaultAvatar(p.authorId || p.id) },
+    author: {
+      name,
+      handle: withHandle(profile?.handle),
+      avatar: mediaUrl(profile?.avatarUrl) ?? defaultAvatar(p.authorId || p.id),
+    },
     content: p.body ?? '',
     createdAt: timeAgo(p.publishedAt),
     reactions: emptyReactions(),

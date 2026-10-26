@@ -12,6 +12,7 @@ const story: Story = {
   mediaType: 'image',
   mediaUrl: '/blobs/s1.png',
   caption: '',
+  expiresAt: new Date(Date.now() + 3600_000).toISOString(),
 };
 
 describe('StoriesBar', () => {
@@ -49,7 +50,7 @@ describe('StoriesBar', () => {
     const { user } = renderWithProviders(<StoriesBar />, { context: { stories: [story], viewStory } });
     await user.click(screen.getByRole('button', { name: 'Open story from Ana Ruiz' }));
     expect(viewStory).toHaveBeenCalledWith('s1');
-    const viewer = screen.getByRole('dialog', { name: 'Story' });
+    const viewer = screen.getByRole('dialog', { name: 'Story by Ana Ruiz' });
     expect(viewer.querySelector('img')).toHaveAttribute('alt', 'Story by Ana Ruiz');
   });
 });

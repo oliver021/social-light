@@ -11,6 +11,8 @@ const base = {
   startDate: '2026-11-01T18:00:00Z',
   endDate: '2026-11-01T20:00:00Z',
   capacity: null,
+  attendees: [],
+  myRsvp: null,
   attendeeCount: 0,
   attending: false,
 };

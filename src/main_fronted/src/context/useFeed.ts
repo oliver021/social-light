@@ -8,6 +8,7 @@ import {
   applyPatches,
   enrichAuthors,
   enrichComments,
+  enrichGroupLinks,
   enrichMedia,
   enrichReactions,
   enrichShares,
@@ -41,8 +42,17 @@ export interface ProfileTimeline {
   error: string | null;
 }
 
-/** Where an enrichment result lands: the home feed, or the timeline it was loaded for. */
-type Target = { list: 'feed' } | { list: 'timeline'; userId: string; seq: number };
+/** The posts of one community (M5), shown while its page is open. */
+export interface GroupFeed {
+  groupId: string;
+  posts: Post[];
+}
+
+/** Where an enrichment result lands: the home feed, a timeline, or a community's posts. */
+type Target =
+  | { list: 'feed' }
+  | { list: 'timeline'; userId: string; seq: number }
+  | { list: 'group'; groupId: string; seq: number };
 
 /**
  * The home feed, a profile timeline, and everything that mutates a post: create, react,
@@ -54,6 +64,10 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
   const [posts, setPosts] = usePersistentState<Post[]>('nexus_posts', () => []);
   // The timeline of the profile being viewed. Not persisted: it is re-read on open.
   const [timeline, setTimeline] = useState<ProfileTimeline | null>(null);
+  // The posts of the community being viewed (M5). Not persisted: it is re-read on open.
+  const [groupFeed, setGroupFeedState] = useState<GroupFeed | null>(null);
+  // Bumped by every community load, so a slow response for a previous community is dropped.
+  const groupSeq = useRef(0);
   // Maps a postId -> the current user's reaction id on it, so a toggle can DELETE it.
   const myReactionIds = useRef<Map<string, string>>(new Map());
   // Maps a commentId -> the current user's like id on that comment (M3).
@@ -69,10 +83,13 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     const map = (list: Post[]) => list.map((p) => (p.id === postId ? fn(p) : p));
     setPosts((prev) => map(prev));
     setTimeline((t) => (t ? { ...t, posts: map(t.posts) } : t));
+    setGroupFeedState((g) => (g ? { ...g, posts: map(g.posts) } : g));
   };
 
   const findPost = (postId: string): Post | undefined =>
-    posts.find((p) => p.id === postId) ?? timeline?.posts.find((p) => p.id === postId);
+    posts.find((p) => p.id === postId)
+    ?? timeline?.posts.find((p) => p.id === postId)
+    ?? groupFeed?.posts.find((p) => p.id === postId);
 
   // Apply enrichment results to the list they were loaded for. A timeline result is dropped
   // when that timeline was replaced while the request was in flight.
@@ -81,6 +98,11 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     if (patches.length === 0) return;
     if (target.list === 'feed') {
       setPosts((prev) => applyPatches(prev, patches));
+      return;
+    }
+    if (target.list === 'group') {
+      if (groupSeq.current !== target.seq) return;
+      setGroupFeedState((g) => (g && g.groupId === target.groupId ? { ...g, posts: applyPatches(g.posts, patches) } : g));
       return;
     }
     if (timelineSeq.current !== target.seq) return;
@@ -109,6 +131,7 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
       .catch(() => {});
     enrichShares(list).then((patch) => commit(target, patch)).catch(() => {});
     enrichMedia(list).then((patch) => commit(target, patch)).catch(() => {});
+    enrichGroupLinks(list).then((patch) => commit(target, patch)).catch(() => {});
   };
 
   const findComment = (postId: string, commentId: string): Comment | undefined =>
@@ -156,7 +179,11 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     }
   };
 
-  const createPost = async (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', _extraData?: any) => {
+  // The Posts-module half of a create: the post row, then one post-media row per attachment.
+  // Nothing is shown here; the caller decides where the new post goes (the home feed, or a
+  // community). Throws a readable message when the post itself is refused. An attachment that
+  // fails, by refusal or by a network error, is counted and reported, and the post is kept.
+  const createPostRaw = async (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', _extraData?: any): Promise<Post> => {
     const { data, error, response } = await postsApi.POST('/api/posts', {
       body: {
         contentType: type,
@@ -178,11 +205,17 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
       const urls = attachedImageUrls(_extraData);
       const attached: string[] = [];
       for (const [position, url] of urls.entries()) {
-        const res = await postsApi.POST('/api/post-medias', {
-          body: { postId: data.id, fileUrl: url, mediaType: 'image', position },
-        });
+        let saved = false;
+        try {
+          const res = await postsApi.POST('/api/post-medias', {
+            body: { postId: data.id, fileUrl: url, mediaType: 'image', position },
+          });
+          saved = res.response.ok && !!res.data;
+        } catch {
+          saved = false; // a network error is a failed attachment, not a failed post
+        }
         const shown = mediaUrl(url);
-        if (res.response.ok && res.data && shown) attached.push(shown);
+        if (saved && shown) attached.push(shown);
       }
       if (attached.length > 0) created = { ...created, type: 'image', images: attached, imageUrl: attached[0] };
       const failed = urls.length - attached.length;
@@ -190,20 +223,39 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     } else if (type === 'video' && _extraData?.videoUrl) {
       // Persist the upload as a post-media row, then show it on the optimistic post.
       const url: string = _extraData.videoUrl;
-      const res = await postsApi.POST('/api/post-medias', {
-        body: { postId: data.id, fileUrl: url, mediaType: 'video', position: 0 },
-      });
-      if (res.response.ok && res.data) {
-        created = { ...created, type: 'video', videoUrl: mediaUrl(url) };
-      } else {
-        showToast(describeApiError(res.error, res.response, 'Your post was saved without its media'));
+      try {
+        const res = await postsApi.POST('/api/post-medias', {
+          body: { postId: data.id, fileUrl: url, mediaType: 'video', position: 0 },
+        });
+        if (res.response.ok && res.data) {
+          created = { ...created, type: 'video', videoUrl: mediaUrl(url) };
+        } else {
+          showToast(describeApiError(res.error, res.response, 'Your post was saved without its media'));
+        }
+      } catch (err) {
+        showToast(messageOf(err, 'Your post was saved without its media'));
       }
     }
+    return created;
+  };
+
+  // Create through Posts API (authorId bound from the JWT, not the body), prepend
+  // optimistically, then refresh the composed feed in the background.
+  const createPost = async (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', _extraData?: any) => {
+    const created = await createPostRaw(content, type, _extraData);
     setPosts((prev) => [created, ...prev]);
     // My own new post also shows at the top of my profile timeline.
     setTimeline((t) => (t && t.userId === currentUser.id ? { ...t, posts: [created, ...t.posts] } : t));
     // Reconcile with the server's composed view (ordering, counts) without blocking the UI.
     loadFeed().catch(() => {});
+  };
+
+  // Shows a community's posts (already mapped to the UI shape) and enriches them in place.
+  // A newer call for another community replaces this one; a late enrichment is dropped.
+  const setGroupFeed = (groupId: string, mapped: Post[]) => {
+    const seq = ++groupSeq.current;
+    setGroupFeedState({ groupId, posts: mapped });
+    enrichAll(mapped, { list: 'group', groupId, seq });
   };
 
   // Persist through the Engagement API (userId bound from the JWT) and keep the
@@ -366,6 +418,7 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     if (!response.ok) throw new Error(describeApiError(error, response, 'The post was not deleted'));
     setPosts((prev) => prev.filter((p) => p.id !== postId));
     setTimeline((t) => (t ? { ...t, posts: t.posts.filter((p) => p.id !== postId) } : t));
+    setGroupFeedState((g) => (g ? { ...g, posts: g.posts.filter((p) => p.id !== postId) } : g));
     myReactionIds.current.delete(postId);
     deletePostMedia(postId).catch(() => {});
   };
@@ -404,7 +457,9 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     myReactionIds.current.clear();
     myCommentReactionIds.current.clear();
     timelineSeq.current += 1; // drop any timeline response still in flight
+    groupSeq.current += 1; // and any community response
     setTimeline(null);
+    setGroupFeedState(null);
     setPosts([]);
   };
 
@@ -419,6 +474,9 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     timeline,
     loadFeed,
     loadTimeline: stableLoadTimeline,
+    groupFeed,
+    setGroupFeed,
+    createPostRaw,
     addPost,
     reactToPost,
     sharePost,

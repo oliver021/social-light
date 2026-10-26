@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Box, Typography } from '@mui/material';
+import { Box, ButtonBase, Typography } from '@mui/material';
 import { Ban, Bell, BellOff, Clock, EyeOff, Trash2 } from 'lucide-react';
 import type { Post } from '../../types';
 import { UserLine } from '../ui/UserLine';
@@ -21,7 +21,7 @@ export interface PostHeaderProps {
  * Mute (or Unmute) and Block. A shared copy (readOnly) gets no menu.
  */
 export const PostHeader: React.FC<PostHeaderProps> = ({ post, readOnly = false }) => {
-  const { currentUser, openProfile, deletePost, showToast, hidePost, snoozeUser, muteUser, removePreference, mutedUsers } = useApp();
+  const { currentUser, openProfile, openGroup, deletePost, showToast, hidePost, snoozeUser, muteUser, removePreference, mutedUsers } = useApp();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   // Owner rule: no owner id means no delete control.
@@ -42,6 +42,16 @@ export const PostHeader: React.FC<PostHeaderProps> = ({ post, readOnly = false }
           meta={post.createdAt}
           onOpen={post.authorId ? () => openProfile(post.authorId!) : undefined}
         />
+        {/* A community post: "› {community}" opens that community. */}
+        {post.groupId && post.groupName && (
+          <ButtonBase
+            onClick={() => openGroup(post.groupId!)}
+            aria-label={`Open community ${post.groupName}`}
+            sx={{ font: 'inherit', fontSize: 'var(--ui-fs-xs)', color: T.muted, fontWeight: 600, minHeight: 24, maxWidth: '100%', borderRadius: 'var(--ui-radius-sm)', '&:hover': { textDecoration: 'underline' }, '&.Mui-focusVisible': { outline: `2px solid ${T.focus}` } }}
+          >
+            {`› ${post.groupName}`}
+          </ButtonBase>
+        )}
       </Box>
       {post.type !== 'text' && (
         <Box sx={{ px: 1, py: 0.25, bgcolor: T.surface2, border: `1px solid ${T.border}`, borderRadius: 'var(--ui-radius-full)' }}>

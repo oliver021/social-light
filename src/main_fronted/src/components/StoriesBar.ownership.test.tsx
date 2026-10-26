@@ -5,9 +5,10 @@ import { StoriesBar } from './StoriesBar';
 import type { Story } from '../context/AppContext';
 
 const ME = 'me-0000-0000-0000-000000000001';
+const LATER = new Date(Date.now() + 3600_000).toISOString();
 const stories: Story[] = [
-  { id: 's-1', authorId: ME, authorName: 'Test User', authorAvatar: '', mediaType: 'image', mediaUrl: '/blobs/a.png', caption: 'mine' },
-  { id: 's-2', authorId: 'other-user', authorName: 'Ana Ruiz', authorAvatar: '', mediaType: 'image', mediaUrl: '/blobs/b.png', caption: 'theirs' },
+  { id: 's-1', authorId: ME, authorName: 'Test User', authorAvatar: '', mediaType: 'image', mediaUrl: '/blobs/a.png', caption: 'mine', expiresAt: LATER },
+  { id: 's-2', authorId: 'other-user', authorName: 'Ana Ruiz', authorAvatar: '', mediaType: 'image', mediaUrl: '/blobs/b.png', caption: 'theirs', expiresAt: LATER },
 ];
 
 describe('StoriesBar ownership', () => {

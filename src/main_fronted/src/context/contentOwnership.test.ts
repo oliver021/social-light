@@ -8,6 +8,7 @@ import { useNotifications } from './useNotifications';
 import { mockApi, type RecordedCall } from '../test/mockApi';
 
 const ME = 'me-0000-0000-0000-000000000001';
+const feed = { createPostRaw: vi.fn(), setGroupFeed: vi.fn(), deletePost: vi.fn(async () => {}) };
 const isDelete = (c: RecordedCall, path: string) => c.method === 'DELETE' && c.path === path;
 
 describe('useStories.deleteStory', () => {
@@ -18,7 +19,7 @@ describe('useStories.deleteStory', () => {
       'GET /api/stories': [story],
       'DELETE /api/stories/{id}': { status: 204 },
     });
-    const { result } = renderHook(() => useStories({ myUserId: { current: ME } }));
+    const { result } = renderHook(() => useStories({ myUserId: { current: ME }, notify: vi.fn() }));
     await act(async () => {
       await result.current.loadStories();
     });
@@ -34,7 +35,7 @@ describe('useStories.deleteStory', () => {
       'GET /api/stories': [story],
       'DELETE /api/stories/{id}': { status: 403, body: { detail: 'Not your story' } },
     });
-    const { result } = renderHook(() => useStories({ myUserId: { current: ME } }));
+    const { result } = renderHook(() => useStories({ myUserId: { current: ME }, notify: vi.fn() }));
     await act(async () => {
       await result.current.loadStories();
     });
@@ -95,7 +96,7 @@ describe('useEvents.deleteEvent', () => {
       'DELETE /api/events/{id}': { status: 204 },
       'DELETE /api/event-attendances/{id}': { status: 204 },
     });
-    const { result } = renderHook(() => useEvents({ myUserId: { current: ME } }));
+    const { result } = renderHook(() => useEvents({ myUserId: { current: ME }, showToast: vi.fn() }));
     await act(async () => {
       await result.current.loadEvents();
     });
@@ -113,7 +114,7 @@ describe('useEvents.deleteEvent', () => {
       'GET /api/event-attendances': [{ id: 'a-1', eventId: 'e-1', userId: ME, status: 'going' }],
       'DELETE /api/events/{id}': { status: 409, body: { detail: 'Has tickets sold' } },
     });
-    const { result } = renderHook(() => useEvents({ myUserId: { current: ME } }));
+    const { result } = renderHook(() => useEvents({ myUserId: { current: ME }, showToast: vi.fn() }));
     await act(async () => {
       await result.current.loadEvents();
     });
@@ -129,7 +130,7 @@ describe('useGroups ownership', () => {
 
   it('reads my role per community from my membership', async () => {
     mockApi({ 'GET /api/groups': [group], 'GET /api/group-members': [ownerMembership] });
-    const { result } = renderHook(() => useGroups({ myUserId: { current: ME }, showToast: vi.fn() }));
+    const { result } = renderHook(() => useGroups({ myUserId: { current: ME }, showToast: vi.fn(), feed }));
     await act(async () => {
       await result.current.loadGroups();
     });
@@ -143,7 +144,7 @@ describe('useGroups ownership', () => {
       'GET /api/groups': [],
       'GET /api/group-members': [],
     });
-    const { result } = renderHook(() => useGroups({ myUserId: { current: ME }, showToast: vi.fn() }));
+    const { result } = renderHook(() => useGroups({ myUserId: { current: ME }, showToast: vi.fn(), feed }));
     await act(async () => {
       await result.current.createGroup({ name: 'New', description: '', privacy: 'public' });
     });
@@ -158,7 +159,7 @@ describe('useGroups ownership', () => {
       'DELETE /api/groups/{id}': { status: 204 },
       'DELETE /api/group-members/{id}': { status: 204 },
     });
-    const { result } = renderHook(() => useGroups({ myUserId: { current: ME }, showToast: vi.fn() }));
+    const { result } = renderHook(() => useGroups({ myUserId: { current: ME }, showToast: vi.fn(), feed }));
     await act(async () => {
       await result.current.loadGroups();
     });
@@ -177,7 +178,7 @@ describe('useGroups ownership', () => {
       'GET /api/group-members': [ownerMembership],
       'DELETE /api/groups/{id}': { status: 403, body: { detail: 'Not your community' } },
     });
-    const { result } = renderHook(() => useGroups({ myUserId: { current: ME }, showToast: vi.fn() }));
+    const { result } = renderHook(() => useGroups({ myUserId: { current: ME }, showToast: vi.fn(), feed }));
     await act(async () => {
       await result.current.loadGroups();
     });
@@ -188,7 +189,7 @@ describe('useGroups ownership', () => {
 
   it('reset forgets the roles', async () => {
     mockApi({ 'GET /api/groups': [group], 'GET /api/group-members': [ownerMembership] });
-    const { result } = renderHook(() => useGroups({ myUserId: { current: ME }, showToast: vi.fn() }));
+    const { result } = renderHook(() => useGroups({ myUserId: { current: ME }, showToast: vi.fn(), feed }));
     await act(async () => {
       await result.current.loadGroups();
     });

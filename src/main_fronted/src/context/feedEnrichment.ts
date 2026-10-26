@@ -3,7 +3,7 @@
 // posts outside its own id set untouched, so a batch can be applied to any list that
 // holds some of the same posts.
 import type { Post, Reactions } from '../types';
-import { postsApi, engagementApi, getProfile, mediaUrl } from '../api/gateway';
+import { postsApi, engagementApi, groupsApi, getProfile, mediaUrl } from '../api/gateway';
 import { commentDtoToComment, toReactionKey, emptyReactions, withHandle } from '../api/mappers';
 
 /** A pure transform for one post. Returns the post unchanged when it is out of scope. */
@@ -155,6 +155,27 @@ export async function enrichComments(posts: Post[]): Promise<PostPatch | null> {
     byPost.set(c.targetId, list);
   }
   return (p) => (byPost.has(p.id) ? { ...p, comments: byPost.get(p.id)! } : p);
+}
+
+/**
+ * Community links (M5): a post with a `group` post-feed row shows its community's name and id.
+ * Posts without such a row are left as they are.
+ */
+export async function enrichGroupLinks(posts: Post[]): Promise<PostPatch | null> {
+  const ids = idSet(posts);
+  const { data: feeds } = await postsApi.GET('/api/post-feeds');
+  if (!feeds) return null;
+  const groupByPost = new Map<string, string>();
+  for (const f of feeds) {
+    if (f.feedType === 'group' && ids.has(f.postId)) groupByPost.set(f.postId, f.targetId);
+  }
+  if (groupByPost.size === 0) return null;
+  const { data: groups } = await groupsApi.GET('/api/groups');
+  const nameById = new Map((groups ?? []).map((g) => [g.id, g.name]));
+  return (p) => {
+    const groupId = groupByPost.get(p.id);
+    return groupId ? { ...p, groupId, groupName: nameById.get(groupId) ?? 'Community' } : p;
+  };
 }
 
 /** Apply patches in order. Pure: returns a new array, never mutates the input. */
