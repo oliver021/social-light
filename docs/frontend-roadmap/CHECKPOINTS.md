@@ -79,3 +79,38 @@ before the feed, so keep it as a follow-up.
 - Repeated test-account names pile up in the People widget (data from smoke runs).
 
 **Verdict:** approved. Resume the workflow with `{ "from": "M5" }`.
+
+## Checkpoint 3 (final) — after M8 (2026-10-26)
+
+**Stack:** local Docker Compose demo stack, web image rebuilt from `feat/frontend-roadmap`
+(previous image kept as `sociallight/web:checkpoint2`). `organizations-api` was not part of
+the demo subset (the gateway route returned 502); it was built with `dotnet publish
+-t:PublishContainer` and started on the demo network with the same settings as
+`groups-api` and its own `organizationsdb`. `deploy/build-images.sh` and
+`deploy/docker-compose.yaml` were **not** updated, so a fresh deploy still lacks it.
+
+**L6 smoke, all 9 specs:** pass (`auth`, `ownership`, `conversations`, `profiles`,
+`friends`, `community`, `marketplace`, `messenger`, `organizations`). First run: 4 of 9.
+
+| Failure on first run | Cause | Fix |
+|---|---|---|
+| `messenger`: B never sees A's new chat | **App bug:** the conversation list was read only at login | Opening the messenger menu re-reads it (`refreshChats`) and joins the new hub groups. Live announcement needs a hub event (track B, B11) |
+| `community`: my community post missing from Home | **App bug:** `createGroupPost` reloaded only the community | Also re-reads the home feed |
+| `organizations` | Environment: module not deployed | Deployed `organizations-api` (above) |
+| `profiles`, `messenger` | Test: person not among the first 5 in People; list loaded before the person registered | Shared `openPerson` helper (expands "See all"), reload first |
+| `marketplace` | Test: waited for "Load more" to be enabled after the last page, when it is gone | Waits for the card count to grow |
+
+**L7 visual (390 / 1280):** Organizations list and detail, product detail, event detail,
+messenger window: no horizontal overflow, no images without `alt`, no unnamed buttons;
+dialogs full-screen on phones with a reachable close button (verified with a headless
+390 px capture). Nit: the event organizer shows initials while the attendee list shows the
+same person's avatar.
+
+**Code review of the whole branch (`/code-review high`, `main...feat/frontend-roadmap`):**
+7 findings, none blocking a demo. The most relevant: a race in `fetchChats` (it clears the
+chat map while it reloads, so a thread clicked or a message received during a refresh is
+lost; more likely now that the menu refreshes on open); a failed reaction does not correct
+the community view; the block list loads after the feed; mute/hide also filter community
+pages; reels are not reset on logout.
+
+**Verdict:** roadmap complete; review findings listed above as follow-ups.
