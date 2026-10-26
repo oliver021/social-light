@@ -22,12 +22,36 @@ describe('AppShell', () => {
     expect(within(nav).getAllByRole('button')).toHaveLength(TABS.length);
   });
 
-  it('shows one bottom navigation item per TABS entry, with the short label', () => {
+  it('shows one bottom navigation item per tab marked inBottomNav, with the short label', () => {
     renderWithProviders(<AppShell />);
     const bottom = screen.getByRole('navigation', { name: 'Mobile navigation' });
-    for (const tab of TABS) {
+    const inBottom = TABS.filter((tab) => tab.inBottomNav);
+    for (const tab of inBottom) {
       expect(within(bottom).getByRole('button', { name: tab.shortLabel })).toBeInTheDocument();
     }
+    expect(within(bottom).getAllByRole('button')).toHaveLength(inBottom.length);
+  });
+
+  it('keeps Organizations out of the phone bottom navigation', () => {
+    renderWithProviders(<AppShell />);
+    const bottom = screen.getByRole('navigation', { name: 'Mobile navigation' });
+    expect(within(bottom).queryByRole('button', { name: tabDef(TAB_ID.organizations).shortLabel })).not.toBeInTheDocument();
+  });
+
+  it('places Organizations right after Communities in the sidebar', () => {
+    renderWithProviders(<AppShell />);
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    const labels = within(nav).getAllByRole('button').map((b) => b.getAttribute('aria-label'));
+    const at = labels.indexOf(tabDef(TAB_ID.organizations).label);
+    expect(at).toBeGreaterThan(-1);
+    expect(labels[at - 1]).toBe(tabDef(TAB_ID.groups).label);
+  });
+
+  it('renders the Organizations page for the organizations tab', () => {
+    renderWithProviders(<AppShell />, { context: { activeTab: 'organizations' } });
+    const main = screen.getByRole('main');
+    expect(within(main).getByRole('heading', { name: 'Organizations' })).toBeInTheDocument();
+    expect(main.querySelector('#organizations-tab-page')).not.toBeNull();
   });
 
   it('clicking a sidebar item switches the active tab through the context', async () => {

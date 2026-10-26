@@ -60,6 +60,8 @@ export const PersonProfile: React.FC<{ userId: string }> = ({ userId }) => {
     loadTimeline,
     isBlocked,
     unblockUser,
+    organizationsOf,
+    openOrganization,
   } = useApp();
   // undefined = loading, null = not found, otherwise the profile.
   const [profile, setProfile] = useState<ProfileDto | null | undefined>(undefined);
@@ -159,6 +161,8 @@ export const PersonProfile: React.FC<{ userId: string }> = ({ userId }) => {
   const counts = countsFor(userId);
   const followed = isFollowing(userId);
   const joined = joinedLabel(profile.createdAt);
+  // Organizations this person belongs to (M8), read from the loaded memberships.
+  const memberOf = organizationsOf(userId);
 
   return (
     <Box id="profile-tab-page" sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--ui-gap)' }}>
@@ -237,6 +241,27 @@ export const PersonProfile: React.FC<{ userId: string }> = ({ userId }) => {
           <>
             <Divider />
             <Typography sx={{ ...mutedSx, whiteSpace: 'pre-line', overflowWrap: 'anywhere' }}>{profile.bio}</Typography>
+          </>
+        )}
+        {memberOf.length > 0 && (
+          <>
+            <Divider />
+            <Box component="section" aria-label="Organizations" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Typography sx={{ ...subtleSx, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Organizations</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {memberOf.map((org) => (
+                  <Button
+                    key={org.id}
+                    variant="outlined"
+                    aria-label={`Open organization ${org.name}`}
+                    onClick={() => openOrganization(org.id)}
+                    sx={{ ...PILL_BUTTON, color: T.text, borderColor: T.borderStrong, fontSize: 'var(--ui-fs-xs)', maxWidth: '100%' }}
+                  >
+                    {org.name}
+                  </Button>
+                ))}
+              </Box>
+            </Box>
           </>
         )}
       </Surface>

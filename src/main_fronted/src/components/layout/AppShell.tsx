@@ -7,6 +7,7 @@ import { Sidebar } from '../Sidebar';
 import { Widgets } from '../Widgets';
 import { FeedsTab } from '../FeedsTab';
 import { GroupsTab } from '../GroupsTab';
+import { OrganizationsTab } from '../OrganizationsTab';
 import { MarketplaceTab } from '../MarketplaceTab';
 import { ReelsTab } from '../ReelsTab';
 import { ProfileTab } from '../ProfileTab';
@@ -47,6 +48,8 @@ export const AppShell: React.FC = () => {
     switch (activeTab) {
       case TAB_ID.groups:
         return <GroupsTab />;
+      case TAB_ID.organizations:
+        return <OrganizationsTab />;
       case TAB_ID.marketplace:
         return <MarketplaceTab />;
       case TAB_ID.reels:
@@ -185,7 +188,7 @@ export const AppShell: React.FC = () => {
             '& .MuiBottomNavigationAction-root': { minWidth: 0, maxWidth: 'none', px: 0.5, minHeight: 44 },
           }}
         >
-          {TABS.map((tab) => (
+          {TABS.filter((tab) => tab.inBottomNav).map((tab) => (
             <BottomNavigationAction
               key={tab.id}
               value={tab.id}

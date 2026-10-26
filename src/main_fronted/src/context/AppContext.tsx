@@ -10,6 +10,7 @@ import { useNotifications } from './useNotifications';
 import { useFeed, type ProfileTimeline } from './useFeed';
 import { useSocial, type Person, type FollowCounts } from './useSocial';
 import { useGroups, type NewGroup } from './useGroups';
+import { useOrganizations, type NewOrganization, type Organization, type OrganizationMember } from './useOrganizations';
 import { useMarketplace, type CatalogOption, type MarketDetail, type MarketQuery } from './useMarketplace';
 import { useProfile } from './useProfile';
 import { useChat, type ChatMeta } from './useChat';
@@ -256,6 +257,33 @@ export interface AppContextType {
   setRsvp: (eventId: string, status: RsvpStatus | null) => Promise<void>;
   /** Cancels my event. Rejects with a readable message. */
   deleteEvent: (eventId: string) => Promise<void>;
+
+  // Organizations (M8): browse, create, join, leave, delete and members, backed by Organizations.
+  /** Every organization, with my membership and the member count. */
+  organizations: Organization[];
+  /** True until the first organizations load settles. Optional: absent means settled. */
+  organizationsLoading?: boolean;
+  /** Readable reason the last organizations load failed, or null. */
+  organizationsError: string | null;
+  loadOrganizations: () => Promise<void>;
+  /** Creates an organization and makes me its owner. Rejects with a readable message so the dialog can stay open. */
+  createOrganization: (input: NewOrganization) => Promise<void>;
+  /** Joins as a member. Resolves true only after the server accepts it; otherwise shows the reason and resolves false. */
+  joinOrganization: (organizationId: string) => Promise<boolean>;
+  /** Leaves as a member (the owner cannot leave). Resolves true when the server removed my membership. */
+  leaveOrganization: (organizationId: string) => Promise<boolean>;
+  /** Deletes an organization I own. Rejects with a readable message. */
+  deleteOrganization: (organizationId: string) => Promise<void>;
+  /** Members per organization id, filled by loadOrganizationMembers. */
+  organizationMembers: Record<string, OrganizationMember[]>;
+  loadOrganizationMembers: (organizationId: string) => Promise<void>;
+  /** The organizations a person is a member of. */
+  organizationsOf: (userId: string) => Organization[];
+  /** The organization whose page is open on the Organizations tab, or null for the list. */
+  selectedOrganizationId: string | null;
+  setSelectedOrganizationId: (id: string | null) => void;
+  /** Opens an organization's page on the Organizations tab. */
+  openOrganization: (organizationId: string) => void;
 }
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -287,6 +315,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast,
     feed: { createPostRaw: feed.createPostRaw, setGroupFeed: feed.setGroupFeed, deletePost: feed.deletePost },
   });
+
+  const organizations = useOrganizations({ myUserId: session.myUserId, showToast });
 
   const chat = useChat({
     myUserId: session.myUserId,
@@ -339,6 +369,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     feed.reset();
     social.reset();
     groups.reset();
+    organizations.reset();
+    ui.setSelectedOrganizationId(null);
     eventsState.reset();
     storiesState.reset();
     notifications.reset();
@@ -355,6 +387,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadPeople: social.loadPeople,
     loadRelationships: relations.loadRelationships,
     loadGroups: groups.loadGroups,
+    loadOrganizations: organizations.loadOrganizations,
     loadNotifications: notifications.loadNotifications,
     loadStories: storiesState.loadStories,
     loadReels: reelsState.loadReels,
@@ -514,6 +547,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     createEvent: eventsState.createEvent,
     setRsvp: eventsState.setRsvp,
     deleteEvent: eventsState.deleteEvent,
+    organizations: organizations.organizations,
+    organizationsLoading: organizations.loading,
+    organizationsError: organizations.loadError,
+    loadOrganizations: organizations.loadOrganizations,
+    createOrganization: organizations.createOrganization,
+    joinOrganization: organizations.joinOrganization,
+    leaveOrganization: organizations.leaveOrganization,
+    deleteOrganization: organizations.deleteOrganization,
+    organizationMembers: organizations.organizationMembers,
+    loadOrganizationMembers: organizations.loadOrganizationMembers,
+    organizationsOf: organizations.organizationsOf,
+    selectedOrganizationId: ui.selectedOrganizationId,
+    setSelectedOrganizationId: ui.setSelectedOrganizationId,
+    openOrganization: (organizationId: string) => {
+      ui.setActiveTab('organizations');
+      ui.setSelectedOrganizationId(organizationId);
+    },
   };
 
   const toastAction = toast?.action;

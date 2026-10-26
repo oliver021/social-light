@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export type ActiveTab = 'home' | 'groups' | 'marketplace' | 'reels' | 'profile';
+export type ActiveTab = 'home' | 'groups' | 'organizations' | 'marketplace' | 'reels' | 'profile';
 
 /**
  * Local UI state: theme, the active tab, the selected group and the profile being viewed.
@@ -14,6 +14,7 @@ export function useUiPreferences() {
   });
   const [activeTab, setActiveTabState] = useState<ActiveTab>('home');
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [viewedProfileId, setViewedProfileId] = useState<string | null>(null);
   // The tab to return to when a profile opened from elsewhere is closed.
   const [profileReturnTab, setProfileReturnTab] = useState<ActiveTab>('home');
@@ -71,6 +72,8 @@ export function useUiPreferences() {
     setActiveTab,
     selectedGroupId,
     setSelectedGroupId,
+    selectedOrganizationId,
+    setSelectedOrganizationId,
     viewedProfileId,
     profileReturnTab,
     openProfile,
