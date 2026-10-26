@@ -10,6 +10,8 @@ export interface GroupFeedDeps {
   createPostRaw: (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', extra?: any) => Promise<Post>;
   setGroupFeed: (groupId: string, posts: Post[]) => void;
   deletePost: (postId: string) => Promise<void>;
+  /** Re-read the home feed, so my new community post shows there with its community link. */
+  loadFeed: () => Promise<void>;
 }
 
 interface Deps {
@@ -241,7 +243,7 @@ export function useGroups({ myUserId, showToast, feed }: Deps) {
       feed.deletePost(created.id).catch(() => {});
       throw new Error(linkError);
     }
-    await loadGroupPosts(groupId);
+    await Promise.all([loadGroupPosts(groupId), feed.loadFeed().catch(() => {})]);
   };
 
   // The members of one community, owners first, with profiles resolved. The owner row is

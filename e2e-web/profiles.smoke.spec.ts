@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { registerFreshUser } from './helpers';
+import { openPerson, registerFreshUser } from './helpers';
 
 test.skip(!process.env.SL_WEB_URL, 'needs the running stack');
 
@@ -20,7 +20,7 @@ test('user B opens user A from the People widget, sees A\'s post, and follows A'
 
     // B signs up, then opens A from the People widget (the visible copy of the list).
     await registerFreshUser(pageB, 'profiles-b');
-    await pageB.locator('button', { hasText: nameA }).locator('visible=true').first().click();
+    await openPerson(pageB, nameA);
 
     // A's profile: header, A's post, and the follow control.
     const profile = pageB.locator('#profile-tab-page');

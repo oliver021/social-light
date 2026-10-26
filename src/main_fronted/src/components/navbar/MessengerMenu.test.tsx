@@ -31,6 +31,13 @@ describe('MessengerMenu', () => {
     expect(screen.getByText('Message someone from People you may know.')).toBeInTheDocument();
   });
 
+  it('re-reads the conversation list when opened, to find chats other people started', async () => {
+    const refreshChats = vi.fn(async () => {});
+    const { user } = renderWithProviders(<MessengerMenu />, { context: { chatThreads: [], refreshChats } });
+    await user.click(screen.getByRole('button', { name: 'Messages' }));
+    expect(refreshChats).toHaveBeenCalledTimes(1);
+  });
+
   it('choosing a conversation opens its chat with the peer id', async () => {
     const openChatWithUser = vi.fn();
     const { user } = renderWithProviders(<MessengerMenu />, {

@@ -1,20 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
-import { registerFreshUser } from './helpers';
+import { openPerson, registerFreshUser } from './helpers';
 
 test.skip(!process.env.SL_WEB_URL, 'needs the running stack');
 
-/** Open a person from the People widget (the visible copy of the list), landing on their profile. */
-// The widget shows 5 people until "See all" is pressed, so expand it when the person is not
-// among them. The list is read at login: reload first if the person registered afterwards.
-async function openPerson(page: Page, name: string) {
-  const person = page.locator('button', { hasText: name }).locator('visible=true').first();
-  if (!(await person.isVisible())) {
-    const seeAll = page.getByRole('button', { name: /^See all/ }).locator('visible=true').first();
-    if (await seeAll.isVisible()) await seeAll.click();
-  }
-  await person.click();
-  await expect(page.locator('#profile-tab-page').getByRole('heading', { level: 2, name })).toBeVisible({ timeout: 30_000 });
-}
 
 async function goHome(page: Page) {
   // The Home item's name gains ", N unread notifications" when there are alerts.

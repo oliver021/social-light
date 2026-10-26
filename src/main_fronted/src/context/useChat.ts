@@ -696,7 +696,15 @@ export function useChat({ myUserId, currentUserId, isAuthenticated, showToast }:
     disconnectChatHub().catch(() => {});
   };
 
+  /**
+   * Re-read my conversations now. The messenger menu calls this when it opens, so a chat
+   * someone else started since login shows up (and its hub group is joined). The hub does
+   * not announce new chats (track B, B11), and the 15 s cadence only serves open windows.
+   */
+  const refreshChats = (): Promise<void> => fetchChats().catch(() => {});
+
   return {
+    refreshChats,
     activeChats,
     chatMessages,
     chatThreads: threadsView,

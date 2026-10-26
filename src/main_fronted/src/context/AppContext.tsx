@@ -211,6 +211,8 @@ export interface AppContextType {
   openChatWithUser: (user: { id: string; name: string; avatar: string; handle: string }) => void;
   /** Opens a conversation I already belong to, by chat id (groups and listed DMs). */
   openChat: (chatId: string) => void;
+  /** Re-read my conversation list (finds chats other people started). */
+  refreshChats: () => Promise<void>;
   /** Closes a window by chat id, or by a DM peer's user id. */
   closeChat: (key: string) => void;
   minimizeChat: (chatId: string) => void;
@@ -313,7 +315,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const groups = useGroups({
     myUserId: session.myUserId,
     showToast,
-    feed: { createPostRaw: feed.createPostRaw, setGroupFeed: feed.setGroupFeed, deletePost: feed.deletePost },
+    feed: { createPostRaw: feed.createPostRaw, setGroupFeed: feed.setGroupFeed, deletePost: feed.deletePost, loadFeed: feed.loadFeed },
   });
 
   const organizations = useOrganizations({ myUserId: session.myUserId, showToast });
@@ -519,6 +521,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     memberNames: chat.memberNames,
     isChatMuted: chat.isChatMuted,
     openChat: chat.openChat,
+    refreshChats: chat.refreshChats,
     closeChat: chat.closeChat,
     minimizeChat: chat.minimizeChat,
     sendMessage: chat.sendMessage,

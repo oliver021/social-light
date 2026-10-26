@@ -8,7 +8,7 @@ import { useNotifications } from './useNotifications';
 import { mockApi, type RecordedCall } from '../test/mockApi';
 
 const ME = 'me-0000-0000-0000-000000000001';
-const feed = { createPostRaw: vi.fn(), setGroupFeed: vi.fn(), deletePost: vi.fn(async () => {}) };
+const feed = { createPostRaw: vi.fn(), setGroupFeed: vi.fn(), deletePost: vi.fn(async () => {}), loadFeed: vi.fn(async () => {}) };
 const isDelete = (c: RecordedCall, path: string) => c.method === 'DELETE' && c.path === path;
 
 describe('useStories.deleteStory', () => {

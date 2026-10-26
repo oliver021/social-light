@@ -10,7 +10,7 @@ import { badgeSx, navIconButtonSx, popoverPaperSx } from './menuSx';
 
 /** The messenger icon in the navbar and its conversations popover. */
 export const MessengerMenu: React.FC = () => {
-  const { chatThreads, chatThreadsLoading, openChatWithUser, openChat } = useApp();
+  const { chatThreads, chatThreadsLoading, openChatWithUser, openChat, refreshChats } = useApp();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [groupOpen, setGroupOpen] = useState(false);
   // The badge counts unread messages across my chats (muted chats count as read).
@@ -30,7 +30,11 @@ export const MessengerMenu: React.FC = () => {
   return (
     <>
       <IconButton
-        onClick={(event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget)}
+        onClick={(event: React.MouseEvent<HTMLElement>) => {
+          setAnchorEl(event.currentTarget);
+          // Pick up conversations other people started since the list was loaded.
+          refreshChats();
+        }}
         aria-label={unreadMessages > 0 ? `Messages, ${unreadMessages} unread` : 'Messages'}
         sx={navIconButtonSx}
       >

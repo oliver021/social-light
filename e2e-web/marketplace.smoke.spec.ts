@@ -25,8 +25,10 @@ test('a member loads the whole catalog, runs a smart search and opens a product'
   for (let i = 0; i < 10; i++) {
     const more = market.getByRole('button', { name: 'Load more' });
     if (!(await more.isVisible())) break;
+    // After the last page the button disappears, so wait for the cards to grow instead.
+    const before = await cards.count();
     await more.click();
-    await expect(more).not.toBeDisabled({ timeout: 30_000 });
+    await expect.poll(() => cards.count(), { timeout: 30_000 }).toBeGreaterThan(before);
   }
   await expect(market.getByRole('status')).toContainText('101 products', { timeout: 30_000 });
   await expect(cards).toHaveCount(101, { timeout: 30_000 });

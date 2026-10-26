@@ -135,6 +135,7 @@ export function makeAppContext(overrides: Partial<AppContextType> = {}): AppCont
     isChatMuted: vi.fn(() => false),
     openChatWithUser: vi.fn(),
     openChat: vi.fn(),
+    refreshChats: vi.fn(async () => {}),
     closeChat: vi.fn(),
     minimizeChat: vi.fn(),
     sendMessage: asyncFn(),
