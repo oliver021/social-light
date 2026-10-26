@@ -104,7 +104,7 @@ export interface MarketItem {
 
 export interface NotificationItem {
   id: string;
-  type: 'like' | 'comment' | 'reaction' | 'mention' | 'follow' | 'group' | 'live';
+  type: 'like' | 'comment' | 'reaction' | 'mention' | 'follow' | 'group' | 'live' | 'friend_request' | 'friend_accept';
   actor: {
     name: string;
     avatar: string;

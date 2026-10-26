@@ -8,6 +8,8 @@ import { OWNER_KEY, readStored, writeStored } from './usePersistentState';
 interface Loaders {
   loadFeed: () => Promise<void>;
   loadPeople: () => Promise<void>;
+  /** Friends, blocks and preferences (M4). */
+  loadRelationships: () => Promise<void>;
   loadGroups: () => Promise<void>;
   loadNotifications: () => Promise<void>;
   loadStories: () => Promise<void>;
@@ -36,7 +38,7 @@ interface Loaders {
  */
 export function useAuth(session: SessionState, loaders: Loaders) {
   const { setCurrentUser, myUserId, setIsAuthenticated, setAuthReady } = session;
-  const { loadFeed, loadPeople, loadGroups, loadNotifications, loadStories, loadReels, loadEvents, loadMarketplace, teardownChat, resetUserData } = loaders;
+  const { loadFeed, loadPeople, loadRelationships, loadGroups, loadNotifications, loadStories, loadReels, loadEvents, loadMarketplace, teardownChat, resetUserData } = loaders;
 
   // Make sure the cache belongs to `userId`: if it belongs to someone else, wipe it first.
   const claimOwner = (userId: string) => {
@@ -68,6 +70,7 @@ export function useAuth(session: SessionState, loaders: Loaders) {
     await loadCurrentUser();
     await loadFeed();
     loadPeople().catch(() => {});
+    loadRelationships().catch(() => {});
     loadGroups().catch(() => {});
     loadNotifications().catch(() => {});
     loadStories().catch(() => {});

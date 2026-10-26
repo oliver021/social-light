@@ -24,9 +24,11 @@ describe('PostHeader ownership', () => {
     expect(screen.getByRole('button', { name: 'More actions for this post' })).toBeInTheDocument();
   });
 
-  it('does not show it on someone else\'s post', () => {
-    renderWithProviders(<PostHeader post={{ ...basePost, authorId: 'other-user' }} />);
-    expect(screen.queryByRole('button', { name: 'More actions for this post' })).not.toBeInTheDocument();
+  it('does not offer Delete on someone else\'s post (the menu holds Hide, Snooze, Mute and Block there)', async () => {
+    const { user } = renderWithProviders(<PostHeader post={{ ...basePost, authorId: 'other-user' }} />);
+    await user.click(screen.getByRole('button', { name: 'More actions for this post' }));
+    expect(screen.queryByRole('menuitem', { name: 'Delete post' })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Hide post' })).toBeInTheDocument();
   });
 
   it('does not show it when the post has no owner id', () => {

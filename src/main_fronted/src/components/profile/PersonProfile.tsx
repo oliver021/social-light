@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Button, Divider, IconButton, Typography } from '@mui/material';
-import { ArrowLeft, MessageCircle } from 'lucide-react';
+import { Ban, ArrowLeft, MessageCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { getProfile, mediaUrl, messageOf } from '../../api/gateway';
 import { defaultAvatar, withHandle } from '../../api/mappers';
@@ -9,6 +9,7 @@ import {
   EmptyState,
   InlineError,
   ListSkeleton,
+  OverflowMenu,
   PageHeader,
   Surface,
   T,
@@ -19,6 +20,8 @@ import {
 } from '../ui';
 import { ProfilePosts } from './ProfilePosts';
 import { ProfileShares } from './ProfileShares';
+import { FriendButton } from '../relationships/FriendButton';
+import { BlockConfirm } from '../relationships/BlockConfirm';
 
 type ProfileDto = ProfileComponents['schemas']['ProfileDto'];
 
@@ -46,11 +49,26 @@ const Stat: React.FC<{ value: number; label: string }> = ({ value, label }) => (
  * is invented. A missing profile shows "not available" with a way back.
  */
 export const PersonProfile: React.FC<{ userId: string }> = ({ userId }) => {
-  const { closeProfile, countsFor, isFollowing, followUser, unfollowUser, openChatWithUser, loadTimeline } = useApp();
+  const {
+    currentUser,
+    closeProfile,
+    countsFor,
+    isFollowing,
+    followUser,
+    unfollowUser,
+    openChatWithUser,
+    loadTimeline,
+    isBlocked,
+    unblockUser,
+  } = useApp();
   // undefined = loading, null = not found, otherwise the profile.
   const [profile, setProfile] = useState<ProfileDto | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const blocked = isBlocked(userId);
+  // Blocked people's posts are not loaded: the profile shows only the block notice.
+  const isMe = userId === currentUser.id;
 
   useEffect(() => {
     let cancelled = false;
@@ -63,14 +81,39 @@ export const PersonProfile: React.FC<{ userId: string }> = ({ userId }) => {
   }, [userId, attempt]);
 
   useEffect(() => {
-    loadTimeline(userId).catch(() => {});
-  }, [userId, loadTimeline]);
+    if (!blocked) loadTimeline(userId).catch(() => {});
+  }, [userId, loadTimeline, blocked]);
 
   const back = (
     <IconButton aria-label="Back" onClick={closeProfile} sx={{ ...TOUCH_TARGET, color: T.text }}>
       <ArrowLeft size={20} strokeWidth={1.75} aria-hidden="true" />
     </IconButton>
   );
+
+  if (blocked) {
+    const blockedName = profile ? profile.displayName || 'Member' : 'This person';
+    return (
+      <Box id="profile-tab-page" sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--ui-gap)' }}>
+        <PageHeader title="Profile" actions={back} />
+        <Surface as="section" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, alignItems: 'flex-start' }}>
+          <Typography component="h2" sx={{ ...sectionTitleSx, fontSize: '1.125rem', overflowWrap: 'anywhere' }}>
+            {blockedName}
+          </Typography>
+          <Typography sx={mutedSx}>
+            {`You blocked ${blockedName}. Their posts, comments and messages are hidden from you.`}
+          </Typography>
+          <Button
+            variant="outlined"
+            aria-label={`Unblock ${blockedName}`}
+            onClick={() => { unblockUser(userId).catch(() => {}); }}
+            sx={{ ...PILL_BUTTON, color: T.text, borderColor: T.borderStrong, fontSize: 'var(--ui-fs-xs)' }}
+          >
+            Unblock
+          </Button>
+        </Surface>
+      </Box>
+    );
+  }
 
   if (loadError) {
     return (
@@ -159,6 +202,7 @@ export const PersonProfile: React.FC<{ userId: string }> = ({ userId }) => {
             >
               {followed ? 'Following' : 'Follow'}
             </Button>
+            {!isMe && <FriendButton userId={userId} name={name} />}
             <Button
               variant="outlined"
               aria-label={`Message ${name}`}
@@ -168,6 +212,17 @@ export const PersonProfile: React.FC<{ userId: string }> = ({ userId }) => {
             >
               Message
             </Button>
+            {!isMe && (
+              <>
+                <OverflowMenu
+                  label={`More actions for ${name}`}
+                  items={[
+                    { id: 'block', label: `Block ${name}`, icon: Ban, danger: true, onSelect: () => setBlockOpen(true) },
+                  ]}
+                />
+                <BlockConfirm open={blockOpen} userId={userId} name={name} onClose={() => setBlockOpen(false)} />
+              </>
+            )}
           </Box>
         </Box>
       </Surface>

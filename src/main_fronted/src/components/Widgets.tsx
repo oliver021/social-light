@@ -9,6 +9,7 @@ import { SectionHeader } from './ui/SectionHeader';
 import { Surface } from './ui/Surface';
 import { UserLine } from './ui/UserLine';
 import { T, touchTargetSx } from './ui/tokens';
+import { FriendRequestsCard } from './relationships/FriendRequests';
 
 /** Dispatched by the feed's empty state: every visible copy of the people list expands and scrolls into view. */
 export const SHOW_PEOPLE_EVENT = 'socialight:show-people';
@@ -64,6 +65,7 @@ export const Widgets: React.FC = () => {
 
   return (
     <Box ref={rootRef} className="flex flex-col gap-4">
+      <FriendRequestsCard />
       <Surface as="section" aria-label="People you may know">
         <Box sx={{ mb: 1.5 }}>
           <SectionHeader title="People you may know" />

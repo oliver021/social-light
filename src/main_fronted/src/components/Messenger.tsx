@@ -2,10 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { messageOf } from '../api/gateway';
 import { Box, ButtonBase, Typography, IconButton, InputBase } from '@mui/material';
-import { X, Minus, Send, ThumbsUp, Smile } from 'lucide-react';
+import { Ban, X, Minus, Send, ThumbsUp, Smile } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { EmptyState, T, UserAvatar } from './ui';
+import { EmptyState, OverflowMenu, T, UserAvatar } from './ui';
 import type { ChatBoxState, ChatMessage } from '../types';
+import { BlockConfirm } from './relationships/BlockConfirm';
 
 /** Phones get a full-screen chat; anything wider keeps floating windows. */
 const PHONE_QUERY = '(max-width: 639px)';
@@ -155,6 +156,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   currentUser,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [blockOpen, setBlockOpen] = useState(false);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -217,6 +219,12 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         </Box>
 
         <Box className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+          <OverflowMenu
+            label={`More actions for the chat with ${chat.name}`}
+            items={[
+              { id: 'block', label: `Block ${chat.name}`, icon: Ban, danger: true, onSelect: () => setBlockOpen(true) },
+            ]}
+          />
           <IconButton size="small" onClick={onMinimize} aria-label={`Minimize chat with ${chat.name}`} sx={touchIconSx}>
             <Minus size={16} strokeWidth={1.75} aria-hidden="true" />
           </IconButton>
@@ -225,6 +233,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           </IconButton>
         </Box>
       </Box>
+      <BlockConfirm open={blockOpen} userId={chat.userId} name={chat.name} onClose={() => setBlockOpen(false)} />
 
       {/* CHAT BODY */}
       {!chat.isMinimized && (

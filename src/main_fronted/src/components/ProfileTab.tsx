@@ -10,7 +10,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { Edit3, Plus, X } from 'lucide-react';
+import { Edit3, Plus, ShieldCheck, X } from 'lucide-react';
 import {
   EmptyState,
   PageHeader,
@@ -28,6 +28,7 @@ import { PersonProfile } from './profile/PersonProfile';
 import { ProfilePosts } from './profile/ProfilePosts';
 import { ProfileShares } from './profile/ProfileShares';
 import { mediaUrl, unMediaUrl, messageOf } from '../api/gateway';
+import { PrivacyDialog } from './relationships/PrivacyDialog';
 
 const TOUCH_TARGET = { minHeight: 44, minWidth: 44 };
 /** The pill button: a 44px target with the full radius token. */
@@ -59,7 +60,8 @@ export const ProfileTab: React.FC = () => {
 };
 
 const OwnProfile: React.FC = () => {
-  const { currentUser, updateProfile, showToast, loadTimeline } = useApp();
+  const { currentUser, updateProfile, showToast, loadTimeline, friendCount } = useApp();
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   // My posts come from Feed.API (the same timeline other people's profiles use).
   useEffect(() => {
@@ -181,17 +183,28 @@ const OwnProfile: React.FC = () => {
                 {currentUser.name}
               </Typography>
               <Typography sx={{ ...subtleSx, fontFamily: 'var(--font-mono)' }}>{currentUser.handle}</Typography>
+              <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-xs)' }}>{`${friendCount} friends`}</Typography>
             </Box>
           </Box>
 
-          <Button
-            variant="outlined"
-            onClick={openEditor}
-            startIcon={<Edit3 size={16} strokeWidth={1.75} aria-hidden="true" />}
-            sx={{ ...PILL_BUTTON, alignSelf: { xs: 'flex-start', md: 'flex-end' }, color: T.text, borderColor: T.borderStrong, fontSize: 'var(--ui-fs-xs)' }}
-          >
-            Edit profile
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, alignSelf: { xs: 'flex-start', md: 'flex-end' }, flexWrap: 'wrap' }}>
+            <Button
+              variant="outlined"
+              onClick={openEditor}
+              startIcon={<Edit3 size={16} strokeWidth={1.75} aria-hidden="true" />}
+              sx={{ ...PILL_BUTTON, color: T.text, borderColor: T.borderStrong, fontSize: 'var(--ui-fs-xs)' }}
+            >
+              Edit profile
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setPrivacyOpen(true)}
+              startIcon={<ShieldCheck size={16} strokeWidth={1.75} aria-hidden="true" />}
+              sx={{ ...PILL_BUTTON, color: T.text, borderColor: T.borderStrong, fontSize: 'var(--ui-fs-xs)' }}
+            >
+              Privacy
+            </Button>
+          </Box>
         </Box>
       </Surface>
 
@@ -274,6 +287,8 @@ const OwnProfile: React.FC = () => {
 
       <ProfilePosts userId={currentUser.id} />
       <ProfileShares userId={currentUser.id} />
+
+      <PrivacyDialog open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
 
       {/* EDIT PROFILE */}
       <ResponsiveDialog

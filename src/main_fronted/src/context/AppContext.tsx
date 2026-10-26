@@ -1,5 +1,5 @@
-import React, { createContext, useContext } from 'react';
-import { Alert, Snackbar } from '@mui/material';
+import React, { createContext, useContext, useMemo } from 'react';
+import { Alert, Button, Snackbar } from '@mui/material';
 import { UserProfile, Post, Group, MarketItem, NotificationItem, Reactions, ChatMessage, ChatBoxState, ChatThread } from '../types';
 import { INITIAL_USER } from '../data';
 import { type ActiveTab, useUiPreferences } from './useUiPreferences';
@@ -16,10 +16,21 @@ import { useStories, type Story } from './useStories';
 import { useReels, type Reel } from './useReels';
 import { useEvents, type EventItem } from './useEvents';
 import { useAuth } from './useAuth';
+import {
+  useRelationships,
+  visiblePosts,
+  withoutBlocked,
+  type BlockedEntry,
+  type HiddenPostEntry,
+  type IncomingRequest,
+  type MutedEntry,
+  type PersonView,
+  type Relation,
+} from './useRelationships';
 import { clearUserScopedStorage } from './usePersistentState';
 
 // Re-exported for any consumer that wants these view shapes.
-export type { Person, Story, Reel, EventItem };
+export type { Person, Story, Reel, EventItem, IncomingRequest, BlockedEntry, HiddenPostEntry, MutedEntry, PersonView, Relation };
 
 /**
  * The app's single seam: components only ever call `useApp()`. The implementation
@@ -99,6 +110,39 @@ export interface AppContextType {
   countsFor: (userId: string) => FollowCounts;
   /** Whether the signed-in user follows this person. */
   isFollowing: (userId: string) => boolean;
+
+  // Social graph (M4): friends, blocks and preferences. Each operation resolves true after the
+  // server accepts it; on failure it shows the server's reason and resolves false.
+  /** How I stand with this person: none, requested (I sent), incoming (they sent), or friends. */
+  relationTo: (userId: string) => Relation;
+  /** My friend count (other people's friend lists are not readable, so none is shown for them). */
+  friendCount: number;
+  /** Pending requests sent to me. People I blocked are left out. */
+  incomingRequests: IncomingRequest[];
+  /** Name, avatar and handle of a person, from their cached profile, with placeholders until loaded. */
+  personView: (userId: string) => PersonView;
+  sendFriendRequest: (userId: string) => Promise<boolean>;
+  acceptFriend: (userId: string) => Promise<boolean>;
+  declineFriend: (userId: string) => Promise<boolean>;
+  cancelFriendRequest: (userId: string) => Promise<boolean>;
+  unfriend: (userId: string) => Promise<boolean>;
+  /** Blocks a person. In my views their posts, comments, stories, reels, chats and people rows disappear. */
+  blockUser: (userId: string, reason?: string) => Promise<boolean>;
+  unblockUser: (userId: string) => Promise<boolean>;
+  isBlocked: (userId: string) => boolean;
+  blockedUsers: BlockedEntry[];
+  /** Hides one post from my home feed, with an Undo action. */
+  hidePost: (postId: string) => Promise<boolean>;
+  /** Posts I hid (home feed only), each with the preference id that Show again removes. */
+  hiddenPosts: HiddenPostEntry[];
+  /** Hides a person's posts and stories from my home feed and stories bar for 30 days. */
+  snoozeUser: (userId: string) => Promise<boolean>;
+  /** Hides a person's posts and stories from my home feed and stories bar until I unmute them. */
+  muteUser: (userId: string) => Promise<boolean>;
+  isMuted: (userId: string) => boolean;
+  mutedUsers: MutedEntry[];
+  /** Removes a hide, snooze or mute (Undo, Unmute, Privacy settings). */
+  removePreference: (preferenceId: string) => Promise<boolean>;
   markNotificationsAsRead: () => void;
   /** Dismisses one notification (no confirm). Reports a failure with a toast. */
   dismissNotification: (id: string) => Promise<void>;
@@ -150,7 +194,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // every loader → auth's login/bootstrap orchestration).
   const ui = useUiPreferences();
   const session = useSessionState();
-  const { toast, showToast, closeToast } = useToast();
+  const { toast, showToast, showActionToast, closeToast } = useToast();
 
   const notifications = useNotifications({ myUserId: session.myUserId, showToast });
   const feed = useFeed({
@@ -178,6 +222,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const storiesState = useStories({ myUserId: session.myUserId });
   const reelsState = useReels({ myUserId: session.myUserId });
   const eventsState = useEvents({ myUserId: session.myUserId });
+  const relations = useRelationships({
+    myUserId: session.myUserId,
+    notify: notifications.notify,
+    showToast,
+    showActionToast,
+    unfollowUser: social.unfollowUser,
+    closeChat: chat.closeChat,
+  });
+
+  // What I see: the blocked, hidden and muted sets from the graph, applied to the lists below.
+  const blockedSet = relations.blockedIds;
+  const hiddenSet = relations.hiddenPostIds;
+  const mutedSet = relations.mutedIds;
+  const feedPosts = useMemo(
+    () => visiblePosts(feed.posts, { blocked: blockedSet, hidden: hiddenSet, muted: mutedSet }, 'feed'),
+    [feed.posts, blockedSet, hiddenSet, mutedSet],
+  );
+  const timelineView = useMemo(
+    () => (feed.timeline ? { ...feed.timeline, posts: visiblePosts(feed.timeline.posts, { blocked: blockedSet }, 'profile') } : null),
+    [feed.timeline, blockedSet],
+  );
+  const visiblePeople = useMemo(() => withoutBlocked(social.people, (p) => p.userId, blockedSet), [social.people, blockedSet]);
+  const visibleStories = storiesState.stories.filter((s) => !blockedSet.has(s.authorId) && !mutedSet.has(s.authorId));
+  const visibleReels = withoutBlocked(reelsState.reels, (r) => r.creatorId, blockedSet);
+  const visibleThreads = withoutBlocked(chat.chatThreads, (t) => t.userId, blockedSet);
+  const visibleChats = withoutBlocked(chat.activeChats, (c) => c.userId, blockedSet);
 
   // Everything cached for one account is dropped here: on logout, on a failed session
   // probe, and whenever the signed-in user is not the owner of the local cache.
@@ -189,6 +259,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notifications.reset();
     chat.reset();
     marketplace.reset();
+    relations.reset();
     ui.resetProfileView();
     session.myUserId.current = ownerId ?? '';
     session.setCurrentUser(() => ({ ...INITIAL_USER, id: ownerId ?? INITIAL_USER.id }));
@@ -197,6 +268,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const auth = useAuth(session, {
     loadFeed: feed.loadFeed,
     loadPeople: social.loadPeople,
+    loadRelationships: relations.loadRelationships,
     loadGroups: groups.loadGroups,
     loadNotifications: notifications.loadNotifications,
     loadStories: storiesState.loadStories,
@@ -209,7 +281,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const value: AppContextType = {
     currentUser: session.currentUser,
-    posts: feed.posts,
+    posts: feedPosts,
     groups: groups.groups,
     groupsLoading: groups.loading,
     marketItems: marketplace.marketItems,
@@ -222,7 +294,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     viewedProfileId: ui.viewedProfileId,
     openProfile: (userId: string) => ui.openProfile(userId, session.currentUser.id),
     closeProfile: ui.closeProfile,
-    timeline: feed.timeline,
+    timeline: timelineView,
     loadTimeline: feed.loadTimeline,
     selectedGroupId: ui.selectedGroupId,
     setSelectedGroupId: ui.setSelectedGroupId,
@@ -249,29 +321,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     buyMarketItem: marketplace.buyMarketItem,
     createMarketItem: marketplace.createMarketItem,
     updateProfile: profile.updateProfile,
-    people: social.people,
+    people: visiblePeople,
     peopleLoading: social.peopleLoading,
     followUser: social.followUser,
     unfollowUser: social.unfollowUser,
     countsFor: social.countsFor,
     isFollowing: social.isFollowing,
+    relationTo: relations.relationTo,
+    friendCount: relations.friendCount,
+    incomingRequests: relations.incomingRequests.filter((r) => !blockedSet.has(r.userId)),
+    personView: relations.viewOf,
+    sendFriendRequest: relations.sendFriendRequest,
+    acceptFriend: relations.acceptFriend,
+    declineFriend: relations.declineFriend,
+    cancelFriendRequest: relations.cancelFriendRequest,
+    unfriend: relations.unfriend,
+    blockUser: relations.blockUser,
+    unblockUser: relations.unblockUser,
+    isBlocked: relations.isBlocked,
+    blockedUsers: relations.blockedUsers,
+    hidePost: relations.hidePost,
+    hiddenPosts: relations.hiddenPosts,
+    snoozeUser: relations.snoozeUser,
+    muteUser: relations.muteUser,
+    isMuted: relations.isMuted,
+    mutedUsers: relations.mutedEntries,
+    removePreference: relations.removePreference,
     markNotificationsAsRead: notifications.markNotificationsAsRead,
     dismissNotification: notifications.dismissNotification,
     clearNotifications: notifications.clearNotifications,
     addNotification: notifications.addNotification,
-    activeChats: chat.activeChats,
+    activeChats: visibleChats,
     chatMessages: chat.chatMessages,
-    chatThreads: chat.chatThreads,
+    chatThreads: visibleThreads,
     chatThreadsLoading: chat.threadsLoading,
-    openChatWithUser: chat.openChatWithUser,
+    openChatWithUser: (user) => {
+      // A blocked person never gets a chat window (the block also closed any open one).
+      if (relations.isBlocked(user.id)) {
+        showToast('You blocked this person. Unblock to send messages.');
+        return;
+      }
+      chat.openChatWithUser(user);
+    },
     closeChat: chat.closeChat,
     minimizeChat: chat.minimizeChat,
     sendMessage: chat.sendMessage,
-    stories: storiesState.stories,
+    stories: visibleStories,
     addStory: storiesState.addStory,
     viewStory: storiesState.viewStory,
     deleteStory: storiesState.deleteStory,
-    reels: reelsState.reels,
+    reels: visibleReels,
     reelsLoading: reelsState.loading,
     addReel: reelsState.addReel,
     viewReel: reelsState.viewReel,
@@ -283,18 +382,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     deleteEvent: eventsState.deleteEvent,
   };
 
+  const toastAction = toast?.action;
   return (
     <AppContext.Provider value={value}>
       {children}
       <Snackbar
         key={toast?.key}
         open={!!toast}
-        autoHideDuration={toast?.severity === 'error' ? 8000 : 4000}
+        autoHideDuration={toast?.autoHideMs ?? (toast?.severity === 'error' ? 8000 : 4000)}
         onClose={(_, reason) => { if (reason !== 'clickaway') closeToast(); }}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         sx={{ bottom: { xs: 80, md: 24 } }}
       >
-        <Alert onClose={closeToast} severity={toast?.severity ?? 'info'} variant="filled" className="w-full max-w-md">
+        <Alert
+          onClose={closeToast}
+          severity={toast?.severity ?? 'info'}
+          variant="filled"
+          className="w-full max-w-md"
+          action={toastAction ? (
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => { toastAction.onClick(); closeToast(); }}
+              sx={{ minHeight: 44, minWidth: 44, fontWeight: 700 }}
+            >
+              {toastAction.label}
+            </Button>
+          ) : undefined}
+        >
           {toast?.message}
         </Alert>
       </Snackbar>

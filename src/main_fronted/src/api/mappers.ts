@@ -129,7 +129,7 @@ export function commentDtoToComment(c: CommentDto, author: ProfileDto | null): C
 }
 
 /** The UI's notification kinds keyed by the backend's free-form `type` string. */
-const NOTIFICATION_TYPES: NotificationItem['type'][] = ['like', 'comment', 'reaction', 'mention', 'follow', 'group', 'live'];
+const NOTIFICATION_TYPES: NotificationItem['type'][] = ['like', 'comment', 'reaction', 'mention', 'follow', 'group', 'live', 'friend_request', 'friend_accept'];
 
 /**
  * NotificationDto -> the UI's NotificationItem. The v0 module stores no message or
@@ -145,6 +145,8 @@ export function notificationToItem(n: NotificationDto, actor: ProfileDto | null)
     : type === 'comment' ? 'commented on your post.'
     : type === 'like' || type === 'reaction' ? 'reacted to your post.'
     : type === 'group' ? 'updated a community you are in.'
+    : type === 'friend_request' ? 'sent you a friend request.'
+    : type === 'friend_accept' ? 'accepted your friend request.'
     : `sent you a ${type}.`;
   return {
     id: n.id,
