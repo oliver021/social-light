@@ -114,3 +114,15 @@ the community view; the block list loads after the feed; mute/hide also filter c
 pages; reels are not reset on logout.
 
 **Verdict:** roadmap complete; review findings listed above as follow-ups.
+
+## Public demo deploy (2026-10-26)
+
+Deployed to the LXC behind https://social.th3light.us with the release bundle
+(`deploy/package-release.sh`): `web` recreated, `organizations-api` added, the other 17
+services untouched, Postgres data kept. Backups on the LXC: `.env.bak-20261026`,
+`docker-compose.yaml.bak-20261026`, image `sociallight/web:pre-roadmap`.
+
+All 9 L6 smoke specs pass against the public demo
+(`SL_WEB_URL=https://social.th3light.us PW_CHANNEL=chrome npx playwright test -c playwright.web.config.ts`).
+The run leaves test data there: `smoke-*@example.test` accounts with their posts, a
+"Smoke community …" group, a "Smoke organization …" organization, events and chats.
