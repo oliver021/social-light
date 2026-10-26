@@ -7,13 +7,27 @@ import { PostBody } from './post/PostBody';
 import { ReactionBar } from './post/ReactionBar';
 import { CommentThread } from './post/CommentThread';
 
-interface PostCardProps {
+export interface PostCardProps {
   post: Post;
+  /**
+   * `default` is a feed post with reactions and comments. `embedded` is a read-only copy of
+   * another post (a shared post on a profile): author and body only, no menu, no comment box.
+   */
+  variant?: 'default' | 'embedded';
 }
 
 /** One post in a feed: the author, the body, the reaction bar, and the comment drawer. */
-export const PostCard: React.FC<PostCardProps> = ({ post }) => {
+export const PostCard: React.FC<PostCardProps> = ({ post, variant = 'default' }) => {
   const [commentOpen, setCommentOpen] = useState(false);
+
+  if (variant === 'embedded') {
+    return (
+      <Surface as="article" aria-label={`Post by ${post.author.name}`} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <PostHeader post={post} readOnly />
+        <PostBody post={post} />
+      </Surface>
+    );
+  }
 
   return (
     <Surface as="article" aria-label={`Post by ${post.author.name}`} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>

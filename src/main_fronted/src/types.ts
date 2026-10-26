@@ -21,6 +21,14 @@ export interface Comment {
   };
   content: string;
   createdAt: string;
+  /** The comment this one answers; null for a top-level comment. */
+  parentCommentId: string | null;
+  /** Likes on this comment (Engagement reactions with targetType 'Comment'). */
+  likes?: number;
+  /** Whether the signed-in user has liked this comment. */
+  likedByMe?: boolean;
+  /** Set locally when the author deleted a comment that still has replies. */
+  deleted?: boolean;
 }
 
 export interface PollOption {
@@ -61,6 +69,8 @@ export interface Post {
   linkTitle?: string;
   linkDesc?: string;
   linkImage?: string;
+  /** All attached images in position order (M3). `imageUrl` stays the first one. */
+  images?: string[];
   imageUrl?: string;
   videoUrl?: string;
   poll?: Poll;

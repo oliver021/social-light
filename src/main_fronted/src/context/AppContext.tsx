@@ -62,10 +62,13 @@ export interface AppContextType {
   logout: () => void;
   addPost: (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', extraData?: any) => void;
   reactToPost: (postId: string, reactionType: keyof Reactions) => void;
-  sharePost: (postId: string) => void;
+  /** Shares a post, optionally with a message. Resolves after the server accepts it; rejects with a readable message. */
+  sharePost: (postId: string, commentary?: string) => Promise<void>;
   votePoll: (postId: string, optionId: string) => void;
-  /** Rejects with a readable message when the comment is not saved. */
-  addComment: (postId: string, content: string) => Promise<void>;
+  /** Rejects with a readable message when the comment is not saved. A reply passes the id of the comment it answers. */
+  addComment: (postId: string, content: string, parentCommentId?: string | null) => Promise<void>;
+  /** Likes or unlikes a comment. Rolls back and shows a toast on failure. */
+  toggleCommentLike: (postId: string, commentId: string) => Promise<void>;
   /** Deletes my post. Rejects with a readable message when the server does not delete it. */
   deletePost: (postId: string) => Promise<void>;
   /** Deletes my comment on a post. Rejects with a readable message. */
@@ -235,6 +238,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     sharePost: feed.sharePost,
     votePoll: feed.votePoll,
     addComment: feed.addComment,
+    toggleCommentLike: feed.toggleCommentLike,
     deletePost: feed.deletePost,
     deleteComment: feed.deleteComment,
     toggleJoinGroup: groups.toggleJoinGroup,

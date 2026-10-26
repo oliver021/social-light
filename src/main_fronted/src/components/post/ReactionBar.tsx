@@ -5,6 +5,7 @@ import { MessageCircle, Share2, ThumbsUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Post, Reactions } from '../../types';
 import { T } from '../ui/tokens';
+import { SharePostDialog } from './SharePostDialog';
 
 export interface ReactionBarProps {
   post: Post;
@@ -37,8 +38,9 @@ const TEXT_BUTTON_SX = {
 
 /** Reaction counts, the react / comment / share buttons, and the reaction picker (hover or focus). */
 export const ReactionBar: React.FC<ReactionBarProps> = ({ post, commentOpen, onToggleComments }) => {
-  const { reactToPost, sharePost } = useApp();
+  const { reactToPost } = useApp();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const totalReactionsCount = Object.values(post.reactions).reduce((a, b) => a + b, 0);
   const reacted = post.currentUserReaction ? REACTION_CONFIG[post.currentUserReaction] : null;
@@ -152,12 +154,13 @@ export const ReactionBar: React.FC<ReactionBarProps> = ({ post, commentOpen, onT
           Comment
         </Button>
 
-        {/* Share: count updates optimistically, persisted via /api/shares */}
-        <Button size="small" onClick={() => sharePost(post.id)} sx={TEXT_BUTTON_SX}>
+        {/* Share opens the share dialog: an optional message, then POST /api/shares */}
+        <Button size="small" onClick={() => setShareOpen(true)} sx={TEXT_BUTTON_SX}>
           <Share2 aria-hidden="true" size={18} strokeWidth={1.75} style={{ marginRight: 6 }} />
           Share
         </Button>
       </Box>
+      {shareOpen && <SharePostDialog post={post} open={shareOpen} onClose={() => setShareOpen(false)} />}
     </>
   );
 };

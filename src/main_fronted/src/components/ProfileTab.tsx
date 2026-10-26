@@ -26,6 +26,7 @@ import {
 import { MediaPicker } from './MediaPicker';
 import { PersonProfile } from './profile/PersonProfile';
 import { ProfilePosts } from './profile/ProfilePosts';
+import { ProfileShares } from './profile/ProfileShares';
 import { mediaUrl, unMediaUrl, messageOf } from '../api/gateway';
 
 const TOUCH_TARGET = { minHeight: 44, minWidth: 44 };
@@ -272,6 +273,7 @@ const OwnProfile: React.FC = () => {
       </Box>
 
       <ProfilePosts userId={currentUser.id} />
+      <ProfileShares userId={currentUser.id} />
 
       {/* EDIT PROFILE */}
       <ResponsiveDialog

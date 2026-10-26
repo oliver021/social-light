@@ -5,6 +5,7 @@ import { BarChart4, ExternalLink } from 'lucide-react';
 import type { Post } from '../../types';
 import { mediaUrl } from '../../api/gateway';
 import { T } from '../ui/tokens';
+import { ImageGallery } from './ImageGallery';
 
 export interface PostBodyProps {
   post: Post;
@@ -35,6 +36,8 @@ export const PostBody: React.FC<PostBodyProps> = ({ post }) => {
   const { votePoll } = useApp();
   const linkHref = safeHttpUrl(post.linkUrl);
   const linkHost = linkHref ? new URL(linkHref).hostname : null;
+  // Every image of the post (M3), or the single legacy image when only that is known.
+  const gallery = post.images && post.images.length > 0 ? post.images : post.imageUrl ? [post.imageUrl] : [];
 
   return (
     <>
@@ -109,17 +112,7 @@ export const PostBody: React.FC<PostBodyProps> = ({ post }) => {
         </Box>
       )}
 
-      {post.type === 'image' && post.imageUrl && (
-        <Box sx={{ borderRadius: 'var(--ui-radius-lg)', overflow: 'hidden', border: `1px solid ${T.border}`, bgcolor: T.surface2 }}>
-          <Box
-            component="img"
-            src={mediaUrl(post.imageUrl)}
-            alt={postImageAlt(post)}
-            referrerPolicy="no-referrer"
-            sx={{ display: 'block', width: '100%', maxWidth: '100%', maxHeight: 560, objectFit: 'cover' }}
-          />
-        </Box>
-      )}
+      {post.type === 'image' && gallery.length > 0 && <ImageGallery images={gallery} alt={postImageAlt(post)} />}
 
       {post.type === 'video' && post.videoUrl && (
         <Box sx={{ borderRadius: 'var(--ui-radius-lg)', overflow: 'hidden', border: `1px solid ${T.border}`, bgcolor: 'black' }}>

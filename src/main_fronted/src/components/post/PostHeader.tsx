@@ -10,17 +10,19 @@ import { T } from '../ui/tokens';
 
 export interface PostHeaderProps {
   post: Post;
+  /** A read-only copy (a shared post on a profile): no "More actions" menu at all. */
+  readOnly?: boolean;
 }
 
 /**
  * Author line of a post: avatar, name (opens their profile), "@handle · time", the type tag, and,
  * for the author only, the "More actions" menu with delete.
  */
-export const PostHeader: React.FC<PostHeaderProps> = ({ post }) => {
+export const PostHeader: React.FC<PostHeaderProps> = ({ post, readOnly = false }) => {
   const { currentUser, openProfile, deletePost, showToast } = useApp();
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Owner rule: no owner id means no delete control.
-  const isOwner = !!post.authorId && post.authorId === currentUser.id;
+  const isOwner = !readOnly && !!post.authorId && post.authorId === currentUser.id;
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>

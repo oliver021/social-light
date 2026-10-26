@@ -14,8 +14,8 @@ const post: Post = {
   createdAt: '5m ago',
   reactions: { like: 0, love: 0, laugh: 0, wow: 0, sad: 0, angry: 0 },
   comments: [
-    { id: 'c-1', authorId: ME, author: { name: 'Test User', handle: '@testuser', avatar: '' }, content: 'my comment', createdAt: 'now' },
-    { id: 'c-2', authorId: 'other-user', author: { name: 'Ben', handle: '@ben', avatar: '' }, content: 'their comment', createdAt: 'now' },
+    { id: 'c-1', authorId: ME, author: { name: 'Test User', handle: '@testuser', avatar: '' }, content: 'my comment', createdAt: 'now', parentCommentId: null },
+    { id: 'c-2', authorId: 'other-user', author: { name: 'Ben', handle: '@ben', avatar: '' }, content: 'their comment', createdAt: 'now', parentCommentId: null },
   ],
   sharesCount: 0,
   currentUserReaction: null,

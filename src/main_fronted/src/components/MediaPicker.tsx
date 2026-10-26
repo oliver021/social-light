@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Button, LinearProgress, Typography } from '@mui/material';
 import { useDropzone, type Accept, type FileRejection } from 'react-dropzone';
 import { Upload } from 'lucide-react';
@@ -18,6 +18,8 @@ interface MediaPickerProps {
    * Resolve to an error message to reject the file, or null to accept it.
    */
   validate?: (file: File) => Promise<string | null>;
+  /** Reports true while an upload runs, and false again when it ends or the picker unmounts. */
+  onBusyChange?: (busy: boolean) => void;
 }
 
 const MAX_BYTES: Record<MediaPickerProps['kind'], number> = {
@@ -50,10 +52,16 @@ function rejectionMessage(kind: MediaPickerProps['kind'], rejection: FileRejecti
 // Pick-upload-preview control for image/video media. Files are chosen with a button or
 // dragged onto the dashed area (react-dropzone), validated, uploaded with real progress,
 // and only the resulting url is handed to the parent.
-export const MediaPicker: React.FC<MediaPickerProps> = ({ kind, value, onChange, label, disabled = false, validate }) => {
+export const MediaPicker: React.FC<MediaPickerProps> = ({ kind, value, onChange, label, disabled = false, validate, onBusyChange }) => {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    onBusyChange?.(uploading);
+  }, [uploading]);
+  // A picker removed mid-upload must not leave its parent waiting on it.
+  useEffect(() => () => onBusyChange?.(false), []);
 
   const busy = uploading || disabled;
   const src = mediaUrl(value);

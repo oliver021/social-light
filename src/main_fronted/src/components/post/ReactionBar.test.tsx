@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { act, screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import { renderWithProviders } from '../../test/render';
 import { ReactionBar } from './ReactionBar';
 import { makePost } from './fixtures';
@@ -32,11 +32,13 @@ describe('ReactionBar', () => {
     expect(screen.queryByRole('button', { name: 'React' })).toBeNull();
   });
 
-  it('Share calls sharePost with the post id', async () => {
+  it('Share opens the share dialog, and sharing from it calls sharePost with the post id', async () => {
     const { user, ctx } = renderWithProviders(
       <ReactionBar post={makePost({ id: 'post-3' })} commentOpen={false} onToggleComments={() => {}} />,
     );
     await user.click(screen.getByRole('button', { name: 'Share' }));
-    expect(ctx.sharePost).toHaveBeenCalledWith('post-3');
+    const dialog = screen.getByRole('dialog', { name: 'Share post' });
+    await user.click(within(dialog).getByRole('button', { name: 'Share' }));
+    expect(ctx.sharePost).toHaveBeenCalledWith('post-3', '');
   });
 });

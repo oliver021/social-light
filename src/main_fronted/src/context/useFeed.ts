@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, type MutableRefObject } from 'react';
-import { UserProfile, Post, Reactions } from '../types';
+import { UserProfile, Post, Reactions, Comment } from '../types';
 import { postsApi, engagementApi, feedApi, mediaUrl, describeApiError, messageOf } from '../api/gateway';
 import { feedItemToPost, newPostToPost } from '../api/mappers';
 import { usePersistentState } from './usePersistentState';
@@ -13,6 +13,17 @@ import {
   enrichShares,
   type PostPatch,
 } from './feedEnrichment';
+
+/** A post carries at most this many images (M3). */
+export const MAX_POST_IMAGES = 4;
+
+/** The image urls of an image post: `imageUrls` (M3) or the legacy single `imageUrl`. */
+function attachedImageUrls(extra: any): string[] {
+  const urls: unknown[] = Array.isArray(extra?.imageUrls)
+    ? extra.imageUrls
+    : typeof extra?.imageUrl === 'string' ? [extra.imageUrl] : [];
+  return urls.filter((u): u is string => typeof u === 'string' && u.length > 0).slice(0, MAX_POST_IMAGES);
+}
 
 interface Deps {
   myUserId: MutableRefObject<string>;
@@ -45,6 +56,10 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
   const [timeline, setTimeline] = useState<ProfileTimeline | null>(null);
   // Maps a postId -> the current user's reaction id on it, so a toggle can DELETE it.
   const myReactionIds = useRef<Map<string, string>>(new Map());
+  // Maps a commentId -> the current user's like id on that comment (M3).
+  const myCommentReactionIds = useRef<Map<string, string>>(new Map());
+  // Comments whose like is being saved, so a double click does not send two requests.
+  const pendingCommentLikes = useRef<Set<string>>(new Set());
   // Bumped by every timeline load, so a slow response for a previous profile is dropped.
   const timelineSeq = useRef(0);
 
@@ -59,34 +74,48 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
   const findPost = (postId: string): Post | undefined =>
     posts.find((p) => p.id === postId) ?? timeline?.posts.find((p) => p.id === postId);
 
-  // Apply one enrichment result to the list it was loaded for. A timeline result is dropped
+  // Apply enrichment results to the list they were loaded for. A timeline result is dropped
   // when that timeline was replaced while the request was in flight.
-  const commit = (target: Target, patch: PostPatch | null) => {
-    if (!patch) return;
+  const commit = (target: Target, patch: PostPatch | PostPatch[] | null) => {
+    const patches = patch === null ? [] : Array.isArray(patch) ? patch : [patch];
+    if (patches.length === 0) return;
     if (target.list === 'feed') {
-      setPosts((prev) => applyPatches(prev, [patch]));
+      setPosts((prev) => applyPatches(prev, patches));
       return;
     }
     if (timelineSeq.current !== target.seq) return;
-    setTimeline((t) => (t && t.userId === target.userId ? { ...t, posts: applyPatches(t.posts, [patch]) } : t));
+    setTimeline((t) => (t && t.userId === target.userId ? { ...t, posts: applyPatches(t.posts, patches) } : t));
   };
 
   // Each enrichment paints as soon as it resolves; a failed one leaves its field as it was.
+  // Comments and reactions land in one step: the comment likes are applied to the comments,
+  // so the comments must be in place first.
   const enrichAll = (list: Post[], target: Target) => {
     enrichAuthors(list).then((patch) => commit(target, patch)).catch(() => {});
-    enrichComments(list).then((patch) => commit(target, patch)).catch(() => {});
-    enrichReactions(list, myUserId.current)
-      .then((result) => {
-        if (!result) return;
-        // Replace my reaction ids for these posts only, so the other list keeps its own.
-        for (const p of list) myReactionIds.current.delete(p.id);
-        for (const [postId, mine] of result.mine) myReactionIds.current.set(postId, mine.reactionId);
-        commit(target, result.patch);
+    Promise.allSettled([enrichComments(list), enrichReactions(list, myUserId.current)])
+      .then(([comments, reactions]) => {
+        const patches: PostPatch[] = [];
+        if (comments.status === 'fulfilled' && comments.value) patches.push(comments.value);
+        if (reactions.status === 'fulfilled' && reactions.value) {
+          const result = reactions.value;
+          // Replace my reaction ids for these posts only, so the other list keeps its own.
+          for (const p of list) myReactionIds.current.delete(p.id);
+          for (const [postId, mine] of result.mine) myReactionIds.current.set(postId, mine.reactionId);
+          for (const [commentId, mine] of result.mineComments) myCommentReactionIds.current.set(commentId, mine.reactionId);
+          patches.push(result.patch, result.commentPatch);
+        }
+        commit(target, patches);
       })
       .catch(() => {});
     enrichShares(list).then((patch) => commit(target, patch)).catch(() => {});
     enrichMedia(list).then((patch) => commit(target, patch)).catch(() => {});
   };
+
+  const findComment = (postId: string, commentId: string): Comment | undefined =>
+    findPost(postId)?.comments.find((c) => c.id === commentId);
+
+  const updateComment = (postId: string, commentId: string, fn: (c: Comment) => Comment) =>
+    updatePost(postId, (p) => ({ ...p, comments: p.comments.map((c) => (c.id === commentId ? fn(c) : c)) }));
 
   const loadFeed = async () => {
     const { data } = await feedApi.GET('/api/feed/home');
@@ -143,19 +172,29 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     if (!data) throw new Error(describeApiError(error, response, 'Your post was not published'));
 
     let created = newPostToPost(data, currentUser);
-    const attachment: { mediaType: 'image' | 'video'; url: string } | null =
-      type === 'image' && _extraData?.imageUrl ? { mediaType: 'image', url: _extraData.imageUrl }
-      : type === 'video' && _extraData?.videoUrl ? { mediaType: 'video', url: _extraData.videoUrl }
-      : null;
-    if (attachment) {
+    if (type === 'image') {
+      // One post-media row per image, positions 0..n-1 in the order chosen. A failed row is
+      // skipped: the post stays, and the ones that were saved are shown.
+      const urls = attachedImageUrls(_extraData);
+      const attached: string[] = [];
+      for (const [position, url] of urls.entries()) {
+        const res = await postsApi.POST('/api/post-medias', {
+          body: { postId: data.id, fileUrl: url, mediaType: 'image', position },
+        });
+        const shown = mediaUrl(url);
+        if (res.response.ok && res.data && shown) attached.push(shown);
+      }
+      if (attached.length > 0) created = { ...created, type: 'image', images: attached, imageUrl: attached[0] };
+      const failed = urls.length - attached.length;
+      if (failed > 0) showToast(`${failed} of ${urls.length} images were not attached`);
+    } else if (type === 'video' && _extraData?.videoUrl) {
       // Persist the upload as a post-media row, then show it on the optimistic post.
+      const url: string = _extraData.videoUrl;
       const res = await postsApi.POST('/api/post-medias', {
-        body: { postId: data.id, fileUrl: attachment.url, mediaType: attachment.mediaType, position: 0 },
+        body: { postId: data.id, fileUrl: url, mediaType: 'video', position: 0 },
       });
       if (res.response.ok && res.data) {
-        created = attachment.mediaType === 'video'
-          ? { ...created, type: 'video', videoUrl: mediaUrl(attachment.url) }
-          : { ...created, type: 'image', imageUrl: mediaUrl(attachment.url) };
+        created = { ...created, type: 'video', videoUrl: mediaUrl(url) };
       } else {
         showToast(describeApiError(res.error, res.response, 'Your post was saved without its media'));
       }
@@ -209,19 +248,22 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
 
   // Persist through the Engagement API (sharerId bound from the JWT), optimistically
   // bump the count.
-  const sharePost = (postId: string) => {
+  // Resolves once the server has accepted the share. On failure the count rolls back, a toast
+  // shows the reason, and the promise rejects so the share dialog stays open with the text.
+  const sharePost = async (postId: string, commentary?: string): Promise<void> => {
+    const text = commentary?.trim() || null;
     updatePost(postId, (p) => ({ ...p, sharesCount: p.sharesCount + 1 }));
-    (async () => {
-      try {
-        const { error, response } = await engagementApi.POST('/api/shares', {
-          body: { targetType: 'Post', targetId: postId, commentary: null },
-        });
-        if (!response.ok) throw new Error(describeApiError(error, response, 'The post was not shared'));
-      } catch (err) {
-        updatePost(postId, (p) => ({ ...p, sharesCount: Math.max(0, p.sharesCount - 1) }));
-        showToast(messageOf(err, 'The post was not shared'));
-      }
-    })();
+    try {
+      const { error, response } = await engagementApi.POST('/api/shares', {
+        body: { targetType: 'Post', targetId: postId, commentary: text },
+      });
+      if (!response.ok) throw new Error(describeApiError(error, response, 'The post was not shared'));
+    } catch (err) {
+      updatePost(postId, (p) => ({ ...p, sharesCount: Math.max(0, p.sharesCount - 1) }));
+      const message = messageOf(err, 'The post was not shared');
+      showToast(message);
+      throw new Error(message);
+    }
   };
 
   const votePoll = (postId: string, optionId: string) => {
@@ -251,23 +293,68 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
 
   // Comment through the Engagement API (polymorphic target: a Post), then append
   // optimistically to the thread. authorId is bound from the JWT on the server.
-  // Rejects with a readable message when the server does not accept the comment, so the
-  // composer keeps the text.
-  const addComment = async (postId: string, content: string): Promise<void> => {
+  // A reply passes the id of the comment it answers as parentCommentId. Rejects with a
+  // readable message when the server does not accept the comment, so the composer keeps the text.
+  const addComment = async (postId: string, content: string, parentCommentId: string | null = null): Promise<void> => {
     const { data, error, response } = await engagementApi.POST('/api/comments', {
-      body: { targetType: 'Post', targetId: postId, parentCommentId: null, body: content },
+      body: { targetType: 'Post', targetId: postId, parentCommentId, body: content },
     });
     if (!data) throw new Error(describeApiError(error, response, 'Your comment was not posted'));
-    const newComment = {
+    const post = findPost(postId);
+    const newComment: Comment = {
       id: data.id,
       authorId: currentUser.id,
       author: { name: currentUser.name, handle: currentUser.handle, avatar: currentUser.avatar },
       content,
       createdAt: 'Just now',
+      parentCommentId,
+      likes: 0,
+      likedByMe: false,
     };
-    updatePost(postId, (post) => ({ ...post, comments: [...post.comments, newComment] }));
-    // Notify the post's author that I commented (no-op if it's my own post).
-    notify(findPost(postId)?.authorId, 'comment', 'Post', postId);
+    updatePost(postId, (p) => ({ ...p, comments: [...p.comments, newComment] }));
+    // A reply notifies the author of the comment it answers; a comment notifies the post's
+    // author. Both are no-ops for my own content.
+    if (parentCommentId) {
+      notify(findComment(postId, parentCommentId)?.authorId, 'comment', 'Comment', parentCommentId);
+    } else {
+      notify(post?.authorId, 'comment', 'Post', postId);
+    }
+  };
+
+  // Like or unlike a comment (Engagement reactions with targetType 'Comment'). Optimistic;
+  // on failure the like rolls back and a toast shows the reason. Never rejects.
+  const toggleCommentLike = async (postId: string, commentId: string): Promise<void> => {
+    const current = findComment(postId, commentId);
+    if (!current || pendingCommentLikes.current.has(commentId)) return;
+    const wasLiked = !!current.likedByMe;
+    const previousLikes = current.likes ?? 0;
+    const previousId = myCommentReactionIds.current.get(commentId);
+
+    pendingCommentLikes.current.add(commentId);
+    updateComment(postId, commentId, (c) => ({
+      ...c,
+      likedByMe: !wasLiked,
+      likes: Math.max(0, previousLikes + (wasLiked ? -1 : 1)),
+    }));
+    try {
+      if (wasLiked) {
+        if (!previousId) throw new Error('Your like was not removed: reload the comments and try again');
+        const { error, response } = await engagementApi.DELETE('/api/reactions/{id}', { params: { path: { id: previousId } } });
+        if (!response.ok) throw new Error(describeApiError(error, response, 'Your like was not removed'));
+        myCommentReactionIds.current.delete(commentId);
+      } else {
+        const { data, error, response } = await engagementApi.POST('/api/reactions', {
+          body: { targetType: 'Comment', targetId: commentId, reactionType: 'like' },
+        });
+        if (!data) throw new Error(describeApiError(error, response, 'Your like was not saved'));
+        myCommentReactionIds.current.set(commentId, data.id);
+      }
+    } catch (err) {
+      updateComment(postId, commentId, (c) => ({ ...c, likedByMe: wasLiked, likes: previousLikes }));
+      showToast(messageOf(err, 'Your like was not saved'));
+    } finally {
+      pendingCommentLikes.current.delete(commentId);
+    }
   };
 
   // Delete my post (Posts module). On success the post leaves the feed and any timeline, and
@@ -295,16 +382,27 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     );
   };
 
-  // Delete my comment (Engagement module) and remove it from that post's thread.
+  // Delete my comment (Engagement module). A comment with replies stays in the thread as a
+  // "Comment deleted" placeholder, so its replies are not orphaned; the server does not cascade.
   const deleteComment = async (postId: string, commentId: string): Promise<void> => {
     const { error, response } = await engagementApi.DELETE('/api/comments/{id}', { params: { path: { id: commentId } } });
     if (!response.ok) throw new Error(describeApiError(error, response, 'The comment was not deleted'));
-    updatePost(postId, (p) => ({ ...p, comments: p.comments.filter((c) => c.id !== commentId) }));
+    myCommentReactionIds.current.delete(commentId);
+    const hasReplies = (findPost(postId)?.comments ?? []).some((c) => c.parentCommentId === commentId);
+    updatePost(postId, (p) => ({
+      ...p,
+      comments: hasReplies
+        ? p.comments.map((c) => (c.id === commentId
+          ? { ...c, authorId: undefined, content: '', likes: 0, likedByMe: false, deleted: true }
+          : c))
+        : p.comments.filter((c) => c.id !== commentId),
+    }));
   };
 
   // Forget the previous account's cached posts (used when the signed-in user changes).
   const reset = () => {
     myReactionIds.current.clear();
+    myCommentReactionIds.current.clear();
     timelineSeq.current += 1; // drop any timeline response still in flight
     setTimeline(null);
     setPosts([]);
@@ -326,6 +424,7 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     sharePost,
     votePoll,
     addComment,
+    toggleCommentLike,
     deletePost,
     deleteComment,
     reset,

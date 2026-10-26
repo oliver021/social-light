@@ -18,6 +18,7 @@ import {
   subtleSx,
 } from '../ui';
 import { ProfilePosts } from './ProfilePosts';
+import { ProfileShares } from './ProfileShares';
 
 type ProfileDto = ProfileComponents['schemas']['ProfileDto'];
 
@@ -186,6 +187,7 @@ export const PersonProfile: React.FC<{ userId: string }> = ({ userId }) => {
       </Surface>
 
       <ProfilePosts userId={userId} />
+      <ProfileShares userId={userId} />
     </Box>
   );
 };

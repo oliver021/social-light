@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { renderWithProviders } from '../test/render';
 import { PostCard } from './PostCard';
 import type { Post } from '../types';
@@ -29,10 +29,12 @@ describe('PostCard', () => {
     expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
   });
 
-  it('Share calls sharePost with the post id', async () => {
+  it('Share opens the share dialog, and sharing from it calls sharePost with the post id', async () => {
     const { user, ctx } = renderWithProviders(<PostCard post={post} />);
     await user.click(screen.getByRole('button', { name: 'Share' }));
-    expect(ctx.sharePost).toHaveBeenCalledWith('post-1');
+    const dialog = screen.getByRole('dialog', { name: 'Share post' });
+    await user.click(within(dialog).getByRole('button', { name: 'Share' }));
+    expect(ctx.sharePost).toHaveBeenCalledWith('post-1', '');
   });
 
   it('typing a comment and pressing the send button calls addComment(postId, text)', async () => {

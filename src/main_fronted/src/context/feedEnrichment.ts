@@ -9,7 +9,7 @@ import { commentDtoToComment, toReactionKey, emptyReactions, withHandle } from '
 /** A pure transform for one post. Returns the post unchanged when it is out of scope. */
 export type PostPatch = (post: Post) => Post;
 
-/** One reaction of mine on a post: its reaction id (so a toggle can DELETE it) and kind. */
+/** One reaction of mine on a post or a comment: its reaction id (so a toggle can DELETE it) and kind. */
 export interface MyReaction {
   reactionId: string;
   key: keyof Reactions;
@@ -17,8 +17,12 @@ export interface MyReaction {
 
 export interface ReactionEnrichment {
   patch: PostPatch;
+  /** Applies the like tallies to the comments of the posts in this batch. */
+  commentPatch: PostPatch;
   /** My reaction per post id, for the postIds in this batch only. */
   mine: Map<string, MyReaction>;
+  /** My like per comment id (every comment reaction I hold), so an unlike can DELETE it. */
+  mineComments: Map<string, MyReaction>;
 }
 
 const idSet = (posts: Post[]) => new Set(posts.map((p) => p.id));
@@ -34,26 +38,35 @@ export async function enrichAuthors(posts: Post[]): Promise<PostPatch | null> {
     : p);
 }
 
-/** Attachments are separate post-media rows; the first one by position is shown. */
+/**
+ * Attachments are separate post-media rows. Every image of a post is kept in position order
+ * (`images`, with `imageUrl` as the first one); a video post keeps its first video.
+ */
 export async function enrichMedia(posts: Post[]): Promise<PostPatch | null> {
   const ids = idSet(posts);
   const { data } = await postsApi.GET('/api/post-medias');
   if (!data) return null;
-  const first = new Map<string, { fileUrl: string; mediaType: string; position: number }>();
+  const byPost = new Map<string, { fileUrl: string; mediaType: string; position: number }[]>();
   for (const m of data) {
     if (!ids.has(m.postId)) continue;
-    const position = Number(m.position) || 0;
-    const cur = first.get(m.postId);
-    if (!cur || position < cur.position) first.set(m.postId, { fileUrl: m.fileUrl, mediaType: m.mediaType, position });
+    const list = byPost.get(m.postId) ?? [];
+    list.push({ fileUrl: m.fileUrl, mediaType: m.mediaType, position: Number(m.position) || 0 });
+    byPost.set(m.postId, list);
   }
-  if (first.size === 0) return null;
+  if (byPost.size === 0) return null;
+  for (const list of byPost.values()) list.sort((a, b) => a.position - b.position);
   return (p) => {
-    const m = first.get(p.id);
-    if (!m) return p;
-    const isVideo = /video/i.test(m.mediaType);
-    return isVideo
-      ? { ...p, type: 'video', videoUrl: mediaUrl(m.fileUrl) }
-      : { ...p, type: 'image', imageUrl: mediaUrl(m.fileUrl) };
+    const list = byPost.get(p.id);
+    if (!list || list.length === 0) return p;
+    const first = list[0];
+    if (/video/i.test(first.mediaType)) {
+      return { ...p, type: 'video', videoUrl: mediaUrl(first.fileUrl) };
+    }
+    const images = list
+      .filter((m) => !/video/i.test(m.mediaType))
+      .map((m) => mediaUrl(m.fileUrl))
+      .filter((url): url is string => !!url);
+    return { ...p, type: 'image', images, imageUrl: images[0] };
   };
 }
 
@@ -71,31 +84,56 @@ export async function enrichShares(posts: Post[]): Promise<PostPatch | null> {
 }
 
 /**
- * Fetch all reactions once, group them per post into tallies, and record MY reaction (with
- * its id) per post. Posts in the batch with no reactions get an empty tally.
+ * Fetch all reactions once. Post reactions are grouped into per-post tallies, and MY reaction
+ * (with its id) is recorded per post. Comment reactions (targetType 'Comment') are tallied into
+ * each comment's `likes` / `likedByMe`, and my like per comment is recorded with its id.
  */
 export async function enrichReactions(posts: Post[], myUserId: string): Promise<ReactionEnrichment | null> {
   const ids = idSet(posts);
   const { data } = await engagementApi.GET('/api/reactions');
   if (!data) return null;
-  const relevant = data.filter((r) => r.targetType === 'Post' && ids.has(r.targetId));
 
   const tallies = new Map<string, Reactions>();
   const mine = new Map<string, MyReaction>();
-  for (const r of relevant) {
+  const commentLikes = new Map<string, { count: number; mine: boolean }>();
+  const mineComments = new Map<string, MyReaction>();
+  for (const r of data) {
     const key = toReactionKey(r.reactionType);
-    const tally = tallies.get(r.targetId) ?? emptyReactions();
-    tally[key] += 1;
-    tallies.set(r.targetId, tally);
-    if (r.userId === myUserId) mine.set(r.targetId, { reactionId: r.id, key });
+    if (r.targetType === 'Post' && ids.has(r.targetId)) {
+      const tally = tallies.get(r.targetId) ?? emptyReactions();
+      tally[key] += 1;
+      tallies.set(r.targetId, tally);
+      if (r.userId === myUserId) mine.set(r.targetId, { reactionId: r.id, key });
+    } else if (r.targetType === 'Comment') {
+      const cur = commentLikes.get(r.targetId) ?? { count: 0, mine: false };
+      cur.count += 1;
+      if (r.userId === myUserId) {
+        cur.mine = true;
+        mineComments.set(r.targetId, { reactionId: r.id, key });
+      }
+      commentLikes.set(r.targetId, cur);
+    }
   }
+
   const patch: PostPatch = (p) => {
     if (!ids.has(p.id)) return p;
     return tallies.has(p.id)
       ? { ...p, reactions: tallies.get(p.id)!, currentUserReaction: mine.get(p.id)?.key ?? null }
       : { ...p, reactions: emptyReactions(), currentUserReaction: null };
   };
-  return { patch, mine };
+  // Every comment of a post in this batch gets its tally, or zero when nobody liked it.
+  const commentPatch: PostPatch = (p) => {
+    if (!ids.has(p.id) || p.comments.length === 0) return p;
+    return {
+      ...p,
+      comments: p.comments.map((c) => ({
+        ...c,
+        likes: commentLikes.get(c.id)?.count ?? 0,
+        likedByMe: commentLikes.get(c.id)?.mine ?? false,
+      })),
+    };
+  };
+  return { patch, commentPatch, mine, mineComments };
 }
 
 /** Real comment threads per post, with each distinct author resolved through Profile. */

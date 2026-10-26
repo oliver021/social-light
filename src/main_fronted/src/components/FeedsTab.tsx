@@ -4,7 +4,7 @@ import { PostCard } from './PostCard';
 import { StoriesBar } from './StoriesBar';
 import { Box, Button, Divider, IconButton, TextField, Typography } from '@mui/material';
 import { MediaPicker } from './MediaPicker';
-import { Image, FileVideo, BarChart4, Link2, Send, Plus, Minus, CheckCircle, Users } from 'lucide-react';
+import { Image, FileVideo, BarChart4, Link2, Send, Plus, Minus, CheckCircle, Users, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { EmptyState } from './ui/EmptyState';
 import { Surface } from './ui/Surface';
@@ -12,9 +12,12 @@ import { UserAvatar } from './ui/UserAvatar';
 import { useSettled } from './ui/useSettled';
 import { PostSkeleton } from './ui/Skeletons';
 import { T, touchTargetSx } from './ui/tokens';
+import { mediaUrl } from '../api/gateway';
 import { SHOW_PEOPLE_EVENT } from './Widgets';
 
 const POSTS_PAGE_SIZE = 5;
+/** A post carries at most this many images (matches the store's limit). */
+const MAX_COMPOSER_IMAGES = 4;
 
 const ICON_BUTTON_SX = (active: boolean) => ({
   ...touchTargetSx,
@@ -57,9 +60,11 @@ export const FeedsTab: React.FC = () => {
   const [postText, setPostText] = useState('');
   const [composerType, setComposerType] = useState<'text' | 'link' | 'image' | 'video' | 'poll'>('text');
 
-  // Attachment inputs. imageInput/videoInput hold the url returned by the media upload.
+  // Attachment inputs. imageUrls/videoInput hold the urls returned by the media uploads.
   const [linkInput, setLinkInput] = useState('');
-  const [imageInput, setImageInput] = useState('');
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  // True while an image upload runs: the post cannot be published until it ends.
+  const [imageUploading, setImageUploading] = useState(false);
   const [videoInput, setVideoInput] = useState('');
 
   // Poll configuration
@@ -72,7 +77,7 @@ export const FeedsTab: React.FC = () => {
   // Each attachment type needs real input before the post can be published.
   const filledPollOptions = pollOptions.filter((opt) => opt.trim() !== '');
   const attachmentMissing =
-    (composerType === 'image' && !imageInput) ||
+    (composerType === 'image' && imageUrls.length === 0) ||
     (composerType === 'video' && !videoInput) ||
     (composerType === 'link' && !linkInput.trim()) ||
     (composerType === 'poll' && (!pollQuestion.trim() || filledPollOptions.length < 2));
@@ -109,7 +114,7 @@ export const FeedsTab: React.FC = () => {
       };
     } else if (composerType === 'image') {
       extraData = {
-        imageUrl: imageInput
+        imageUrls
       };
     } else if (composerType === 'video') {
       extraData = {
@@ -134,7 +139,7 @@ export const FeedsTab: React.FC = () => {
     setPostText('');
     setComposerType('text');
     setLinkInput('');
-    setImageInput('');
+    setImageUrls([]);
     setVideoInput('');
     setPollQuestion('');
     setPollOptions(['', '']);
@@ -260,7 +265,35 @@ export const FeedsTab: React.FC = () => {
 
           {composerType === 'image' && (
             <ComposerDrawer key="image">
-              <MediaPicker kind="image" label="Image" value={imageInput || undefined} onChange={(url) => setImageInput(url ?? '')} />
+              {imageUrls.length > 0 && (
+                <Box component="ul" aria-label="Attached images" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {imageUrls.map((url, index) => (
+                    <Box component="li" key={url} sx={{ position: 'relative', width: 96, height: 96, borderRadius: 'var(--ui-radius-sm)', overflow: 'hidden', border: `1px solid ${T.border}`, bgcolor: T.surface }}>
+                      <Box component="img" src={mediaUrl(url)} alt={`Image ${index + 1}`} referrerPolicy="no-referrer" sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      <IconButton
+                        aria-label={`Remove image ${index + 1}`}
+                        disabled={imageUploading}
+                        onClick={() => setImageUrls((prev) => prev.filter((_, i) => i !== index))}
+                        sx={{ position: 'absolute', top: 4, right: 4, width: 44, height: 44, bgcolor: T.surface, color: T.text, '&:hover': { bgcolor: T.surface2 }, '&.Mui-focusVisible': { outline: `2px solid ${T.focus}` } }}
+                      >
+                        <X aria-hidden="true" size={16} strokeWidth={1.75} />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+              {imageUrls.length < MAX_COMPOSER_IMAGES ? (
+                <MediaPicker
+                  kind="image"
+                  label={imageUrls.length === 0 ? 'Image' : `Add image ${imageUrls.length + 1} of ${MAX_COMPOSER_IMAGES}`}
+                  onChange={(url) => { if (url) setImageUrls((prev) => (prev.length < MAX_COMPOSER_IMAGES ? [...prev, url] : prev)); }}
+                  onBusyChange={setImageUploading}
+                />
+              ) : (
+                <Typography sx={{ fontSize: 'var(--ui-fs-xs)', color: T.muted }}>
+                  A post can have up to {MAX_COMPOSER_IMAGES} images.
+                </Typography>
+              )}
               <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <Button onClick={handleCloseComposerExtra} sx={{ ...SMALL_TEXT_BUTTON_SX, color: T.muted }}>Cancel</Button>
               </Box>
@@ -326,7 +359,7 @@ export const FeedsTab: React.FC = () => {
           <Button
             variant="contained"
             onClick={handlePostSubmit}
-            disabled={(!postText.trim() && composerType === 'text') || attachmentMissing}
+            disabled={(!postText.trim() && composerType === 'text') || attachmentMissing || imageUploading}
             endIcon={<Send aria-hidden="true" size={16} strokeWidth={1.75} />}
             sx={{
               ...touchTargetSx,

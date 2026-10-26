@@ -124,6 +124,7 @@ export function commentDtoToComment(c: CommentDto, author: ProfileDto | null): C
     },
     content: c.body,
     createdAt: 'recently', // CommentDto has no timestamp in the v0 engagement schema.
+    parentCommentId: c.parentCommentId ?? null,
   };
 }
 
@@ -176,6 +177,24 @@ export function catalogItemToMarketItem(dto: CatalogItemDto, imageUrl: string, c
     imageUrl,
     seller: dto.catalogBrand?.brand ?? 'socialLight Store',
     dateAdded: (Number(dto.availableStock ?? 0) > 0) ? 'In stock' : 'Out of stock',
+  };
+}
+
+/**
+ * A PostDto loaded by id (a shared post, M3) -> a read-only UI Post. The author's name and
+ * avatar are filled in by the caller from Profile; attachments from the post-media rows.
+ */
+export function postDtoToPost(p: PostDto): Post {
+  return {
+    id: p.id,
+    type: 'text',
+    authorId: p.authorId || undefined,
+    author: { name: 'Unknown User', handle: '', avatar: defaultAvatar(p.authorId || p.id) },
+    content: p.body ?? '',
+    createdAt: timeAgo(p.publishedAt),
+    reactions: emptyReactions(),
+    comments: [],
+    sharesCount: 0,
   };
 }
 
