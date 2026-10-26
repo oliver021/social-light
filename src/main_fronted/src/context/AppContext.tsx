@@ -10,7 +10,7 @@ import { useNotifications } from './useNotifications';
 import { useFeed, type ProfileTimeline } from './useFeed';
 import { useSocial, type Person, type FollowCounts } from './useSocial';
 import { useGroups, type NewGroup } from './useGroups';
-import { useMarketplace } from './useMarketplace';
+import { useMarketplace, type CatalogOption, type MarketDetail, type MarketQuery } from './useMarketplace';
 import { useProfile } from './useProfile';
 import { useChat, type ChatMeta } from './useChat';
 import { type MessageReactionType, type MuteChoice } from './chatRules';
@@ -52,6 +52,32 @@ export interface AppContextType {
   marketCategories: string[];
   /** True until the first catalog load settles. Optional: absent means settled. */
   marketplaceLoading?: boolean;
+  /** Catalog types and brands for the chips and the brand select. */
+  marketTypes: CatalogOption[];
+  marketBrands: CatalogOption[];
+  /** Current search / filter state; changing it reloads page 0 from the server. */
+  marketQuery: MarketQuery;
+  setMarketQuery: (partial: Partial<MarketQuery>) => void;
+  marketTotal: number;
+  /** "{total} products", or "Showing n of the loaded items" when a filter runs on the loaded page. */
+  marketCountLabel: string;
+  /** Set when a filter runs on the results (brand on a text search). */
+  marketNote: string | null;
+  marketHasMore: boolean;
+  marketLoadingMore: boolean;
+  loadMoreMarket: () => Promise<void>;
+  /** Readable message for the last failed catalog request, or null. */
+  marketError: string | null;
+  retryMarketplace: () => Promise<void>;
+  /** First 5 products whose name starts with the text (navbar search). Rejects on failure. */
+  searchMarketItems: (text: string) => Promise<MarketItem[]>;
+  /** The product whose detail dialog is open, or null. */
+  marketSelectedId: string | null;
+  openMarketItem: (id: string) => void;
+  closeMarketItem: () => void;
+  marketDetail: MarketDetail | null;
+  marketDetailLoading: boolean;
+  marketDetailError: string | null;
   notifications: NotificationItem[];
   activeTab: ActiveTab;
   /** Selecting a tab shows my own profile on the Profile tab. */
@@ -356,6 +382,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     marketItems: marketplace.marketItems,
     marketCategories: marketplace.marketCategories,
     marketplaceLoading: marketplace.loading,
+    marketTypes: marketplace.marketTypes,
+    marketBrands: marketplace.marketBrands,
+    marketQuery: marketplace.marketQuery,
+    setMarketQuery: marketplace.setMarketQuery,
+    marketTotal: marketplace.marketTotal,
+    marketCountLabel: marketplace.marketCountLabel,
+    marketNote: marketplace.marketNote,
+    marketHasMore: marketplace.marketHasMore,
+    marketLoadingMore: marketplace.marketLoadingMore,
+    loadMoreMarket: marketplace.loadMoreMarket,
+    marketError: marketplace.marketError,
+    retryMarketplace: marketplace.retryMarketplace,
+    searchMarketItems: marketplace.searchMarketItems,
+    marketSelectedId: marketplace.marketSelectedId,
+    openMarketItem: marketplace.openMarketItem,
+    closeMarketItem: marketplace.closeMarketItem,
+    marketDetail: marketplace.marketDetail,
+    marketDetailLoading: marketplace.marketDetailLoading,
+    marketDetailError: marketplace.marketDetailError,
     notifications: notifications.notifications,
     notificationsLoading: notifications.loading,
     activeTab: ui.activeTab,

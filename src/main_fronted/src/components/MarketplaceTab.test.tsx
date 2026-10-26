@@ -55,19 +55,116 @@ describe('MarketplaceTab', () => {
     expect(screen.getByRole('button', { name: 'Checkout unavailable in this demo' })).toBeDisabled();
   });
 
-  it('filters by category and shows the no-match state with Clear filters', async () => {
+  it('sends the chosen type to the query instead of filtering on the page', async () => {
+    const setMarketQuery = vi.fn();
     const { user } = renderWithProviders(<MarketplaceTab />, {
-      context: { marketItems: [lamp, sofa], marketCategories: ['Electronics', 'Furniture'] },
+      context: {
+        marketItems: [lamp, sofa],
+        marketTypes: [{ id: 1, label: 'Electronics' }, { id: 2, label: 'Furniture' }],
+        setMarketQuery,
+      },
     });
     await user.click(screen.getByRole('button', { name: 'Furniture' }));
-    expect(screen.queryByRole('article', { name: 'Desk lamp' })).not.toBeInTheDocument();
-    expect(screen.getByRole('article', { name: 'Grey sofa' })).toBeInTheDocument();
-
-    await user.type(screen.getByRole('textbox', { name: 'Search items' }), 'zzz');
-    expect(screen.getByRole('heading', { name: 'No items match your search' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
-    expect(screen.getByRole('article', { name: 'Grey sofa' })).toBeInTheDocument();
+    expect(setMarketQuery).toHaveBeenCalledWith({ typeId: 2 });
+    // The page itself is not filtered client-side: both loaded products stay listed.
     expect(screen.getByRole('article', { name: 'Desk lamp' })).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: 'Grey sofa' })).toBeInTheDocument();
+  });
+
+  it('shows the no-match state when a filter is active and Clear filters resets the query', async () => {
+    const setMarketQuery = vi.fn();
+    const { user } = renderWithProviders(<MarketplaceTab />, {
+      context: {
+        marketItems: [],
+        marketQuery: { text: 'zzz', mode: 'smart', typeId: null, brandId: null },
+        setMarketQuery,
+      },
+    });
+    expect(screen.getByRole('heading', { name: 'No products match' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(setMarketQuery).toHaveBeenCalledWith({ text: '', typeId: null, brandId: null });
+  });
+
+  it('debounces the search text into the query after a pause', async () => {
+    const setMarketQuery = vi.fn();
+    const { user } = renderWithProviders(<MarketplaceTab />, { context: { marketItems: [lamp], setMarketQuery } });
+    await user.type(screen.getByRole('textbox', { name: 'Search the marketplace' }), 'lamp');
+    expect(setMarketQuery).not.toHaveBeenCalled();
+    await waitFor(() => expect(setMarketQuery).toHaveBeenCalledWith({ text: 'lamp' }));
+  });
+
+  it('switches the search mode through a radio group and explains smart search', async () => {
+    const setMarketQuery = vi.fn();
+    const { user } = renderWithProviders(<MarketplaceTab />, { context: { marketItems: [lamp], setMarketQuery } });
+    const group = screen.getByRole('radiogroup', { name: 'Search mode' });
+    expect(within(group).getByRole('radio', { name: 'Smart search' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText('Finds related products, not just matching words.')).toBeInTheDocument();
+    await user.click(within(group).getByRole('radio', { name: 'Name' }));
+    expect(setMarketQuery).toHaveBeenCalledWith({ mode: 'name' });
+  });
+
+  it('shows the count label from the query and a Load more button only while more pages exist', async () => {
+    const loadMoreMarket = vi.fn(async () => {});
+    const { user } = renderWithProviders(<MarketplaceTab />, {
+      context: { marketItems: [lamp], marketCountLabel: '101 products', marketHasMore: true, loadMoreMarket },
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('101 products');
+    await user.click(screen.getByRole('button', { name: 'Load more' }));
+    expect(loadMoreMarket).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides Load more when every product is loaded', () => {
+    renderWithProviders(<MarketplaceTab />, { context: { marketItems: [lamp], marketHasMore: false } });
+    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+  });
+
+  it('shows the server message on a failed load and retries through the context', async () => {
+    const retryMarketplace = vi.fn(async () => {});
+    const { user } = renderWithProviders(<MarketplaceTab />, {
+      context: { marketItems: [], marketError: 'Could not load the marketplace: the server failed (HTTP 500).', retryMarketplace },
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load the marketplace: the server failed (HTTP 500).');
+    expect(screen.queryByRole('heading', { name: 'No listings yet' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(retryMarketplace).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the product detail for a catalog item and shows Out of stock for zero stock', async () => {
+    const openMarketItem = vi.fn();
+    const { user } = renderWithProviders(<MarketplaceTab />, {
+      context: {
+        marketItems: [lamp],
+        openMarketItem,
+        marketSelectedId: 'cat-1',
+        marketDetail: { id: 'cat-1', name: 'Desk lamp', description: 'Warm light', price: 25, brand: 'Acme', type: 'Electronics', imageUrl: '/bff/api/catalog/items/cat-1/pic', availableStock: 0 },
+      },
+    });
+    const dialog = screen.getByRole('dialog', { name: 'Desk lamp' });
+    expect(within(dialog).getByText('Out of stock')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Checkout unavailable in this demo' })).toBeDisabled();
+  });
+
+  it('asks the hook to open the detail when a catalog card is viewed', async () => {
+    const openMarketItem = vi.fn();
+    const { user } = renderWithProviders(<MarketplaceTab />, { context: { marketItems: [lamp], openMarketItem } });
+    await user.click(screen.getByRole('button', { name: 'View Desk lamp' }));
+    expect(openMarketItem).toHaveBeenCalledWith('cat-1');
+  });
+
+  it('shows In stock when the product has stock', () => {
+    renderWithProviders(<MarketplaceTab />, {
+      context: {
+        marketItems: [lamp],
+        marketSelectedId: 'cat-1',
+        marketDetail: { id: 'cat-1', name: 'Desk lamp', description: '', price: 25, brand: 'Acme', type: 'Electronics', imageUrl: '', availableStock: 4 },
+      },
+    });
+    expect(screen.getByText('In stock')).toBeInTheDocument();
+  });
+
+  it('offers no product page for a local draft', () => {
+    renderWithProviders(<MarketplaceTab />, { context: { marketItems: [draft] } });
+    expect(screen.queryByRole('button', { name: 'View Old bike' })).not.toBeInTheDocument();
   });
 
   it('keeps Save draft disabled until a title and a price are entered', async () => {

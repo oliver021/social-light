@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { TAB_ID } from '../layout/tabs';
 import { EmptyState, T, UserAvatar, UserLine } from '../ui';
 import { menuRowSx } from './menuSx';
+import { messageOf } from '../../api/gateway';
+import type { MarketItem } from '../../types';
 
 export interface SearchBoxProps {
   /** Phones: the search row is shown only when opened from the navbar's search button. */
@@ -22,7 +24,9 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
     currentUser,
     posts,
     groups,
-    marketItems,
+    searchMarketItems,
+    openMarketItem,
+    showToast,
     setSelectedGroupId,
     setActiveTab,
     people,
@@ -32,6 +36,11 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  // Market name matches come from the server (by/{name}), so items beyond the loaded page are found.
+  const [marketMatches, setMarketMatches] = useState<{ text: string; items: MarketItem[] }>({ text: '', items: [] });
+  // Kept in a ref so a new toast function never restarts the search effect.
+  const toastRef = useRef(showToast);
+  toastRef.current = showToast;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -47,6 +56,30 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
 
   const query = searchQuery.toLowerCase().trim();
 
+  useEffect(() => {
+    const text = searchQuery.trim();
+    if (!text) {
+      setMarketMatches({ text: '', items: [] });
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      searchMarketItems(text)
+        .then((items) => {
+          if (!cancelled) setMarketMatches({ text, items: items.slice(0, 3) });
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          setMarketMatches({ text, items: [] });
+          toastRef.current(messageOf(err, 'Could not search the marketplace'), 'error');
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, searchMarketItems]);
+
   // 1. Matches for Groups
   const matchedGroups = query
     ? groups.filter(g =>
@@ -56,14 +89,8 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
       ).slice(0, 3)
     : [];
 
-  // 2. Matches for Market Items
-  const matchedMarket = query
-    ? marketItems.filter(item =>
-        item.title.toLowerCase().includes(query) ||
-        item.category.toLowerCase().includes(query) ||
-        item.description.toLowerCase().includes(query)
-      ).slice(0, 3)
-    : [];
+  // 2. Matches for Market Items (server name search, see marketMatches above)
+  const matchedMarket = query && marketMatches.text === searchQuery.trim() ? marketMatches.items : [];
 
   // 3. Matches for Posts
   const matchedPosts = query
@@ -94,6 +121,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ mobileOpen, onCloseMobile 
       setSelectedGroupId(item.id);
       setActiveTab(TAB_ID.groups);
     } else if (type === 'market') {
+      openMarketItem(item.id);
       setActiveTab(TAB_ID.marketplace);
     } else if (type === 'post') {
       setActiveTab(TAB_ID.home);
