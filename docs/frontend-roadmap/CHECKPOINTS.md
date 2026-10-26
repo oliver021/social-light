@@ -39,3 +39,43 @@ overflow, images without `alt`, unnamed buttons, touch targets, element position
   "Chat with …" tooltip (M2), event creation swallowing a failed POST (M5).
 
 **Verdict:** approved. Resume the workflow with `{ "from": "M1" }`.
+
+## Checkpoint 2 — after M4 (2026-10-25)
+
+**Stack:** local Docker Compose demo stack, web image rebuilt from `feat/frontend-roadmap`
+at `b4595e6` (previous image kept as `sociallight/web:checkpoint1`). Smoke specs run with
+the system Chrome: `SL_WEB_URL=http://localhost:3000 PW_CHANNEL=chrome npx playwright test -c playwright.web.config.ts`.
+Every spec registers fresh `smoke-*@example.test` accounts.
+
+| Spec (L6) | Milestone | Result |
+|---|---|---|
+| `auth.smoke` — register, reload stays signed in | M0.1 | Pass |
+| `ownership.smoke` — delete my post from its menu, gone after reload | M1 | Pass |
+| `conversations.smoke` — comment, reply, like the reply, reply still nested after reload | M3 | Pass (the backend accepts nested `parentCommentId`, which the M3 review had flagged as unverified) |
+| `profiles.smoke` — B opens A from People, sees A's post, follows | M2 | Pass |
+| `friends.smoke` — two accounts: request, accept, both see "Friends"; A blocks B, B's post leaves A's feed | M4 | Pass after two test fixes (below) |
+
+**Two-account risk probe (M4 review):** does a blocked author's post flash in the feed
+before the block list loads? A temporary spec watched the DOM from the first paint
+across 3 reloads: the post never appeared (0 mutations). Not reproducible on the local
+stack; it can still race on a slow network because `loadRelationships` is not awaited
+before the feed, so keep it as a follow-up.
+
+**Fixed during the checkpoint (tests and tooling only, no app code):**
+1. `friends.smoke`: A registered before B, so A's People list was loaded without B, and
+   the widget shows 5 people until "See all". The spec now reloads and expands the list.
+2. `friends.smoke`: the Home nav item is named "Home, N unread notifications" when there
+   are alerts (correct accessibility), so the locator matches the prefix. Timeout raised
+   to 120 s for the two-account flow.
+3. `playwright.web.config.ts`: `PW_CHANNEL=chrome` runs on the system Chrome, so no
+   browser download is needed.
+
+**Carried forward (not blocking):**
+- Pluralisation: "1 unread notifications", "1 friends".
+- `createPost`: a network error on one image upload shows "Your post was not published"
+  although the post exists (M3 review). Fix with M5, which reuses `createPostRaw`.
+- A reply sent in a thread with more than 2 replies lands under "View more replies".
+- Failed reads of blocks/friends/preferences keep the previous state silently.
+- Repeated test-account names pile up in the People widget (data from smoke runs).
+
+**Verdict:** approved. Resume the workflow with `{ "from": "M5" }`.
