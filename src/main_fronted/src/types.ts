@@ -127,11 +127,18 @@ export interface NotificationItem {
 export interface ChatMessage {
   id: string;
   senderId: string;
+  /** Text for `text` messages; the file url for `image` messages. */
   text: string;
   createdAt: string;
+  /** The backend contentType: `text` or `image` (unknown types render as text). */
+  contentType?: string;
 }
 
+/** A chat window. Keyed by the backend chat id; a DM also carries the peer's user id. */
 export interface ChatBoxState {
+  chatId: string;
+  kind: 'dm' | 'group';
+  /** The other person of a DM. Empty for a group. */
   userId: string;
   name: string;
   avatar: string;
@@ -139,13 +146,23 @@ export interface ChatBoxState {
   isMinimized: boolean;
 }
 
+/** One row of the conversation list, keyed by the backend chat id. */
 export interface ChatThread {
+  chatId: string;
+  kind: 'dm' | 'group';
+  /** The other person of a DM. Empty for a group. */
   userId: string;
   name: string;
   avatar: string;
   handle: string;
   lastMessage: string;
   lastMessageTime: string;
+  /** Unread peer messages in this chat (0 when muted). */
+  unreadCount: number;
+  /** True when unreadCount > 0. */
   unread: boolean;
+  muted: boolean;
+  /** Participants count, for groups. */
+  memberCount?: number;
 }
 

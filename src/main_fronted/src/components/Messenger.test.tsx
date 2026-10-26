@@ -5,6 +5,8 @@ import { Messenger } from './Messenger';
 import type { ChatBoxState } from '../types';
 
 const ana: ChatBoxState = {
+  chatId: 'chat-ana',
+  kind: 'dm',
   userId: 'user-ana',
   name: 'Ana Ruiz',
   avatar: '',
@@ -26,7 +28,7 @@ describe('Messenger', () => {
     const input = screen.getByRole('textbox', { name: 'Message Ana Ruiz' });
     await user.type(input, 'hi there');
     await user.click(screen.getByRole('button', { name: 'Send message' }));
-    expect(sendMessage).toHaveBeenCalledWith('user-ana', 'hi there');
+    expect(sendMessage).toHaveBeenCalledWith('chat-ana', 'hi there');
     await waitFor(() => expect(input).toHaveValue(''));
   });
 
@@ -51,7 +53,7 @@ describe('Messenger', () => {
       context: { activeChats: [ana], chatMessages: {}, sendMessage },
     });
     await user.click(screen.getByRole('button', { name: 'Send thumbs up' }));
-    expect(sendMessage).toHaveBeenCalledWith('user-ana', '👍');
+    expect(sendMessage).toHaveBeenCalledWith('chat-ana', '👍');
   });
 
   it('the minimize button calls minimizeChat for that chat', async () => {
@@ -60,6 +62,6 @@ describe('Messenger', () => {
       context: { activeChats: [ana], chatMessages: {}, minimizeChat },
     });
     await user.click(screen.getByRole('button', { name: 'Minimize chat with Ana Ruiz' }));
-    expect(minimizeChat).toHaveBeenCalledWith('user-ana');
+    expect(minimizeChat).toHaveBeenCalledWith('chat-ana');
   });
 });

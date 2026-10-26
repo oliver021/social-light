@@ -2,6 +2,7 @@ import React, { createContext, useContext, useMemo } from 'react';
 import { Alert, Button, Snackbar } from '@mui/material';
 import { UserProfile, Post, Group, MarketItem, NotificationItem, Reactions, ChatMessage, ChatBoxState, ChatThread } from '../types';
 import { INITIAL_USER } from '../data';
+import { messageOf } from '../api/gateway';
 import { type ActiveTab, useUiPreferences } from './useUiPreferences';
 import { useSessionState } from './session';
 import { useToast, type ToastSeverity } from './useToast';
@@ -11,7 +12,8 @@ import { useSocial, type Person, type FollowCounts } from './useSocial';
 import { useGroups, type NewGroup } from './useGroups';
 import { useMarketplace } from './useMarketplace';
 import { useProfile } from './useProfile';
-import { useChat } from './useChat';
+import { useChat, type ChatMeta } from './useChat';
+import { type MessageReactionType, type MuteChoice } from './chatRules';
 import { useStories, groupStoriesByAuthor, type Story, type StoryGroup, type StoryReply } from './useStories';
 import { useReels, type Reel } from './useReels';
 import { useEvents, isEventFull, type EventItem, type RsvpStatus, type Attendee } from './useEvents';
@@ -174,11 +176,32 @@ export interface AppContextType {
   chatThreads: ChatThread[];
   /** True until the conversation list settles. Optional: absent means settled. */
   chatThreadsLoading?: boolean;
+  /** Chat-level read state: receipts, reactions, pins and mutes (refreshed, not pushed). */
+  chatMeta: ChatMeta;
+  /** Display names of the people in my chats, by user id (group senders). */
+  memberNames: Record<string, string>;
+  isChatMuted: (chatId: string) => boolean;
   openChatWithUser: (user: { id: string; name: string; avatar: string; handle: string }) => void;
-  closeChat: (userId: string) => void;
-  minimizeChat: (userId: string) => void;
+  /** Opens a conversation I already belong to, by chat id (groups and listed DMs). */
+  openChat: (chatId: string) => void;
+  /** Closes a window by chat id, or by a DM peer's user id. */
+  closeChat: (key: string) => void;
+  minimizeChat: (chatId: string) => void;
   /** Rejects with a readable message when the message could not be sent (text is kept by the caller). */
-  sendMessage: (userId: string, text: string) => Promise<void>;
+  sendMessage: (chatId: string, text: string) => Promise<void>;
+  /** Uploads an image and sends it. Rejects with a readable message. */
+  sendImage: (chatId: string, file: File, onProgress?: (percent: number) => void) => Promise<void>;
+  reactToMessage: (messageId: string, reactionType: MessageReactionType) => Promise<void>;
+  pinMessage: (chatId: string, messageId: string) => Promise<void>;
+  unpinMessage: (chatId: string) => Promise<void>;
+  muteChat: (chatId: string, choice: MuteChoice) => Promise<void>;
+  unmuteChat: (chatId: string) => Promise<void>;
+  /** Creates a group with me as owner. Members that could not be added are returned; the group is kept. */
+  createGroupChat: (title: string, memberIds: string[]) => Promise<{ chatId: string; failedUserIds: string[] }>;
+  /** Chat-level block for a DM, written after the person-level block succeeded. */
+  blockInChat: (chatId: string, blockedId: string) => Promise<void>;
+  /** Re-reads read state and marks open, visible windows as read. */
+  markOpenChatsRead: () => void;
 
   // Generated modules (Stories / Reels / Events): real CRUD over the gateway.
   stories: Story[];
@@ -383,7 +406,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     cancelFriendRequest: relations.cancelFriendRequest,
     unfriend: relations.unfriend,
     blockUser: relations.blockUser,
-    unblockUser: relations.unblockUser,
+    unblockUser: async (userId: string) => {
+      const ok = await relations.unblockUser(userId);
+      // Unblocking also clears the chat-level block rows written when the person was blocked.
+      if (ok) await chat.unblockInChats(userId).catch((err) => showToast(messageOf(err, 'The chat block was not removed')));
+      return ok;
+    },
     isBlocked: relations.isBlocked,
     blockedUsers: relations.blockedUsers,
     hidePost: relations.hidePost,
@@ -409,9 +437,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       chat.openChatWithUser(user);
     },
+    chatMeta: chat.chatMeta,
+    memberNames: chat.memberNames,
+    isChatMuted: chat.isChatMuted,
+    openChat: chat.openChat,
     closeChat: chat.closeChat,
     minimizeChat: chat.minimizeChat,
     sendMessage: chat.sendMessage,
+    sendImage: chat.sendImage,
+    reactToMessage: chat.reactToMessage,
+    pinMessage: chat.pinMessage,
+    unpinMessage: chat.unpinMessage,
+    muteChat: chat.muteChat,
+    unmuteChat: chat.unmuteChat,
+    createGroupChat: chat.createGroupChat,
+    blockInChat: chat.blockInChat,
+    markOpenChatsRead: chat.markOpenChatsRead,
     stories: visibleStories,
     addStory: storiesState.addStory,
     viewStory: storiesState.viewStory,

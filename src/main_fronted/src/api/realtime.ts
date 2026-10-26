@@ -43,10 +43,13 @@ export async function leaveChat(chatId: string): Promise<void> {
   await connection.invoke('Leave', chatId);
 }
 
-/** Persist + broadcast a message through the hub. Server binds the sender from the JWT. */
-export async function sendChatMessage(chatId: string, content: string): Promise<void> {
+/**
+ * Persist + broadcast a message through the hub. Server binds the sender from the JWT.
+ * For `image` messages `content` is the uploaded file url.
+ */
+export async function sendChatMessage(chatId: string, content: string, contentType: 'text' | 'image' = 'text'): Promise<void> {
   const conn = await connectChatHub();
-  await conn.invoke('Send', chatId, 'text', content, null);
+  await conn.invoke('Send', chatId, contentType, content, null);
 }
 
 /** Subscribe to incoming messages; returns an unsubscribe fn. */

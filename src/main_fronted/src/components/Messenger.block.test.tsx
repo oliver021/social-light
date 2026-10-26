@@ -5,7 +5,7 @@ import { Messenger } from './Messenger';
 import type { ChatBoxState } from '../types';
 
 const ANA_ID = 'user-ana';
-const ana: ChatBoxState = { userId: ANA_ID, name: 'Ana Ruiz', avatar: '', handle: '@ana', isMinimized: false };
+const ana: ChatBoxState = { chatId: 'chat-ana', kind: 'dm', userId: ANA_ID, name: 'Ana Ruiz', avatar: '', handle: '@ana', isMinimized: false };
 
 describe('Messenger: blocking from the chat header', () => {
   it('Block asks first; Cancel does nothing; Block calls blockUser with that person id', async () => {
