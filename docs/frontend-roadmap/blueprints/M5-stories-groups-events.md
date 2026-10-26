@@ -83,6 +83,20 @@ pattern reactions use; it replaces my own state, not content).
 - Create event dialog: add `capacity` (optional positive integer) and end date ≥ start
   date validation with inline errors.
 
+## 3b. Carried from the reviews and checkpoints (do these too)
+
+- **Event creation swallows failures** (M0.4 review): `EventsWidget.handleCreate` does not
+  await `createEvent`, and `useEvents.createEvent` ignores a failed POST. Make
+  `createEvent` reject with `describeApiError(…, 'The event was not created')`; the
+  dialog awaits it, stays open with the message on failure, closes only on success.
+  `rsvpEvent`/`setRsvp` must roll back and toast on failure (§3 already requires it).
+- **Multi-image post reports "not published" on a network error** (M3 review,
+  checkpoint 2): in `useFeed.createPost` wrap each `post-medias` POST in `try/catch` and
+  count a thrown request as a failed attachment, so the post is kept and the toast says
+  "{k} of {n} images were not attached". `createGroupPost` reuses this path.
+- Tests: `createEvent` failure keeps the dialog open with the message; `createPost` with
+  one image request rejecting (network) keeps the post and toasts "1 of 3".
+
 ## 4. Tests
 
 - Stories: expired filtered; grouping/order; `replyToStory` contract + failure keeps
