@@ -26,6 +26,10 @@ agent that reads only `README.md` (this file, for the ground rules), its bluepri
 | **M6** | Messenger, completed | [M6](blueprints/M6-messenger.md) | M0.3 | M |
 | **M7** | Marketplace: full catalog and semantic search | [M7](blueprints/M7-marketplace.md) | M0.3 | S |
 | **M8** | Organizations | [M8](blueprints/M8-organizations.md) | M2 | M |
+| **M9** | One composer for every place you can post | [M9](blueprints/M9-scoped-composer.md) | M3, M5 | M |
+| **M10** | Communities: full posting and owner moderation | [M10](blueprints/M10-community-posting.md) | M9 | M |
+| **M11** | Organizations: a posts feed | [M11](blueprints/M11-organization-posting.md) | M9, M8 | M |
+| **M12** | Edit communities and organizations; roles (**blocked on B12**) | [M12](blueprints/M12-edit-communities-orgs.md) | M10, M11, B12 | M |
 | **B** | Backend track (not for the Haiku workflow) | [B](blueprints/B-backend-track.md) | none | L |
 
 M0.x is the pre-step the user asked for: tokens, layout, components and visual quality
@@ -36,6 +40,30 @@ The workflow runs them in the order of the table, strictly one after another (ea
 milestone sees the previous one's committed result). Track B is backend work through
 `code-engine` and the gateway; it is listed so the dependencies are visible, and is done
 by a human or a stronger model, not by this workflow.
+
+## Phase 2: posting in communities and organizations (M9–M12)
+
+Analysis of 2026-10-27. After M8, a community has a text-only composer and an organization
+has none. Communities and organizations can be created, read and deleted, but not edited.
+
+| Capability | Community | Organization | Needs backend? |
+|---|---|---|---|
+| Create / list / detail / delete (owner) | ✓ (M5) | ✓ (M8) | no |
+| Join / leave, members list | ✓ | ✓ | no |
+| Post text | ✓ (M5) | **M11** | no (`post-feeds.feedType` is a free string) |
+| Post images, video, links, polls | **M10** | **M11** | no |
+| Post links back to it from Home / profiles | ✓ | **M11** | no |
+| Owner removes a post / a member | **M10** | **M11** | works today; server-enforced only with B12/B13 |
+| Edit name, description, images, privacy | **M12** | **M12** | **B12** (`PUT`) |
+| Roles (admins who can post for an organization) | — | **M12** | **B12** |
+| Only members can post into it (server-side) | B13 | B13 | **B13** |
+| Private community posts hidden from non-members | B14 | — | **B14** |
+| Events hosted by a community or organization | B14 + future milestone | same | **B14** |
+
+M9–M11 need no backend change and run in the Haiku workflow (`{ "from": "M9" }`), with a
+human checkpoint after M11. M12 is written down but waits for B12. Posting **as** an
+organization (its name and logo as the author) would need an author type on `Post`, so it
+is out of scope. Organization posts read "{person} › {organization}".
 
 ## What is deliberately out of scope
 
@@ -49,7 +77,8 @@ by a human or a stronger model, not by this workflow.
 - **Post visibility** (public / followers / only me): stored but not enforced by Feed.API.
   A client-only filter would be fake privacy, so the selector waits for B4.
 - **Group join approval, assigning roles to others**: `GroupMember.userId` is bound from the
-  JWT, so nobody can add another person. Display only.
+  JWT, so nobody can add another person. Display only. Organization roles arrive with M12
+  after B12.
 - Modules not routed by the gateway (Moderation, Recommendation, Threads, Pages, Jobs,
   Gaming): need track B (B1) and a regenerated SDK first.
 

@@ -159,6 +159,7 @@ session with the built-in browser) against the Docker stack in `deploy/`:
 | M0.4 | Full L7 visual matrix; approve the look before features build on it. |
 | M4 | L6 smoke for M1–M4; two accounts: friend request, block hides content. |
 | M8 | All L6 smoke specs; final L7 pass; then `/code-review high` on the whole branch. |
+| M11 | Phase 2: `community` and `organizations` smoke (image post in a community, owner removes a post and a member, org post linked from Home); L7 at 390/1280 on both detail pages; `/code-review high` on M9–M11. |
 
 Results of each checkpoint go into `docs/frontend-roadmap/CHECKPOINTS.md` (date, stack
 build, pass/fail per item, screenshots path).

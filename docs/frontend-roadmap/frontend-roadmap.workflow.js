@@ -1,7 +1,7 @@
 export const meta = {
   name: 'frontend-roadmap',
   description: 'Run the frontend roadmap milestones one by one: Haiku implements, Haiku re-runs the gates, Sonnet reviews, Haiku fixes, then commit',
-  whenToUse: 'Execute docs/frontend-roadmap milestones (M0.1 … M8) sequentially on the feat/frontend-roadmap branch; run with scriptPath docs/frontend-roadmap/frontend-roadmap.workflow.js',
+  whenToUse: 'Execute docs/frontend-roadmap milestones (M0.1 … M11) sequentially on the feat/frontend-roadmap branch; run with scriptPath docs/frontend-roadmap/frontend-roadmap.workflow.js',
   phases: [
     { title: 'Setup', detail: 'branch, clean tree, npm ci, baseline gates' },
     { title: 'M0.1', detail: 'Test harness and baseline' },
@@ -16,6 +16,9 @@ export const meta = {
     { title: 'M6', detail: 'Messenger, completed' },
     { title: 'M7', detail: 'Marketplace: full catalog and semantic search' },
     { title: 'M8', detail: 'Organizations' },
+    { title: 'M9', detail: 'One composer for every place you can post' },
+    { title: 'M10', detail: 'Communities: full posting and owner moderation' },
+    { title: 'M11', detail: 'Organizations: a posts feed' },
   ],
 }
 
@@ -46,6 +49,11 @@ const MILESTONES = [
   { id: 'M6', title: 'Messenger, completed', file: 'M6-messenger.md' },
   { id: 'M7', title: 'Marketplace: full catalog and semantic search', file: 'M7-marketplace.md' },
   { id: 'M8', title: 'Organizations', file: 'M8-organizations.md', checkpoint: true },
+  // Phase 2: posting in communities and organizations. M12 (edit, roles) is blocked on
+  // track B item B12 and is added here only after B12 is merged and the SDK regenerated.
+  { id: 'M9', title: 'One composer for every place you can post', file: 'M9-scoped-composer.md' },
+  { id: 'M10', title: 'Communities: full posting and owner moderation', file: 'M10-community-posting.md' },
+  { id: 'M11', title: 'Organizations: a posts feed', file: 'M11-organization-posting.md', checkpoint: true },
 ]
 
 const opts = args || {}
