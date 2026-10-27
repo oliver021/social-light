@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Group } from '../types';
+import { Group, Post } from '../types';
 import { PostCard } from './PostCard';
+import { PostComposer } from './post/PostComposer';
 import { MediaPicker } from './MediaPicker';
 import { messageOf } from '../api/gateway';
 import {
@@ -28,6 +29,7 @@ import {
   Button,
   ButtonBase,
   Chip,
+  IconButton,
   InputAdornment,
   MenuItem,
   Tab,
@@ -35,7 +37,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { ArrowLeft, Search, SlidersHorizontal, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Search, SlidersHorizontal, Trash2, UserMinus, Users, X } from 'lucide-react';
 
 const TOUCH_TARGET = { minHeight: 44, minWidth: 44 };
 /** The pill button: a 44px target with the full radius token. */
@@ -55,6 +57,7 @@ type CommunityTab = 'posts' | 'members';
 
 export const GroupsTab: React.FC = () => {
   const {
+    currentUser,
     groups,
     groupsLoading,
     toggleJoinGroup,
@@ -64,9 +67,10 @@ export const GroupsTab: React.FC = () => {
     groupPosts,
     groupPostsLoading,
     loadGroupPosts,
-    createGroupPost,
     groupMembers,
     loadMembers,
+    removePostFromGroup,
+    removeMember,
     selectedGroupId,
     setSelectedGroupId,
     openProfile,
@@ -85,17 +89,14 @@ export const GroupsTab: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
-  // The community page: which tab is open, and the composer while a post is being sent.
+  // The community page: which tab is open, and what the owner is about to remove (M10).
   const [tab, setTab] = useState<CommunityTab>('posts');
-  const [composerText, setComposerText] = useState('');
-  const [composerError, setComposerError] = useState<string | null>(null);
-  const [posting, setPosting] = useState(false);
+  const [postToRemove, setPostToRemove] = useState<Post | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
 
   // Opening a community reads its posts; the Members tab reads its members when it is opened.
   useEffect(() => {
     setTab('posts');
-    setComposerText('');
-    setComposerError(null);
     if (selectedGroupId) loadGroupPosts(selectedGroupId).catch(() => {});
   }, [selectedGroupId]);
 
@@ -156,22 +157,9 @@ export const GroupsTab: React.FC = () => {
 
   const activeGroup = groups.find(g => g.id === selectedGroupId);
 
-  const handleGroupPost = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeGroup) return;
-    const text = composerText.trim();
-    if (!text) return;
-    setPosting(true);
-    setComposerError(null);
-    try {
-      await createGroupPost(activeGroup.id, text, 'text');
-      setComposerText('');
-    } catch (err) {
-      setComposerError(messageOf(err, 'Your post was not added to the community'));
-    } finally {
-      setPosting(false);
-    }
-  };
+  // Owner rule (M10): the owner (the creator's membership row) sees the moderation controls.
+  // The server does not enforce it yet (B3/B13); see the hook's notes.
+  const isOwner = activeGroup ? myRoleByGroup.get(activeGroup.id) === 'owner' : false;
 
   // One join control per community. Its state is shown by the variant and the label.
   const joinButton = (group: Group) => (
@@ -265,28 +253,26 @@ export const GroupsTab: React.FC = () => {
 
           {tab === 'posts' && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--ui-gap)' }}>
-              {/* Only members see the composer. */}
-              {activeGroup.joined && (
-                <Surface as="section" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  <Box component="form" onSubmit={handleGroupPost} noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      multiline
-                      minRows={2}
-                      placeholder="Share something with this community"
-                      value={composerText}
-                      disabled={posting}
-                      onChange={(e) => setComposerText(e.target.value)}
-                      slotProps={{ htmlInput: { 'aria-label': 'Post in this community' } }}
-                    />
-                    {composerError && <Alert severity="error">{composerError}</Alert>}
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <Button type="submit" variant="contained" disabled={posting || !composerText.trim()} sx={PILL_BUTTON}>
-                        {posting ? 'Posting…' : 'Post'}
-                      </Button>
-                    </Box>
-                  </Box>
+              {/* Only members get the composer (the same one as Home, M9); others are asked to join. */}
+              {activeGroup.joined ? (
+                <PostComposer
+                  key={activeGroup.id}
+                  target={{ kind: 'group', id: activeGroup.id, name: activeGroup.name }}
+                  placeholder={`Share something with ${activeGroup.name}`}
+                  label="Post in this community"
+                  onPosted={() => { loadGroupPosts(activeGroup.id).catch(() => {}); }}
+                />
+              ) : (
+                <Surface as="section" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+                  <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-sm)' }}>Join to post in this community</Typography>
+                  <Button
+                    variant="contained"
+                    onClick={() => handleToggleJoin(activeGroup)}
+                    aria-label={`Join ${activeGroup.name} to post`}
+                    sx={{ ...PILL_BUTTON, fontSize: 'var(--ui-fs-xs)' }}
+                  >
+                    Join
+                  </Button>
                 </Surface>
               )}
 
@@ -297,7 +283,15 @@ export const GroupsTab: React.FC = () => {
                 <EmptyState title="No posts in this community yet" body="Posts shared here will appear in this list." />
               )}
               {groupPosts.map((post) => (
-                <PostCard key={post.id} post={post} />
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  // The owner can take someone else's post out of this community. Their own posts
+                  // are removed with "Delete post" instead.
+                  extraMenuItems={isOwner && post.authorId !== currentUser.id
+                    ? [{ id: 'remove-from-community', label: 'Remove from community', icon: X, danger: true, onSelect: () => setPostToRemove(post) }]
+                    : undefined}
+                />
               ))}
             </Box>
           )}
@@ -316,6 +310,16 @@ export const GroupsTab: React.FC = () => {
                       avatarSrc={m.avatar}
                       onOpen={() => openProfile(m.userId)}
                       meta={<StatusChip label={m.role === 'owner' ? 'Owner' : 'Member'} tone={m.role === 'owner' ? 'primary' : 'neutral'} />}
+                      // Owner only, and never on the owner row.
+                      trailing={isOwner && m.role !== 'owner' ? (
+                        <IconButton
+                          aria-label={`Remove ${m.name}`}
+                          onClick={() => setMemberToRemove({ id: m.id, name: m.name })}
+                          sx={{ ...TOUCH_TARGET, color: T.danger, '&.Mui-focusVisible': { outline: `2px solid ${T.focus}`, outlineOffset: 2 } }}
+                        >
+                          <UserMinus aria-hidden="true" size={18} strokeWidth={1.75} />
+                        </IconButton>
+                      ) : undefined}
                     />
                   </Box>
                 ))}
@@ -337,6 +341,38 @@ export const GroupsTab: React.FC = () => {
               }}
               onClose={() => setConfirmDeleteOpen(false)}
             />
+          )}
+
+          {/* Owner moderation (M10): the confirm dialogs for taking a post out and removing a member. */}
+          {isOwner && (
+            <>
+              <ConfirmDialog
+                open={postToRemove !== null}
+                title={`Remove this post from ${activeGroup.name}?`}
+                body={postToRemove ? `It stays on ${postToRemove.author.name}'s profile.` : undefined}
+                confirmLabel="Remove"
+                destructive
+                onConfirm={async () => {
+                  if (!postToRemove) return;
+                  await removePostFromGroup(activeGroup.id, postToRemove.id);
+                  showToast('Post removed from the community', 'success');
+                }}
+                onClose={() => setPostToRemove(null)}
+              />
+              <ConfirmDialog
+                open={memberToRemove !== null}
+                title={memberToRemove ? `Remove ${memberToRemove.name} from this community?` : 'Remove this member?'}
+                body="They are no longer a member. They can join again."
+                confirmLabel="Remove"
+                destructive
+                onConfirm={async () => {
+                  if (!memberToRemove) return;
+                  await removeMember(activeGroup.id, memberToRemove.id);
+                  showToast(`${memberToRemove.name} was removed from the community`, 'success');
+                }}
+                onClose={() => setMemberToRemove(null)}
+              />
+            </>
           )}
         </Box>
       ) : (

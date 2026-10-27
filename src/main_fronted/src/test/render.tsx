@@ -93,6 +93,8 @@ export function makeAppContext(overrides: Partial<AppContextType> = {}): AppCont
     loadGroupPosts: asyncFn(),
     createGroupPost: asyncFn(),
     loadMembers: asyncFn(),
+    removePostFromGroup: asyncFn(),
+    removeMember: asyncFn(),
     myRoleByGroup: new Map(),
     deletePost: asyncFn(),
     deleteComment: asyncFn(),

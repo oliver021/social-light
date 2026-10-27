@@ -5,7 +5,7 @@ import { Ban, Bell, BellOff, Clock, EyeOff, Trash2 } from 'lucide-react';
 import type { Post } from '../../types';
 import { UserLine } from '../ui/UserLine';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
-import { OverflowMenu } from '../ui/OverflowMenu';
+import { OverflowMenu, type OverflowItem } from '../ui/OverflowMenu';
 import { T } from '../ui/tokens';
 import { BlockConfirm } from '../relationships/BlockConfirm';
 
@@ -13,6 +13,8 @@ export interface PostHeaderProps {
   post: Post;
   /** A read-only copy (a shared post on a profile): no "More actions" menu at all. */
   readOnly?: boolean;
+  /** Extra actions a page adds to the menu (e.g. a community owner's "Remove from community"). Not shown on a read-only copy. */
+  extraMenuItems?: OverflowItem[];
 }
 
 /**
@@ -20,7 +22,7 @@ export interface PostHeaderProps {
  * the "More actions" menu. The author gets Delete. Anyone else's post gets Hide post, Snooze,
  * Mute (or Unmute) and Block. A shared copy (readOnly) gets no menu.
  */
-export const PostHeader: React.FC<PostHeaderProps> = ({ post, readOnly = false }) => {
+export const PostHeader: React.FC<PostHeaderProps> = ({ post, readOnly = false, extraMenuItems = [] }) => {
   const { currentUser, openProfile, openGroup, deletePost, showToast, hidePost, snoozeUser, muteUser, removePreference, mutedUsers } = useApp();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
@@ -63,6 +65,7 @@ export const PostHeader: React.FC<PostHeaderProps> = ({ post, readOnly = false }
       <OverflowMenu
         label="More actions for this post"
         items={[
+          ...(readOnly ? [] : extraMenuItems),
           {
             id: 'delete',
             label: 'Delete post',

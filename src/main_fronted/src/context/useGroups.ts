@@ -267,6 +267,45 @@ export function useGroups({ myUserId, showToast, feed }: Deps) {
     }
   };
 
+  // Owner moderation (M10): take a post out of this community. Only the post-feed rows that
+  // link THIS post to THIS community are deleted; the post itself stays on its author's profile
+  // and on Home (never DELETE /api/posts). The server does not check that the caller owns the
+  // community yet (B3/B13), so the control is shown to the owner only (GroupsTab), and the
+  // server's answer decides here. Rejects with the server's reason; the list is re-read after
+  // any row was removed, so it always shows what the server holds.
+  const removePostFromGroup = async (groupId: string, postId: string): Promise<void> => {
+    const { data: feeds, error, response } = await postsApi.GET('/api/post-feeds');
+    if (!feeds) throw new Error(describeApiError(error, response, 'The post could not be removed from the community'));
+    const links = feeds.filter((f) => f.feedType === 'group' && f.targetId === groupId && f.postId === postId);
+    let removed = 0;
+    let failure: string | null = null;
+    for (const link of links) {
+      const res = await postsApi.DELETE('/api/post-feeds/{id}', { params: { path: { id: link.id } } });
+      if (!res.response.ok) {
+        failure = describeApiError(res.error, res.response, 'The post was not removed from the community');
+        break;
+      }
+      removed += 1;
+    }
+    if (failure && removed === 0) throw new Error(failure);
+    await loadGroupPosts(groupId);
+    if (failure) throw new Error(failure);
+  };
+
+  // Owner moderation (M10): remove a member row from this community. The owner row cannot be
+  // removed. The member list and the member count change only after the server's 2xx. The
+  // server does not check ownership yet (B13); the control is shown to the owner only.
+  const removeMember = async (groupId: string, memberRowId: string): Promise<void> => {
+    const member = (membersByGroup[groupId] ?? []).find((m) => m.id === memberRowId);
+    if (member?.role === 'owner') throw new Error('The owner cannot be removed from the community.');
+    const { error, response } = await groupsApi.DELETE('/api/group-members/{id}', { params: { path: { id: memberRowId } } });
+    if (!response.ok) throw new Error(describeApiError(error, response, 'The member was not removed'));
+    setMembersByGroup((prev) => (prev[groupId]
+      ? { ...prev, [groupId]: prev[groupId].filter((m) => m.id !== memberRowId) }
+      : prev));
+    setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, memberCount: Math.max(0, g.memberCount - 1) } : g)));
+  };
+
   // Forget the previous account's memberships, roles and community data (used when the signed-in user changes).
   const reset = () => {
     myGroupMemberIds.current.clear();
@@ -287,7 +326,9 @@ export function useGroups({ myUserId, showToast, feed }: Deps) {
     loadGroupPosts,
     groupPostsLoading,
     createGroupPost,
+    removePostFromGroup,
     loadMembers,
     membersByGroup,
+    removeMember,
   };
 }

@@ -137,6 +137,10 @@ export interface AppContextType {
   groupMembers: Record<string, GroupMember[]>;
   /** Reads a community's members with their roles. */
   loadMembers: (groupId: string) => Promise<void>;
+  /** Owner: takes a post out of a community (the post stays on its author's profile and Home). Rejects with a readable message. */
+  removePostFromGroup: (groupId: string, postId: string) => Promise<void>;
+  /** Owner: removes a member row from a community (never the owner row). Rejects with a readable message. */
+  removeMember: (groupId: string, memberRowId: string) => Promise<void>;
   /** Deletes a community I own. Rejects with a readable message. */
   deleteGroup: (groupId: string) => Promise<void>;
   /** My role per community id ('owner' for a community I created). Absent means not a member. */
@@ -430,6 +434,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     createGroupPost: groups.createGroupPost,
     groupMembers: groups.membersByGroup,
     loadMembers: groups.loadMembers,
+    removePostFromGroup: groups.removePostFromGroup,
+    removeMember: groups.removeMember,
     marketItems: marketplace.marketItems,
     marketCategories: marketplace.marketCategories,
     marketplaceLoading: marketplace.loading,

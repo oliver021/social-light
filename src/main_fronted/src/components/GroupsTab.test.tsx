@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { renderWithProviders } from '../test/render';
 import { GroupsTab } from './GroupsTab';
 import type { Group } from '../types';
+import { makePost } from './post/fixtures';
 
 const design: Group = {
   id: 'g1',
@@ -150,20 +151,23 @@ describe('GroupsTab community posts and members', () => {
     expect(screen.queryByRole('textbox', { name: 'Post in this community' })).not.toBeInTheDocument();
   });
 
-  it('a member posts into the community through createGroupPost, and the text clears on success', async () => {
-    const createGroupPost = vi.fn(async () => {});
-    const { user } = renderWithProviders(<GroupsTab />, { context: { groups: [gaming], selectedGroupId: 'g2', createGroupPost } });
+  it('a member posts into the community through the shared composer, and the text clears on success', async () => {
+    const createPostIn = vi.fn(async () => makePost());
+    const loadGroupPosts = vi.fn(async () => {});
+    const { user } = renderWithProviders(<GroupsTab />, { context: { groups: [gaming], selectedGroupId: 'g2', createPostIn, loadGroupPosts } });
     await user.type(screen.getByRole('textbox', { name: 'Post in this community' }), 'Who plays tonight?');
     await user.click(screen.getByRole('button', { name: 'Post' }));
-    await waitFor(() => expect(createGroupPost).toHaveBeenCalledWith('g2', 'Who plays tonight?', 'text'));
+    await waitFor(() => expect(createPostIn).toHaveBeenCalledWith({ kind: 'group', id: 'g2', name: 'Gaming Lounge' }, 'Who plays tonight?', 'text', {}));
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Post in this community' })).toHaveValue(''));
+    // The community's list is re-read after the post, so the new post shows up in it.
+    await waitFor(() => expect(loadGroupPosts).toHaveBeenCalledWith('g2'));
   });
 
   it('a refused community post keeps the text and shows the reason', async () => {
-    const createGroupPost = vi.fn(async () => {
+    const createPostIn = vi.fn(async () => {
       throw new Error('Your post was not added to the community: Not a member');
     });
-    const { user } = renderWithProviders(<GroupsTab />, { context: { groups: [gaming], selectedGroupId: 'g2', createGroupPost } });
+    const { user } = renderWithProviders(<GroupsTab />, { context: { groups: [gaming], selectedGroupId: 'g2', createPostIn } });
     await user.type(screen.getByRole('textbox', { name: 'Post in this community' }), 'Hi');
     await user.click(screen.getByRole('button', { name: 'Post' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Your post was not added to the community: Not a member');
