@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { vi } from 'vitest';
 import { AppContext, type AppContextType } from '../context/AppContext';
+import { makePost } from '../components/post/fixtures';
 
 /** A full, signed-in app context. Every function is a vi.fn() unless overridden. */
 export function makeAppContext(overrides: Partial<AppContextType> = {}): AppContextType {
@@ -79,6 +80,7 @@ export function makeAppContext(overrides: Partial<AppContextType> = {}): AppCont
     register: asyncFn(),
     logout: vi.fn(),
     addPost: vi.fn(),
+    createPostIn: vi.fn(async () => makePost()),
     reactToPost: vi.fn(),
     sharePost: asyncFn(),
     votePoll: vi.fn(),

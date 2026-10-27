@@ -4,10 +4,12 @@ import { groupsApi, postsApi, describeApiError, messageOf, getProfile, mediaUrl 
 import { defaultAvatar, postDtoToPost, withHandle } from '../api/mappers';
 import { usePersistentState } from './usePersistentState';
 import { type ToastSeverity } from './useToast';
+import type { PostTarget } from './useFeed';
 
-/** What the communities need from the feed: create a post row, show a community's posts, delete a post. */
+/** What the communities need from the feed: post into a community, show its posts, delete a post. */
 export interface GroupFeedDeps {
-  createPostRaw: (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', extra?: any) => Promise<Post>;
+  /** The one path that writes a post and links it to a community (M9). */
+  createPostIn: (target: PostTarget, content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', extra?: any) => Promise<Post>;
   setGroupFeed: (groupId: string, posts: Post[]) => void;
   deletePost: (postId: string) => Promise<void>;
   /** Show my new post at the top of the home feed (and my profile), with its community link. */
@@ -222,31 +224,17 @@ export function useGroups({ myUserId, showToast, feed }: Deps) {
     }
   };
 
-  // Post inside a community: the post is created through the Posts module (the same path as a
-  // home post), then linked to the community with a post-feed row. If the link is refused or
-  // cannot be sent, the just-created post is deleted again, so no orphan post stays in my feed.
-  // Rejects with a readable message; the composer keeps the text.
+  // Post inside a community: the write and the community link are done by createPostIn (M9),
+  // then the community's posts are re-read. Rejects with a readable message; the composer keeps
+  // the text.
   const createGroupPost = async (
     groupId: string,
     content: string,
     type: 'text' | 'link' | 'image' | 'video' | 'poll' = 'text',
     extra?: any,
   ): Promise<void> => {
-    const created = await feed.createPostRaw(content, type, extra);
-    const linkError = await postsApi.POST('/api/post-feeds', {
-      body: { postId: created.id, feedType: 'group', targetId: groupId },
-    }).then(
-      (res) => (res.response.ok ? null : describeApiError(res.error, res.response, 'Your post was not added to the community')),
-      (err) => messageOf(err, 'Your post was not added to the community'),
-    );
-    if (linkError) {
-      feed.deletePost(created.id).catch(() => {});
-      throw new Error(linkError);
-    }
-    // The home feed gets the new post directly (with its community link), instead of a second
-    // full feed load and enrichment pass.
     const groupName = groups.find((g) => g.id === groupId)?.name ?? 'Community';
-    feed.addToFeed({ ...created, groupId, groupName });
+    await feed.createPostIn({ kind: 'group', id: groupId, name: groupName }, content, type, extra);
     await loadGroupPosts(groupId);
   };
 

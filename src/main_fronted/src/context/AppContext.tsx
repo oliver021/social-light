@@ -7,7 +7,7 @@ import { type ActiveTab, useUiPreferences } from './useUiPreferences';
 import { useSessionState } from './session';
 import { useToast, type ToastSeverity } from './useToast';
 import { useNotifications } from './useNotifications';
-import { useFeed, type ProfileTimeline } from './useFeed';
+import { useFeed, type PostTarget, type ProfileTimeline } from './useFeed';
 import { useSocial, type Person, type FollowCounts } from './useSocial';
 import { useGroups, type NewGroup } from './useGroups';
 import { useOrganizations, type NewOrganization, type Organization, type OrganizationMember } from './useOrganizations';
@@ -105,6 +105,8 @@ export interface AppContextType {
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => void;
   addPost: (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', extraData?: any) => void;
+  /** Creates a post on the target (home, a community or an organization). Rejects with a readable message; the composer keeps the text. */
+  createPostIn: (target: PostTarget, content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', extra?: any) => Promise<Post>;
   reactToPost: (postId: string, reactionType: keyof Reactions) => void;
   /** Shares a post, optionally with a message. Resolves after the server accepts it; rejects with a readable message. */
   sharePost: (postId: string, commentary?: string) => Promise<void>;
@@ -319,7 +321,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const groups = useGroups({
     myUserId: session.myUserId,
     showToast,
-    feed: { createPostRaw: feed.createPostRaw, setGroupFeed: feed.setGroupFeed, deletePost: feed.deletePost, addToFeed: feed.addToFeed },
+    feed: { createPostIn: feed.createPostIn, setGroupFeed: feed.setGroupFeed, deletePost: feed.deletePost, addToFeed: feed.addToFeed },
   });
 
   const organizations = useOrganizations({ myUserId: session.myUserId, showToast });
@@ -469,6 +471,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     register: auth.register,
     logout: auth.logout,
     addPost: feed.addPost,
+    createPostIn: feed.createPostIn,
     reactToPost: feed.reactToPost,
     sharePost: feed.sharePost,
     votePoll: feed.votePoll,

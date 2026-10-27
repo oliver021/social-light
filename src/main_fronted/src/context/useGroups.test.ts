@@ -30,7 +30,7 @@ function setup(routes: Record<string, unknown> = {}) {
     const groups = useGroups({
       myUserId: { current: ME },
       showToast,
-      feed: { createPostRaw: feed.createPostRaw, setGroupFeed: feed.setGroupFeed, deletePost: feed.deletePost, addToFeed: feed.addToFeed },
+      feed: { createPostIn: feed.createPostIn, setGroupFeed: feed.setGroupFeed, deletePost: feed.deletePost, addToFeed: feed.addToFeed },
     });
     return { feed, groups };
   });
@@ -67,7 +67,7 @@ describe('useGroups loading flag', () => {
 });
 
 function stubFeed() {
-  return { createPostRaw: vi.fn(), setGroupFeed: vi.fn(), deletePost: vi.fn(async () => {}), addToFeed: vi.fn() };
+  return { createPostIn: vi.fn(), setGroupFeed: vi.fn(), deletePost: vi.fn(async () => {}), addToFeed: vi.fn() };
 }
 
 describe('useGroups.loadGroupPosts', () => {

@@ -45,13 +45,13 @@ describe('FeedsTab', () => {
   });
 
   it('the Post button stays disabled until there is text, then sends the post', async () => {
-    const addPost = vi.fn();
-    const { user } = renderWithProviders(<FeedsTab />, { context: { addPost } });
+    const createPostIn = vi.fn(async () => makePost());
+    const { user } = renderWithProviders(<FeedsTab />, { context: { createPostIn } });
     const submit = screen.getByRole('button', { name: /^Post$/ });
     expect(submit).toBeDisabled();
     await user.type(screen.getByRole('textbox', { name: 'Post text' }), 'Hello world');
     await waitFor(() => expect(submit).toBeEnabled());
     await user.click(submit);
-    expect(addPost).toHaveBeenCalledWith('Hello world', 'text', {});
+    expect(createPostIn).toHaveBeenCalledWith({ kind: 'home' }, 'Hello world', 'text', {});
   });
 });

@@ -48,6 +48,16 @@ export interface GroupFeed {
   posts: Post[];
 }
 
+/**
+ * Where a new post is shown and linked (M9): my home feed, a community, or an organization.
+ * A community or an organization is linked through a post-feed row; `createPostIn` is the
+ * only code path that does this.
+ */
+export type PostTarget =
+  | { kind: 'home' }
+  | { kind: 'group'; id: string; name: string }
+  | { kind: 'organization'; id: string; name: string };
+
 /** Where an enrichment result lands: the home feed, a timeline, or a community's posts. */
 type Target =
   | { list: 'feed' }
@@ -169,11 +179,11 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     }
   };
 
-  // Create through Posts API (authorId bound from the JWT, not the body), prepend
-  // optimistically, then refresh the composed feed in the background.
+  // Create a post on my home feed and report a refusal as a toast. Composers that keep the
+  // text on failure call createPostIn directly instead.
   const addPost = async (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', _extraData?: any) => {
     try {
-      await createPost(content, type, _extraData);
+      await createPostIn({ kind: 'home' }, content, type, _extraData);
     } catch (err) {
       showToast(messageOf(err, 'Your post was not published'));
     }
@@ -246,13 +256,43 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     setTimeline((t) => (t && t.userId === currentUser.id ? { ...t, posts: [created, ...t.posts.filter((p) => p.id !== created.id)] } : t));
   };
 
-  // Create through Posts API (authorId bound from the JWT, not the body), prepend
-  // optimistically, then refresh the composed feed in the background.
-  const createPost = async (content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', _extraData?: any) => {
-    const created = await createPostRaw(content, type, _extraData);
-    addToFeed(created);
-    // Reconcile with the server's composed view (ordering, counts) without blocking the UI.
-    loadFeed().catch(() => {});
+  // Create a post and place it where the target says (M9). The post row and its attachments
+  // come first; a community or organization then gets its post-feed link. A refused link
+  // deletes the just-created post again (best-effort), so no orphan post stays in my feed,
+  // and the promise rejects with the reason so the composer keeps the text.
+  // A community post is shown at the top of Home and of my profile, with its community link.
+  // An organization post is linked but not shown on Home yet: it has no organization link on
+  // Post until M11.
+  const createPostIn = async (
+    target: PostTarget,
+    content: string,
+    type: 'text' | 'link' | 'image' | 'video' | 'poll',
+    extra?: any,
+  ): Promise<Post> => {
+    const created = await createPostRaw(content, type, extra);
+    if (target.kind !== 'home') {
+      const linkError = await postsApi.POST('/api/post-feeds', {
+        body: { postId: created.id, feedType: target.kind, targetId: target.id },
+      }).then(
+        (res) => (res.response.ok ? null : describeApiError(res.error, res.response, 'Your post was not added to the community')),
+        (err) => messageOf(err, 'Your post was not added to the community'),
+      );
+      if (linkError) {
+        deletePost(created.id).catch(() => {});
+        throw new Error(linkError);
+      }
+    }
+    if (target.kind === 'group') {
+      const placed: Post = { ...created, groupId: target.id, groupName: target.name };
+      addToFeed(placed);
+      return placed;
+    }
+    if (target.kind === 'home') {
+      addToFeed(created);
+      // Reconcile with the server's composed view (ordering, counts) without blocking the UI.
+      loadFeed().catch(() => {});
+    }
+    return created;
   };
 
   // Shows a community's posts (already mapped to the UI shape) and enriches them in place.
@@ -426,7 +466,7 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
   };
 
   // Delete my post (Posts module). On success the post leaves the feed and any timeline, and
-  // its media rows (same module) are removed best-effort. Engagement rows (comments,
+  // its media and post-feed rows (same module) are removed best-effort. Engagement rows (comments,
   // reactions, shares) are left to the Engagement module's event consumer (track B, B6),
   // never deleted from here.
   const deletePost = async (postId: string): Promise<void> => {
@@ -437,6 +477,7 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     setGroupFeedState((g) => (g ? { ...g, posts: g.posts.filter((p) => p.id !== postId) } : g));
     myReactionIds.current.delete(postId);
     deletePostMedia(postId).catch(() => {});
+    deletePostFeeds(postId).catch(() => {});
   };
 
   // Attachments are separate post-media rows; they are invisible orphans if left behind,
@@ -448,6 +489,19 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
       data
         .filter((m) => m.postId === postId)
         .map((m) => postsApi.DELETE('/api/post-medias/{id}', { params: { path: { id: m.id } } }).catch(() => {})),
+    );
+  };
+
+  // The post-feed rows that link a deleted post to a community or organization (M9). Left
+  // behind they point at a post that no longer exists, so they are removed best-effort: a
+  // failure here never fails the delete itself.
+  const deletePostFeeds = async (postId: string) => {
+    const { data } = await postsApi.GET('/api/post-feeds');
+    if (!data) return;
+    await Promise.all(
+      data
+        .filter((f) => f.postId === postId)
+        .map((f) => postsApi.DELETE('/api/post-feeds/{id}', { params: { path: { id: f.id } } }).catch(() => {})),
     );
   };
 
@@ -493,6 +547,7 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     groupFeed,
     setGroupFeed,
     createPostRaw,
+    createPostIn,
     addToFeed,
     addPost,
     reactToPost,

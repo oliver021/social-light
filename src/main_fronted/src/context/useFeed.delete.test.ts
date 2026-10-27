@@ -122,3 +122,38 @@ describe('useFeed.deleteComment', () => {
     expect(result.current.posts.find((p) => p.id === 'post-1')?.comments).toHaveLength(2);
   });
 });
+
+describe('useFeed.deletePost removes the post-feed rows that link it (M9)', () => {
+  const feedRows = [
+    { id: 'f-1', postId: 'post-1', feedType: 'group', targetId: 'g-1' },
+    { id: 'f-2', postId: 'post-2', feedType: 'group', targetId: 'g-1' },
+  ];
+
+  it('deletes only the post-feed rows of that post, best-effort, after the post is gone', async () => {
+    const { result, calls } = await loadedFeed({
+      'DELETE /api/posts/{id}': { status: 204 },
+      'GET /api/post-medias': [],
+      'GET /api/post-feeds': feedRows,
+      'DELETE /api/post-feeds/{id}': { status: 204 },
+    });
+    await act(async () => {
+      await result.current.deletePost('post-1');
+    });
+    await waitFor(() => expect(calls.some((c) => isDelete(c, '/api/post-feeds/f-1'))).toBe(true));
+    expect(calls.some((c) => isDelete(c, '/api/post-feeds/f-2'))).toBe(false);
+    expect(result.current.posts.map((p) => p.id)).toEqual(['post-2']);
+  });
+
+  it('a failed post-feed cleanup does not fail the delete', async () => {
+    const { result } = await loadedFeed({
+      'DELETE /api/posts/{id}': { status: 204 },
+      'GET /api/post-medias': [],
+      'GET /api/post-feeds': feedRows,
+      'DELETE /api/post-feeds/{id}': { status: 500, body: { title: 'boom' } },
+    });
+    await act(async () => {
+      await expect(result.current.deletePost('post-1')).resolves.toBeUndefined();
+    });
+    expect(result.current.posts.map((p) => p.id)).toEqual(['post-2']);
+  });
+});
