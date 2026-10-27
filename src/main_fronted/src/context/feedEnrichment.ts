@@ -3,7 +3,7 @@
 // posts outside its own id set untouched, so a batch can be applied to any list that
 // holds some of the same posts.
 import type { Post, Reactions } from '../types';
-import { postsApi, engagementApi, groupsApi, getProfile, mediaUrl } from '../api/gateway';
+import { postsApi, engagementApi, groupsApi, organizationsApi, getProfile, mediaUrl } from '../api/gateway';
 import { commentDtoToComment, toReactionKey, emptyReactions, withHandle } from '../api/mappers';
 
 /** A pure transform for one post. Returns the post unchanged when it is out of scope. */
@@ -158,23 +158,39 @@ export async function enrichComments(posts: Post[]): Promise<PostPatch | null> {
 }
 
 /**
- * Community links (M5): a post with a `group` post-feed row shows its community's name and id.
- * Posts without such a row are left as they are.
+ * Community and organization links (M5, M11): a post with a `group` post-feed row shows its
+ * community's name and id, and one with an `organization` row shows its organization's. The
+ * post-feed rows are read once; a community or organization is looked up only when a post in
+ * this batch links to one of that kind. Posts without a link are left as they are.
  */
-export async function enrichGroupLinks(posts: Post[]): Promise<PostPatch | null> {
+export async function enrichTargetLinks(posts: Post[]): Promise<PostPatch | null> {
   const ids = idSet(posts);
   const { data: feeds } = await postsApi.GET('/api/post-feeds');
   if (!feeds) return null;
   const groupByPost = new Map<string, string>();
+  const organizationByPost = new Map<string, string>();
   for (const f of feeds) {
-    if (f.feedType === 'group' && ids.has(f.postId)) groupByPost.set(f.postId, f.targetId);
+    if (!ids.has(f.postId)) continue;
+    if (f.feedType === 'group') groupByPost.set(f.postId, f.targetId);
+    else if (f.feedType === 'organization') organizationByPost.set(f.postId, f.targetId);
   }
-  if (groupByPost.size === 0) return null;
-  const { data: groups } = await groupsApi.GET('/api/groups');
-  const nameById = new Map((groups ?? []).map((g) => [g.id, g.name]));
+  if (groupByPost.size === 0 && organizationByPost.size === 0) return null;
+
+  const [groups, organizations] = await Promise.all([
+    groupByPost.size > 0 ? groupsApi.GET('/api/groups').then((r) => r.data ?? []) : Promise.resolve([]),
+    organizationByPost.size > 0 ? organizationsApi.GET('/api/organizations').then((r) => r.data ?? []) : Promise.resolve([]),
+  ]);
+  const groupNameById = new Map(groups.map((g) => [g.id, g.name]));
+  const organizationNameById = new Map(organizations.map((o) => [o.id, o.name]));
   return (p) => {
+    let next = p;
     const groupId = groupByPost.get(p.id);
-    return groupId ? { ...p, groupId, groupName: nameById.get(groupId) ?? 'Community' } : p;
+    if (groupId) next = { ...next, groupId, groupName: groupNameById.get(groupId) ?? 'Community' };
+    const organizationId = organizationByPost.get(p.id);
+    if (organizationId) {
+      next = { ...next, organizationId, organizationName: organizationNameById.get(organizationId) ?? 'Organization' };
+    }
+    return next;
   };
 }
 

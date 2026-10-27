@@ -1,15 +1,26 @@
 import { useMemo, useState, type MutableRefObject } from 'react';
-import { organizationsApi, describeApiError, messageOf, getProfile, mediaUrl } from '../api/gateway';
-import { defaultAvatar, withHandle } from '../api/mappers';
+import { Post } from '../types';
+import { organizationsApi, postsApi, describeApiError, messageOf, getProfile, mediaUrl } from '../api/gateway';
+import { defaultAvatar, postDtoToPost, withHandle } from '../api/mappers';
 import type { components as OrganizationsComponents } from '@sdk/organizations';
 import { type ToastSeverity } from './useToast';
+import type { PostTarget } from './useFeed';
 
 type OrganizationDto = OrganizationsComponents['schemas']['OrganizationDto'];
 type MemberDto = OrganizationsComponents['schemas']['OrganizationMemberDto'];
 
+/** What the organizations need from the feed (M11): post for an organization, show its posts, delete a post. */
+export interface OrganizationFeedDeps {
+  /** The one path that writes a post and links it to an organization (M9). */
+  createPostIn: (target: PostTarget, content: string, type: 'text' | 'link' | 'image' | 'video' | 'poll', extra?: any) => Promise<Post>;
+  setOrganizationFeed: (organizationId: string, posts: Post[]) => void;
+  deletePost: (postId: string) => Promise<void>;
+}
+
 interface Deps {
   myUserId: MutableRefObject<string>;
   showToast: (message: string, severity?: ToastSeverity) => void;
+  feed: OrganizationFeedDeps;
 }
 
 export interface NewOrganization {
@@ -17,6 +28,14 @@ export interface NewOrganization {
   description: string;
   /** Uploaded logo url (root-relative, as stored). Optional. */
   logo?: string;
+}
+
+/**
+ * Who may post for an organization (M11): its owner, or a member whose role is `admin` (M12
+ * adds the control that sets it). Plain members do not post; the page is the organization's voice.
+ */
+export function canPostToOrganization(org: Pick<Organization, 'isOwner' | 'myRole'>): boolean {
+  return org.isOwner || org.myRole === 'admin';
 }
 
 /** An organization with my relationship to it, derived from the loaded rows. */
@@ -59,6 +78,11 @@ export class OrganizationKeptError extends Error {
   }
 }
 
+const timeOf = (iso: string | null | undefined) => {
+  const t = Date.parse(iso ?? '');
+  return Number.isNaN(t) ? 0 : t;
+};
+
 /**
  * Await one typed-client call and turn a failure into a readable Error. Resolves only on a
  * 2xx; a thrown transport error and a non-2xx both reject with the server's own reason.
@@ -83,7 +107,7 @@ async function checked<R extends { response: Response; error?: unknown }>(reques
  * Neither resource is bound from the JWT, so every owner or member id sent here is the
  * signed-in user's own id (`myUserId`), never anyone else's.
  */
-export function useOrganizations({ myUserId, showToast }: Deps) {
+export function useOrganizations({ myUserId, showToast, feed }: Deps) {
   const [orgs, setOrgs] = useState<OrganizationDto[]>([]);
   const [rows, setRows] = useState<MemberDto[]>([]);
   // True until the first load settles (success or failure), so the tab can show a skeleton.
@@ -92,6 +116,8 @@ export function useOrganizations({ myUserId, showToast }: Deps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   // Members per organization id, filled when its detail view is opened.
   const [membersByOrg, setMembersByOrg] = useState<Record<string, OrganizationMember[]>>({});
+  // True while an organization's posts are being read (M11).
+  const [organizationPostsLoading, setOrganizationPostsLoading] = useState(false);
 
   // Derived, so a join, leave or delete updates every view from one source.
   const organizations = useMemo<Organization[]>(() => {
@@ -220,6 +246,8 @@ export function useOrganizations({ myUserId, showToast }: Deps) {
 
   // Delete an organization I own. Rejects with a readable message so the confirm dialog can
   // show it. My own membership row is removed best-effort; the rest disappear with the list.
+  // The post-feed rows that link posts to it are removed best-effort too (M11), so no post
+  // keeps pointing at an organization that is gone. The posts themselves stay with their authors.
   const deleteOrganization = async (organizationId: string): Promise<void> => {
     const org = organizations.find((o) => o.id === organizationId);
     if (!org?.isOwner) throw new Error('Only the owner can delete this organization.');
@@ -234,6 +262,105 @@ export function useOrganizations({ myUserId, showToast }: Deps) {
         .DELETE('/api/organization-members/{id}', { params: { path: { id: org.myMembershipId } } })
         .catch(() => {});
     }
+    await deleteOrganizationPostLinks(organizationId).catch(() => {});
+  };
+
+  // Removes the `organization` post-feed rows of one organization. A failure is ignored by the
+  // caller: the organization is already deleted, and the rows only add a dead link.
+  const deleteOrganizationPostLinks = async (organizationId: string): Promise<void> => {
+    const { data } = await postsApi.GET('/api/post-feeds');
+    if (!data) return;
+    await Promise.all(
+      data
+        .filter((f) => f.feedType === 'organization' && f.targetId === organizationId)
+        .map((f) => postsApi.DELETE('/api/post-feeds/{id}', { params: { path: { id: f.id } } }).catch(() => {})),
+    );
+  };
+
+  // The posts of one organization (M11): the post-feed rows with feedType 'organization' and this
+  // targetId, resolved to posts (authors through Profile), newest first. Mirrors loadGroupPosts.
+  // Errors are reported with a toast; the list keeps what it had.
+  const loadOrganizationPosts = async (organizationId: string): Promise<void> => {
+    setOrganizationPostsLoading(true);
+    try {
+      const [{ data: feeds }, { data: postList }] = await Promise.all([
+        postsApi.GET('/api/post-feeds'),
+        postsApi.GET('/api/posts'),
+      ]);
+      if (!feeds || !postList) throw new Error('The organization posts could not be loaded');
+      const postIds = new Set(feeds.filter((f) => f.feedType === 'organization' && f.targetId === organizationId).map((f) => f.postId));
+      const mine = postList
+        .filter((p) => postIds.has(p.id))
+        .sort((a, b) => timeOf(b.publishedAt) - timeOf(a.publishedAt));
+      const authorIds = [...new Set(mine.map((p) => p.authorId))];
+      const profiles = await Promise.all(authorIds.map((id) => getProfile(id).catch(() => null)));
+      const profileById = new Map(authorIds.map((id, i) => [id, profiles[i]]));
+      feed.setOrganizationFeed(organizationId, mine.map((p) => postDtoToPost(p, profileById.get(p.authorId) ?? null)));
+    } catch (err) {
+      showToast(messageOf(err, 'The organization posts could not be loaded'));
+    } finally {
+      setOrganizationPostsLoading(false);
+    }
+  };
+
+  // Post for an organization (M11). Only its owner or an admin may; anyone else is refused here
+  // before any request. The write and the organization link are done by createPostIn (M9), then
+  // the organization's posts are re-read. Rejects with a readable message; the composer keeps the text.
+  const createOrganizationPost = async (
+    organizationId: string,
+    content: string,
+    type: 'text' | 'link' | 'image' | 'video' | 'poll' = 'text',
+    extra?: any,
+  ): Promise<void> => {
+    const org = organizations.find((o) => o.id === organizationId);
+    if (!org || !canPostToOrganization(org)) throw new Error('Only the owner or an admin can post for this organization.');
+    await feed.createPostIn({ kind: 'organization', id: organizationId, name: org.name }, content, type, extra);
+    await loadOrganizationPosts(organizationId);
+  };
+
+  // Owner moderation (M11): take a post out of this organization. Only the post-feed rows that
+  // link THIS post to THIS organization are deleted; the post stays on its author's profile and
+  // on Home (never DELETE /api/posts). The server does not check the owner yet (B13), so the
+  // control is shown to the owner only, and this refuses anyone else before any request.
+  // Rejects with the server's reason; the list is re-read after any row was removed.
+  const removePostFromOrganization = async (organizationId: string, postId: string): Promise<void> => {
+    const org = organizations.find((o) => o.id === organizationId);
+    if (!org?.isOwner) throw new Error('Only the owner can remove posts from this organization.');
+    const { data: feeds, error, response } = await postsApi.GET('/api/post-feeds');
+    if (!feeds) throw new Error(describeApiError(error, response, 'The post could not be removed from the organization'));
+    const links = feeds.filter((f) => f.feedType === 'organization' && f.targetId === organizationId && f.postId === postId);
+    let removed = 0;
+    let failure: string | null = null;
+    for (const link of links) {
+      const res = await postsApi.DELETE('/api/post-feeds/{id}', { params: { path: { id: link.id } } });
+      if (!res.response.ok) {
+        failure = describeApiError(res.error, res.response, 'The post was not removed from the organization');
+        break;
+      }
+      removed += 1;
+    }
+    if (failure && removed === 0) throw new Error(failure);
+    await loadOrganizationPosts(organizationId);
+    if (failure) throw new Error(failure);
+  };
+
+  // Owner moderation (M11): remove a member row from this organization. The owner row cannot be
+  // removed. The member list and the member count change only after the server's 2xx.
+  const removeOrganizationMember = async (organizationId: string, memberRowId: string): Promise<void> => {
+    const org = organizations.find((o) => o.id === organizationId);
+    if (!org?.isOwner) throw new Error('Only the owner can remove members from this organization.');
+    const row = rows.find((r) => r.id === memberRowId && r.organizationId === organizationId);
+    if (row && (row.role === 'owner' || row.userId === org.ownerId)) {
+      throw new Error('The owner cannot be removed from the organization.');
+    }
+    await checked(
+      organizationsApi.DELETE('/api/organization-members/{id}', { params: { path: { id: memberRowId } } }),
+      'The member was not removed',
+    );
+    setRows((prev) => prev.filter((r) => r.id !== memberRowId));
+    setMembersByOrg((prev) => (prev[organizationId]
+      ? { ...prev, [organizationId]: prev[organizationId].filter((m) => m.id !== memberRowId) }
+      : prev));
   };
 
   // The members of one organization, owners first, with profiles resolved from Profile.
@@ -271,6 +398,7 @@ export function useOrganizations({ myUserId, showToast }: Deps) {
     setMembersByOrg({});
     setLoadError(null);
     setLoading(true);
+    setOrganizationPostsLoading(false);
   };
 
   return {
@@ -285,6 +413,11 @@ export function useOrganizations({ myUserId, showToast }: Deps) {
     organizationMembers: membersByOrg,
     loadOrganizationMembers,
     organizationsOf,
+    organizationPostsLoading,
+    loadOrganizationPosts,
+    createOrganizationPost,
+    removePostFromOrganization,
+    removeOrganizationMember,
     reset,
   };
 }

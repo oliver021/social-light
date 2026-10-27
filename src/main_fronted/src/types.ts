@@ -81,6 +81,9 @@ export interface Post {
   /** The community this post was shared into (M5), from its post-feed row. */
   groupId?: string;
   groupName?: string;
+  /** The organization this post was shared into (M11), from its post-feed row. */
+  organizationId?: string;
+  organizationName?: string;
 }
 
 export interface Group {

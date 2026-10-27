@@ -8,7 +8,7 @@ import {
   applyPatches,
   enrichAuthors,
   enrichComments,
-  enrichGroupLinks,
+  enrichTargetLinks,
   enrichMedia,
   enrichReactions,
   enrichShares,
@@ -48,6 +48,12 @@ export interface GroupFeed {
   posts: Post[];
 }
 
+/** The posts of the organization being viewed (M11), shown while its page is open. */
+export interface OrganizationFeed {
+  organizationId: string;
+  posts: Post[];
+}
+
 /**
  * Where a new post is shown and linked (M9): my home feed, a community, or an organization.
  * A community or an organization is linked through a post-feed row; `createPostIn` is the
@@ -62,7 +68,8 @@ export type PostTarget =
 type Target =
   | { list: 'feed' }
   | { list: 'timeline'; userId: string; seq: number }
-  | { list: 'group'; groupId: string; seq: number };
+  | { list: 'group'; groupId: string; seq: number }
+  | { list: 'organization'; organizationId: string; seq: number };
 
 /**
  * The home feed, a profile timeline, and everything that mutates a post: create, react,
@@ -76,8 +83,12 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
   const [timeline, setTimeline] = useState<ProfileTimeline | null>(null);
   // The posts of the community being viewed (M5). Not persisted: it is re-read on open.
   const [groupFeed, setGroupFeedState] = useState<GroupFeed | null>(null);
+  // The posts of the organization being viewed (M11). Not persisted: it is re-read on open.
+  const [organizationFeed, setOrganizationFeedState] = useState<OrganizationFeed | null>(null);
   // Bumped by every community load, so a slow response for a previous community is dropped.
   const groupSeq = useRef(0);
+  // Bumped by every organization load, so a slow response for a previous organization is dropped.
+  const organizationSeq = useRef(0);
   // Maps a postId -> the current user's reaction id on it, so a toggle can DELETE it.
   const myReactionIds = useRef<Map<string, string>>(new Map());
   // Maps a commentId -> the current user's like id on that comment (M3).
@@ -94,12 +105,14 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     setPosts((prev) => map(prev));
     setTimeline((t) => (t ? { ...t, posts: map(t.posts) } : t));
     setGroupFeedState((g) => (g ? { ...g, posts: map(g.posts) } : g));
+    setOrganizationFeedState((o) => (o ? { ...o, posts: map(o.posts) } : o));
   };
 
   const findPost = (postId: string): Post | undefined =>
     posts.find((p) => p.id === postId)
     ?? timeline?.posts.find((p) => p.id === postId)
-    ?? groupFeed?.posts.find((p) => p.id === postId);
+    ?? groupFeed?.posts.find((p) => p.id === postId)
+    ?? organizationFeed?.posts.find((p) => p.id === postId);
 
   // Apply enrichment results to the list they were loaded for. A timeline result is dropped
   // when that timeline was replaced while the request was in flight.
@@ -113,6 +126,13 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     if (target.list === 'group') {
       if (groupSeq.current !== target.seq) return;
       setGroupFeedState((g) => (g && g.groupId === target.groupId ? { ...g, posts: applyPatches(g.posts, patches) } : g));
+      return;
+    }
+    if (target.list === 'organization') {
+      if (organizationSeq.current !== target.seq) return;
+      setOrganizationFeedState((o) => (o && o.organizationId === target.organizationId
+        ? { ...o, posts: applyPatches(o.posts, patches) }
+        : o));
       return;
     }
     if (timelineSeq.current !== target.seq) return;
@@ -141,7 +161,7 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
       .catch(() => {});
     enrichShares(list).then((patch) => commit(target, patch)).catch(() => {});
     enrichMedia(list).then((patch) => commit(target, patch)).catch(() => {});
-    enrichGroupLinks(list).then((patch) => commit(target, patch)).catch(() => {});
+    enrichTargetLinks(list).then((patch) => commit(target, patch)).catch(() => {});
   };
 
   const findComment = (postId: string, commentId: string): Comment | undefined =>
@@ -260,9 +280,8 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
   // come first; a community or organization then gets its post-feed link. A refused link
   // deletes the just-created post again (best-effort), so no orphan post stays in my feed,
   // and the promise rejects with the reason so the composer keeps the text.
-  // A community post is shown at the top of Home and of my profile, with its community link.
-  // An organization post is linked but not shown on Home yet: it has no organization link on
-  // Post until M11.
+  // A community or organization post is shown at the top of Home and of my profile, with its
+  // link (the community or organization name after "›").
   const createPostIn = async (
     target: PostTarget,
     content: string,
@@ -287,6 +306,11 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
       addToFeed(placed);
       return placed;
     }
+    if (target.kind === 'organization') {
+      const placed: Post = { ...created, organizationId: target.id, organizationName: target.name };
+      addToFeed(placed);
+      return placed;
+    }
     if (target.kind === 'home') {
       addToFeed(created);
       // Reconcile with the server's composed view (ordering, counts) without blocking the UI.
@@ -301,6 +325,14 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     const seq = ++groupSeq.current;
     setGroupFeedState({ groupId, posts: mapped });
     enrichAll(mapped, { list: 'group', groupId, seq });
+  };
+
+  // Shows an organization's posts (already mapped to the UI shape) and enriches them in place
+  // (M11). A newer call for another organization replaces this one; a late enrichment is dropped.
+  const setOrganizationFeed = (organizationId: string, mapped: Post[]) => {
+    const seq = ++organizationSeq.current;
+    setOrganizationFeedState({ organizationId, posts: mapped });
+    enrichAll(mapped, { list: 'organization', organizationId, seq });
   };
 
   // Persist through the Engagement API (userId bound from the JWT) and keep the
@@ -475,6 +507,7 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
     setTimeline((t) => (t ? { ...t, posts: t.posts.filter((p) => p.id !== postId) } : t));
     setGroupFeedState((g) => (g ? { ...g, posts: g.posts.filter((p) => p.id !== postId) } : g));
+    setOrganizationFeedState((o) => (o ? { ...o, posts: o.posts.filter((p) => p.id !== postId) } : o));
     myReactionIds.current.delete(postId);
     deletePostMedia(postId).catch(() => {});
     deletePostFeeds(postId).catch(() => {});
@@ -528,8 +561,10 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     myCommentReactionIds.current.clear();
     timelineSeq.current += 1; // drop any timeline response still in flight
     groupSeq.current += 1; // and any community response
+    organizationSeq.current += 1; // and any organization response
     setTimeline(null);
     setGroupFeedState(null);
+    setOrganizationFeedState(null);
     setPosts([]);
   };
 
@@ -546,6 +581,8 @@ export function useFeed({ myUserId, currentUser, notify, showToast }: Deps) {
     loadTimeline: stableLoadTimeline,
     groupFeed,
     setGroupFeed,
+    organizationFeed,
+    setOrganizationFeed,
     createPostRaw,
     createPostIn,
     addToFeed,

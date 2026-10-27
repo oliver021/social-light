@@ -23,7 +23,7 @@ export interface PostHeaderProps {
  * Mute (or Unmute) and Block. A shared copy (readOnly) gets no menu.
  */
 export const PostHeader: React.FC<PostHeaderProps> = ({ post, readOnly = false, extraMenuItems = [] }) => {
-  const { currentUser, openProfile, openGroup, deletePost, showToast, hidePost, snoozeUser, muteUser, removePreference, mutedUsers } = useApp();
+  const { currentUser, openProfile, openGroup, openOrganization, deletePost, showToast, hidePost, snoozeUser, muteUser, removePreference, mutedUsers } = useApp();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   // Owner rule: no owner id means no delete control.
@@ -52,6 +52,16 @@ export const PostHeader: React.FC<PostHeaderProps> = ({ post, readOnly = false, 
             sx={{ font: 'inherit', fontSize: 'var(--ui-fs-xs)', color: T.muted, fontWeight: 600, minHeight: 24, maxWidth: '100%', borderRadius: 'var(--ui-radius-sm)', '&:hover': { textDecoration: 'underline' }, '&.Mui-focusVisible': { outline: `2px solid ${T.focus}` } }}
           >
             {`› ${post.groupName}`}
+          </ButtonBase>
+        )}
+        {/* An organization post (M11): "› {organization}" opens that organization. */}
+        {post.organizationId && post.organizationName && (
+          <ButtonBase
+            onClick={() => openOrganization(post.organizationId!)}
+            aria-label={`Open organization ${post.organizationName}`}
+            sx={{ font: 'inherit', fontSize: 'var(--ui-fs-xs)', color: T.muted, fontWeight: 600, minHeight: 24, maxWidth: '100%', borderRadius: 'var(--ui-radius-sm)', '&:hover': { textDecoration: 'underline' }, '&.Mui-focusVisible': { outline: `2px solid ${T.focus}` } }}
+          >
+            {`› ${post.organizationName}`}
           </ButtonBase>
         )}
       </Box>

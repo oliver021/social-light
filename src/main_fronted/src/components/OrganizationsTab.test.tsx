@@ -154,7 +154,7 @@ describe('OrganizationsTab organization page', () => {
 
   it('shows the owner and the members with their roles, and asks for them when opened', async () => {
     const loadOrganizationMembers = vi.fn(async () => {});
-    renderWithProviders(<OrganizationsTab />, {
+    const { user } = renderWithProviders(<OrganizationsTab />, {
       context: detailContext(joined, {
         loadOrganizationMembers,
         organizationMembers: {
@@ -166,6 +166,8 @@ describe('OrganizationsTab organization page', () => {
       }),
     });
     await waitFor(() => expect(loadOrganizationMembers).toHaveBeenCalledWith('o-joined'));
+    // Posts is the default tab; the members list is behind the Members tab (M11).
+    await user.click(screen.getByRole('tab', { name: 'Members' }));
     const section = screen.getByRole('heading', { name: 'Members' }).closest('section')!;
     expect(within(section).getByText('Owner')).toBeInTheDocument();
     expect(within(section).getByText('Member')).toBeInTheDocument();

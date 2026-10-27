@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { OrganizationKeptError, type Organization } from '../context/useOrganizations';
+import { OrganizationKeptError, canPostToOrganization, type Organization } from '../context/useOrganizations';
 import { messageOf } from '../api/gateway';
+import type { Post } from '../types';
 import { MediaPicker } from './MediaPicker';
+import { PostCard } from './PostCard';
+import { PostComposer } from './post/PostComposer';
 import {
   ConfirmDialog,
   EmptyState,
@@ -21,8 +24,8 @@ import {
   sectionTitleSx,
   subtleSx,
 } from './ui';
-import { Alert, Box, Button, ButtonBase, InputAdornment, TextField, Typography } from '@mui/material';
-import { ArrowLeft, Building2, Search, Trash2 } from 'lucide-react';
+import { Alert, Box, Button, ButtonBase, IconButton, InputAdornment, Tab, Tabs, TextField, Typography } from '@mui/material';
+import { ArrowLeft, Building2, Search, Trash2, UserMinus, X } from 'lucide-react';
 
 const TOUCH_TARGET = { minHeight: 44, minWidth: 44 };
 /** The pill button: a 44px target with the full radius token. */
@@ -31,6 +34,8 @@ const NAME_MAX = 80;
 const DESCRIPTION_MAX = 500;
 
 const EMPTY_FORM = { name: '', description: '', logo: '' };
+
+type OrganizationTab = 'posts' | 'members';
 
 /**
  * Organizations (M8): browse, create, join, leave and delete, with each organization's
@@ -53,6 +58,12 @@ export const OrganizationsTab: React.FC = () => {
     setSelectedOrganizationId,
     openProfile,
     personView,
+    currentUser,
+    organizationPosts,
+    organizationPostsLoading,
+    loadOrganizationPosts,
+    removePostFromOrganization,
+    removeOrganizationMember,
     showToast,
   } = useApp();
   // The first load is pending: show placeholders, not a false "no organizations".
@@ -67,8 +78,19 @@ export const OrganizationsTab: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
+  // The organization page: which tab is open, and what the owner is about to remove (M11).
+  const [tab, setTab] = useState<OrganizationTab>('posts');
+  const [postToRemove, setPostToRemove] = useState<Post | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
+
   const active = organizations.find((o) => o.id === selectedOrganizationId) ?? null;
   const activeMemberCount = active?.memberCount;
+
+  // Opening an organization reads its posts (its page opens on the Posts tab).
+  useEffect(() => {
+    setTab('posts');
+    if (selectedOrganizationId) loadOrganizationPosts(selectedOrganizationId).catch(() => {});
+  }, [selectedOrganizationId]);
 
   // Opening an organization reads its members; a join or leave refreshes them.
   useEffect(() => {
@@ -322,43 +344,133 @@ export const OrganizationsTab: React.FC = () => {
           </Box>
         </Surface>
 
-        <Surface as="section" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          <SectionHeader title="Members" />
-          {members === undefined && <ListSkeleton rows={3} />}
-          {members !== undefined && members.length === 0 && (
-            <EmptyState compact title="No members yet" body="People who join this organization will appear here." />
-          )}
-          {members !== undefined && members.length > 0 && (
-            <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {members.map((m) => (
-                <Box component="li" key={m.id}>
-                  <UserLine
-                    name={m.name}
-                    handle={m.handle}
-                    avatarSrc={m.avatar}
-                    onOpen={() => openProfile(m.userId)}
-                    meta={<StatusChip label={m.role === 'owner' ? 'Owner' : 'Member'} tone={m.role === 'owner' ? 'primary' : 'neutral'} />}
-                  />
-                </Box>
-              ))}
-            </Box>
-          )}
-        </Surface>
+        <Tabs
+          value={tab}
+          onChange={(_, value: OrganizationTab) => setTab(value)}
+          aria-label="Organization sections"
+          sx={{ minHeight: 44, borderBottom: `1px solid ${T.border}` }}
+        >
+          <Tab value="posts" label="Posts" sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }} />
+          <Tab value="members" label="Members" sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }} />
+        </Tabs>
+
+        {tab === 'posts' && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--ui-gap)' }}>
+            {/* Only the owner and admins post for the organization, with the same composer as Home (M9). */}
+            {canPostToOrganization(active) ? (
+              <PostComposer
+                key={active.id}
+                target={{ kind: 'organization', id: active.id, name: active.name }}
+                placeholder={`Share something from ${active.name}`}
+                label={`Post as part of ${active.name}`}
+                onPosted={() => { loadOrganizationPosts(active.id).catch(() => {}); }}
+              />
+            ) : (
+              <Surface as="section">
+                <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-sm)' }}>
+                  Only the owner and admins can post for {active.name}.
+                </Typography>
+              </Surface>
+            )}
+
+            <SectionHeader title={`Posts from ${active.name}`} />
+
+            {organizationPostsLoading && organizationPosts.length === 0 && <ListSkeleton rows={2} />}
+            {!(organizationPostsLoading && organizationPosts.length === 0) && organizationPosts.length === 0 && (
+              <EmptyState title={`No posts from ${active.name} yet`} body="Posts shared for this organization will appear in this list." />
+            )}
+            {organizationPosts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                // The owner can take someone else's post out of this organization. Their own posts
+                // are removed with "Delete post" instead.
+                extraMenuItems={active.isOwner && post.authorId !== currentUser.id
+                  ? [{ id: 'remove-from-organization', label: 'Remove from organization', icon: X, danger: true, onSelect: () => setPostToRemove(post) }]
+                  : undefined}
+              />
+            ))}
+          </Box>
+        )}
+
+        {tab === 'members' && (
+          <Surface as="section" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <SectionHeader title="Members" />
+            {members === undefined && <ListSkeleton rows={3} />}
+            {members !== undefined && members.length === 0 && (
+              <EmptyState compact title="No members yet" body="People who join this organization will appear here." />
+            )}
+            {members !== undefined && members.length > 0 && (
+              <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {members.map((m) => (
+                  <Box component="li" key={m.id}>
+                    <UserLine
+                      name={m.name}
+                      handle={m.handle}
+                      avatarSrc={m.avatar}
+                      onOpen={() => openProfile(m.userId)}
+                      meta={<StatusChip label={m.role === 'owner' ? 'Owner' : 'Member'} tone={m.role === 'owner' ? 'primary' : 'neutral'} />}
+                      // Owner only, and never on the owner row.
+                      trailing={active.isOwner && m.role !== 'owner' ? (
+                        <IconButton
+                          aria-label={`Remove ${m.name}`}
+                          onClick={() => setMemberToRemove({ id: m.id, name: m.name })}
+                          sx={{ ...TOUCH_TARGET, color: T.danger, '&.Mui-focusVisible': { outline: `2px solid ${T.focus}`, outlineOffset: 2 } }}
+                        >
+                          <UserMinus aria-hidden="true" size={18} strokeWidth={1.75} />
+                        </IconButton>
+                      ) : undefined}
+                    />
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Surface>
+        )}
 
         {active.isOwner && (
-          <ConfirmDialog
-            open={confirmDeleteOpen}
-            title="Delete this organization?"
-            body="It is removed for everyone. This cannot be undone."
-            confirmLabel="Delete"
-            destructive
-            onConfirm={async () => {
-              await deleteOrganization(active.id);
-              setSelectedOrganizationId(null);
-              showToast('Organization deleted', 'success');
-            }}
-            onClose={() => setConfirmDeleteOpen(false)}
-          />
+          <>
+            <ConfirmDialog
+              open={confirmDeleteOpen}
+              title="Delete this organization?"
+              body="It is removed for everyone. This cannot be undone."
+              confirmLabel="Delete"
+              destructive
+              onConfirm={async () => {
+                await deleteOrganization(active.id);
+                setSelectedOrganizationId(null);
+                showToast('Organization deleted', 'success');
+              }}
+              onClose={() => setConfirmDeleteOpen(false)}
+            />
+            {/* Owner moderation (M11): take a post out of the organization, or remove a member. */}
+            <ConfirmDialog
+              open={postToRemove !== null}
+              title={`Remove this post from ${active.name}?`}
+              body={postToRemove ? `It stays on ${postToRemove.author.name}'s profile.` : undefined}
+              confirmLabel="Remove"
+              destructive
+              onConfirm={async () => {
+                if (!postToRemove) return;
+                await removePostFromOrganization(active.id, postToRemove.id);
+                showToast('Post removed from the organization', 'success');
+              }}
+              onClose={() => setPostToRemove(null)}
+            />
+            <ConfirmDialog
+              open={memberToRemove !== null}
+              title={memberToRemove ? `Remove ${memberToRemove.name} from this organization?` : 'Remove this member?'}
+              body="They are no longer a member. They can join again."
+              confirmLabel="Remove"
+              destructive
+              onConfirm={async () => {
+                if (!memberToRemove) return;
+                await removeOrganizationMember(active.id, memberToRemove.id);
+                showToast(`${memberToRemove.name} was removed from the organization`, 'success');
+              }}
+              onClose={() => setMemberToRemove(null)}
+            />
+          </>
         )}
         {createDialog}
       </Box>

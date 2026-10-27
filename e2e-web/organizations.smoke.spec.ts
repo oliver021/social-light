@@ -57,9 +57,57 @@ test('an owner creates an organization with a logo, a second user joins, and bot
     await expect(page.locator('article', { hasText: orgName }).getByText('2 members')).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: `Open ${orgName}` }).click();
     await expect(page.getByRole('heading', { level: 1, name: orgName })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('tab', { name: 'Members' }).click();
     const members = page.getByRole('heading', { name: 'Members' }).locator('xpath=ancestor::section[1]');
     await expect(members.getByText('Owner', { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(members.getByText('Smoke org-member')).toBeVisible({ timeout: 30_000 });
+  } finally {
+    await memberContext.close();
+  }
+});
+
+test('an owner posts for the organization; the post links back from Home, and a member reads it without a composer', async ({ page, browser }) => {
+  test.setTimeout(240_000);
+  const tag = Date.now();
+  const orgName = `Smoke posts org ${tag}`;
+  const postText = `smoke organization post ${tag}`;
+
+  // The owner creates the organization (no logo, to keep the flow short).
+  await registerFreshUser(page, 'org-posts-owner');
+  await openOrganizations(page);
+  await visible(page, 'button', 'Create organization').click();
+  const dialog = page.getByRole('dialog', { name: 'Create an organization' });
+  await dialog.getByRole('textbox', { name: 'Name' }).fill(orgName);
+  await dialog.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect(dialog).toBeHidden({ timeout: 30_000 });
+
+  // The owner opens the organization: the Posts tab opens first and carries the composer.
+  await page.getByRole('button', { name: `Open ${orgName}` }).click();
+  await expect(page.getByRole('heading', { level: 1, name: orgName })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('tab', { name: 'Posts' })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('textbox', { name: `Post as part of ${orgName}` }).fill(postText);
+  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  await expect(page.locator('article', { hasText: postText })).toBeVisible({ timeout: 30_000 });
+
+  // The same post on Home carries the organization link.
+  await visible(page, 'button', /^Home(,|$)/).click();
+  const homePost = page.locator('article', { hasText: postText }).first();
+  await expect(homePost).toBeVisible({ timeout: 30_000 });
+  await expect(homePost.getByRole('button', { name: `Open organization ${orgName}` })).toBeVisible();
+
+  // A second user finds the organization, joins it, and reads the post without a composer.
+  const memberContext = await browser.newContext();
+  try {
+    const member = await memberContext.newPage();
+    await registerFreshUser(member, 'org-posts-member');
+    await openOrganizations(member);
+    await member.getByRole('textbox', { name: 'Search organizations' }).fill(orgName);
+    await member.getByRole('button', { name: `Join ${orgName}` }).click();
+    await expect(member.getByRole('button', { name: `Leave ${orgName}` })).toBeVisible({ timeout: 30_000 });
+    await member.getByRole('button', { name: `Open ${orgName}` }).click();
+    await expect(member.getByRole('heading', { level: 1, name: orgName })).toBeVisible({ timeout: 30_000 });
+    await expect(member.locator('article', { hasText: postText })).toBeVisible({ timeout: 30_000 });
+    await expect(member.getByRole('textbox', { name: `Post as part of ${orgName}` })).toBeHidden();
   } finally {
     await memberContext.close();
   }

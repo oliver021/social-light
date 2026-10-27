@@ -33,7 +33,8 @@ function setup(routes: Record<string, unknown> = {}) {
     ...routes,
   });
   const showToast = vi.fn();
-  const hook = renderHook(() => useOrganizations({ myUserId: { current: ME }, showToast }));
+  const feed = { createPostIn: vi.fn(), setOrganizationFeed: vi.fn(), deletePost: vi.fn(async () => {}) };
+  const hook = renderHook(() => useOrganizations({ myUserId: { current: ME }, showToast, feed }));
   return { ...hook, calls, showToast };
 }
 

@@ -294,6 +294,20 @@ export interface AppContextType {
   setSelectedOrganizationId: (id: string | null) => void;
   /** Opens an organization's page on the Organizations tab. */
   openOrganization: (organizationId: string) => void;
+
+  // Organization posts (M11): the posts of the open organization, and its owner moderation.
+  /** The posts of the organization being viewed (newest first). Empty for any other organization. */
+  organizationPosts: Post[];
+  /** True while the open organization's posts are being read. Optional: absent means settled. */
+  organizationPostsLoading?: boolean;
+  /** Reads an organization's posts through its post-feed rows. */
+  loadOrganizationPosts: (organizationId: string) => Promise<void>;
+  /** Posts for an organization; only its owner or an admin can. Rejects with a readable message; the composer keeps the text. */
+  createOrganizationPost: (organizationId: string, content: string, type?: 'text' | 'link' | 'image' | 'video' | 'poll', extra?: any) => Promise<void>;
+  /** Owner: takes a post out of an organization (the post stays on its author's profile and Home). Rejects with a readable message. */
+  removePostFromOrganization: (organizationId: string, postId: string) => Promise<void>;
+  /** Owner: removes a member row from an organization (never the owner row). Rejects with a readable message. */
+  removeOrganizationMember: (organizationId: string, memberRowId: string) => Promise<void>;
 }
 
 const NO_POSTS: Post[] = [];
@@ -328,7 +342,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     feed: { createPostIn: feed.createPostIn, setGroupFeed: feed.setGroupFeed, deletePost: feed.deletePost, addToFeed: feed.addToFeed },
   });
 
-  const organizations = useOrganizations({ myUserId: session.myUserId, showToast });
+  const organizations = useOrganizations({
+    myUserId: session.myUserId,
+    showToast,
+    feed: { createPostIn: feed.createPostIn, setOrganizationFeed: feed.setOrganizationFeed, deletePost: feed.deletePost },
+  });
 
   const chat = useChat({
     myUserId: session.myUserId,
@@ -374,6 +392,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const visibleGroupPosts = useMemo(
     () => (relationsReady ? visiblePosts(openGroupPosts, { blocked: blockedSet }, 'profile') : NO_POSTS),
     [relationsReady, openGroupPosts, blockedSet],
+  );
+  // The organization being viewed (M11): only blocks apply there, as in a community.
+  const openOrganizationPosts = feed.organizationFeed && feed.organizationFeed.organizationId === ui.selectedOrganizationId
+    ? feed.organizationFeed.posts
+    : NO_POSTS;
+  const visibleOrganizationPosts = useMemo(
+    () => (relationsReady ? visiblePosts(openOrganizationPosts, { blocked: blockedSet }, 'profile') : NO_POSTS),
+    [relationsReady, openOrganizationPosts, blockedSet],
   );
   const visibleStories = relationsReady
     ? storiesState.stories.filter((s) => !blockedSet.has(s.authorId) && !mutedSet.has(s.authorId))
@@ -590,6 +616,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ui.setActiveTab('organizations');
       ui.setSelectedOrganizationId(organizationId);
     },
+    organizationPosts: visibleOrganizationPosts,
+    organizationPostsLoading: organizations.organizationPostsLoading,
+    loadOrganizationPosts: organizations.loadOrganizationPosts,
+    createOrganizationPost: organizations.createOrganizationPost,
+    removePostFromOrganization: organizations.removePostFromOrganization,
+    removeOrganizationMember: organizations.removeOrganizationMember,
   };
 
   const toastAction = toast?.action;

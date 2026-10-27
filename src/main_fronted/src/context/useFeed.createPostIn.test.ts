@@ -113,13 +113,30 @@ describe('useFeed.createPostIn: community', () => {
     expect(linkAt).toBeGreaterThan(mediaAt);
   });
 
-  it('an organization post is linked with its own feed type and is not shown on Home yet', async () => {
+  it('an organization post is linked with its own feed type and shows on Home with the organization name', async () => {
     const { result, calls } = setup();
+    let created: Awaited<ReturnType<typeof result.current.createPostIn>> | undefined;
     await act(async () => {
-      await result.current.createPostIn({ kind: 'organization', id: 'o-1', name: 'Acme' }, 'Hi', 'text', {});
+      created = await result.current.createPostIn({ kind: 'organization', id: 'o-1', name: 'Acme' }, 'Hi', 'text', {});
     });
     const link = calls.find((c) => isCall(c, 'POST', '/api/post-feeds'));
     expect(link?.body).toEqual({ postId: 'p-new', feedType: 'organization', targetId: 'o-1' });
+    expect(created).toMatchObject({ id: 'p-new', organizationId: 'o-1', organizationName: 'Acme' });
+    expect(result.current.posts[0]).toMatchObject({ id: 'p-new', organizationId: 'o-1', organizationName: 'Acme' });
+    expect(result.current.posts[0].groupId).toBeUndefined();
+    expect(calls.some((c) => isCall(c, 'GET', '/api/feed/home'))).toBe(false);
+  });
+
+  it('when the organization link is refused, deletes the just-created post and rejects with the reason', async () => {
+    const { result, calls } = setup({
+      'POST /api/post-feeds': { status: 403, body: { detail: 'Not an admin' } },
+    });
+    await expect(
+      act(async () => {
+        await result.current.createPostIn({ kind: 'organization', id: 'o-1', name: 'Acme' }, 'Lost', 'text', {});
+      }),
+    ).rejects.toThrow('Your post was not added to the community: Not an admin');
+    await vi.waitFor(() => expect(calls.some((c) => isCall(c, 'DELETE', '/api/posts/p-new'))).toBe(true));
     expect(result.current.posts).toEqual([]);
   });
 });
