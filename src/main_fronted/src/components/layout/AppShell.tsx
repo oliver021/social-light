@@ -88,7 +88,7 @@ export const AppShell: React.FC = () => {
             </Typography>
           </Box>
           <Divider />
-          <Sidebar />
+          <Sidebar onNavigate={() => setDrawerOpen(false)} />
         </Box>
       </Drawer>
 

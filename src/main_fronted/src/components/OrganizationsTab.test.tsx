@@ -176,6 +176,30 @@ describe('OrganizationsTab organization page', () => {
   });
 });
 
+describe('OrganizationsTab owner line', () => {
+  // The People list never holds me, and personView falls back to "Member" for anyone it lacks.
+  const fallbackView = vi.fn(() => ({ name: 'Member', avatar: '', handle: '' }));
+
+  it('names me as the owner of my own organization', () => {
+    renderWithProviders(<OrganizationsTab />, {
+      context: { organizations: [ownedByMe], selectedOrganizationId: ownedByMe.id, personView: fallbackView },
+    });
+    expect(screen.getByRole('button', { name: 'Test User' })).toBeInTheDocument();
+  });
+
+  it('names the owner from their member row when the People list does not know them', () => {
+    renderWithProviders(<OrganizationsTab />, {
+      context: {
+        organizations: [joined],
+        selectedOrganizationId: joined.id,
+        personView: fallbackView,
+        organizationMembers: { 'o-joined': [{ id: 'm-a', userId: ANA, name: 'Ana Ruiz', handle: '@ana', avatar: '', role: 'owner' }] },
+      },
+    });
+    expect(screen.getByRole('button', { name: 'Ana Ruiz' })).toBeInTheDocument();
+  });
+});
+
 describe('OrganizationsTab create dialog', () => {
   async function openCreate(user: ReturnType<typeof renderWithProviders>['user']) {
     await user.click(screen.getAllByRole('button', { name: 'Create organization' })[0]);

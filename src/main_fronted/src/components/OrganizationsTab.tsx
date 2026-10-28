@@ -279,8 +279,12 @@ export const OrganizationsTab: React.FC = () => {
       );
     }
 
-    const owner = personView(active.ownerId);
     const members = organizationMembers[active.id];
+    // The owner's name: their member row (profile resolved), or me, before falling back to the
+    // People list, which leaves out me and anyone not suggested.
+    const ownerRow = members?.find((m) => m.userId === active.ownerId);
+    const owner = ownerRow
+      ?? (active.ownerId === currentUser.id ? { name: currentUser.name, handle: currentUser.handle, avatar: currentUser.avatar } : personView(active.ownerId));
 
     return (
       <Box id="organizations-tab-page" sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--ui-gap)' }}>

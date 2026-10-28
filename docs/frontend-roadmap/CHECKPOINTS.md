@@ -126,3 +126,45 @@ All 9 L6 smoke specs pass against the public demo
 (`SL_WEB_URL=https://social.th3light.us PW_CHANNEL=chrome npx playwright test -c playwright.web.config.ts`).
 The run leaves test data there: `smoke-*@example.test` accounts with their posts, a
 "Smoke community …" group, a "Smoke organization …" organization, events and chats.
+
+## Checkpoint 4 — after M11, phase 2 (2026-10-27)
+
+**Stack:** local Docker Compose demo stack, web image rebuilt from `feat/frontend-roadmap`
+(M9 `ec2b3f1`, M10 `a8e621e`, M11 `cc85b94`; previous image kept as
+`sociallight/web:checkpoint3`), then again with the fixes below.
+
+**L6 smoke, all 11 specs** (the 9 existing ones plus the new `community` image + owner
+moderation and `organizations` posts specs): pass.
+
+| Failure on first run | Cause | Fix |
+|---|---|---|
+| `community` (event dialog stays open), `marketplace` (catalog 500), `conversations` (timeout) | **Environment:** Postgres hit its default `max_connections = 100` (`53300: too many clients`). 18 services each keep an Npgsql pool on one server; after 10 h the pools held ~100 connections (socialgraph-api alone 24) | Local server raised to 300 (`ALTER SYSTEM`). `deploy/docker-compose.yaml` and `deploy/make-demo-compose.py` now start Postgres with `max_connections=300`. **Not yet applied on the LXC** |
+
+After the fix, one spec failed once on the first run straight after a web redeploy. The
+next run passed all 11. Not reproduced.
+
+**L7 visual (390 / 1280)**, community page (posts + members) and organization page with a
+post: no horizontal overflow, no images without `alt`, no unnamed buttons. Two app bugs
+found and fixed:
+1. *Phone drawer stayed open after choosing a destination.* On phones Organizations is
+   only reachable from the drawer (M8), so the drawer covered the page. `Sidebar` takes
+   `onNavigate`, and `AppShell` closes the drawer with it. Regression test in `AppShell.test.tsx`.
+2. *Organization owner shown as "Member".* The owner line used `personView`, whose People
+   list never holds me or anyone not suggested. It now uses the owner's member row
+   (profile resolved), or me, before `personView`. Tests in `OrganizationsTab.test.tsx`.
+
+Nits (not fixed): a post inside a community or organization page repeats "› {that page}";
+the event widget's "Event details" buttons are under 24 px tall (pre-existing).
+
+**Code review (`/code-review high`, `0354d80..cc85b94`):** 9 findings, none blocking:
+- `loadOrganizationPosts` has no stale-response guard. Opening A and then B quickly can leave B empty.
+- The organization composer bypasses `createOrganizationPost`'s owner/admin check, which is dead code.
+- The organization link-failure message says "community".
+- A post removed from a community or organization keeps its "›" link on Home until a reload.
+- One failed organization lookup in `enrichTargetLinks` also drops the community links.
+- The shared loading flag can briefly show the empty state.
+- Admin members are shown with a "Member" chip.
+- The post-feed removal code is duplicated.
+- `createGroupPost`, `createOrganizationPost` and `addPost` are dead.
+
+**Verdict:** M9–M11 approved. Review findings are follow-ups. M12 waits for B12.

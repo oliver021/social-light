@@ -8,8 +8,17 @@ import { UserAvatar } from './ui/UserAvatar';
 import { T, mutedSx, touchTargetSx } from './ui/tokens';
 import { TABS, TAB_ID } from './layout/tabs';
 
-export const Sidebar: React.FC = () => {
-  const { currentUser, activeTab, setActiveTab, notifications } = useApp();
+export interface SidebarProps {
+  /** Called after a destination is chosen, so the phone drawer can close. */
+  onNavigate?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ onNavigate }) => {
+  const { currentUser, activeTab, setActiveTab: selectTab, notifications } = useApp();
+  const setActiveTab = (tab: Parameters<typeof selectTab>[0]) => {
+    selectTab(tab);
+    onNavigate?.();
+  };
 
   const unreadAlerts = notifications.filter((n) => !n.read).length;
 
