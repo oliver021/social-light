@@ -1,35 +1,84 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Group } from '../types';
+import { Group, Post } from '../types';
 import { PostCard } from './PostCard';
+import { PostComposer } from './post/PostComposer';
+import { MediaPicker } from './MediaPicker';
 import { messageOf } from '../api/gateway';
-import { EmptyState } from './ui/EmptyState';
-import { cardSx, sectionTitleSx } from './ui/tokens';
-import { 
+import {
+  CardGridSkeleton,
+  ConfirmDialog,
+  EmptyState,
+  ListSkeleton,
+  OverflowMenu,
+  PageHeader,
+  ResponsiveDialog,
+  SectionHeader,
+  StatusChip,
+  Surface,
+  T,
+  UserLine,
+  mutedSx,
+  sectionTitleSx,
+  subtleSx,
+} from './ui';
+import {
   Alert,
-  Box, 
-  Card, 
-  Typography, 
-  TextField, 
-  Button, 
-  Grid, 
-  Avatar, 
-  Divider, 
-  IconButton,
+  Avatar,
+  Box,
+  Button,
+  ButtonBase,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  MenuItem
+  IconButton,
+  InputAdornment,
+  MenuItem,
+  Tab,
+  Tabs,
+  TextField,
+  Typography,
 } from '@mui/material';
-import { Users, Search, SlidersHorizontal, ArrowLeft, ArrowRight } from 'lucide-react';
-import { motion } from 'motion/react';
+import { ArrowLeft, Search, SlidersHorizontal, Trash2, UserMinus, Users, X } from 'lucide-react';
 
-const EMPTY_FORM = { name: '', description: '', privacy: 'public' as 'public' | 'private' };
+const TOUCH_TARGET = { minHeight: 44, minWidth: 44 };
+/** The pill button: a 44px target with the full radius token. */
+const PILL_BUTTON = { ...TOUCH_TARGET, borderRadius: 'var(--ui-radius-full)', px: 2 };
+
+const EMPTY_FORM = {
+  name: '',
+  description: '',
+  privacy: 'public' as 'public' | 'private',
+  coverImage: '',
+  avatar: '',
+};
+
+const CATEGORIES = ['All', 'Technology', 'Artificial Intelligence', 'Gaming', 'Design Systems'];
+
+type CommunityTab = 'posts' | 'members';
 
 export const GroupsTab: React.FC = () => {
-  const { groups, toggleJoinGroup, createGroup, posts, selectedGroupId, setSelectedGroupId, addNotification, showToast } = useApp();
+  const {
+    currentUser,
+    groups,
+    groupsLoading,
+    toggleJoinGroup,
+    createGroup,
+    deleteGroup,
+    myRoleByGroup,
+    groupPosts,
+    groupPostsLoading,
+    loadGroupPosts,
+    groupMembers,
+    loadMembers,
+    removePostFromGroup,
+    removeMember,
+    selectedGroupId,
+    setSelectedGroupId,
+    openProfile,
+    addNotification,
+    showToast,
+  } = useApp();
+  // The first groups load is pending: show placeholder cards, not a false "no communities".
+  const listPending = Boolean(groupsLoading) && groups.length === 0;
   const [filter, setFilter] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('All');
 
@@ -38,13 +87,27 @@ export const GroupsTab: React.FC = () => {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
-  const categories = ['All', 'Technology', 'Artificial Intelligence', 'Gaming', 'Design Systems'];
+  // The community page: which tab is open, and what the owner is about to remove (M10).
+  const [tab, setTab] = useState<CommunityTab>('posts');
+  const [postToRemove, setPostToRemove] = useState<Post | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
+
+  // Opening a community reads its posts; the Members tab reads its members when it is opened.
+  useEffect(() => {
+    setTab('posts');
+    if (selectedGroupId) loadGroupPosts(selectedGroupId).catch(() => {});
+  }, [selectedGroupId]);
+
+  useEffect(() => {
+    if (selectedGroupId && tab === 'members') loadMembers(selectedGroupId).catch(() => {});
+  }, [selectedGroupId, tab]);
 
   const handleToggleJoin = async (group: Group) => {
     const changed = await toggleJoinGroup(group.id);
     if (!changed) return; // the hook has already reported why
-    const actionText = group.joined ? "left" : "joined";
+    const actionText = group.joined ? 'left' : 'joined';
     addNotification('group', group.name, `You ${actionText} the community.`);
   };
 
@@ -52,6 +115,10 @@ export const GroupsTab: React.FC = () => {
     setForm(EMPTY_FORM);
     setFormError(null);
     setCreateOpen(true);
+  };
+
+  const closeCreate = () => {
+    if (!creating) setCreateOpen(false);
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -62,8 +129,16 @@ export const GroupsTab: React.FC = () => {
     }
     setCreating(true);
     setFormError(null);
+    // Only the fields that are set are sent; the cover and the avatar are optional.
+    const input = {
+      name: form.name,
+      description: form.description,
+      privacy: form.privacy,
+      ...(form.coverImage ? { coverImage: form.coverImage } : {}),
+      ...(form.avatar ? { avatar: form.avatar } : {}),
+    };
     try {
-      await createGroup(form);
+      await createGroup(input);
       setCreateOpen(false);
       showToast(`Community "${form.name.trim()}" created. You are a member.`, 'success');
     } catch (err) {
@@ -74,163 +149,320 @@ export const GroupsTab: React.FC = () => {
   };
 
   const filteredGroups = groups.filter((g) => {
-    const matchSearch = g.name.toLowerCase().includes(filter.toLowerCase()) || 
+    const matchSearch = g.name.toLowerCase().includes(filter.toLowerCase()) ||
                         g.description.toLowerCase().includes(filter.toLowerCase());
     const matchCategory = activeCategory === 'All' || g.category === activeCategory;
     return matchSearch && matchCategory;
   });
 
-  // Get localized posts for group feed
-  const getGroupPosts = (groupId: string): any[] => {
-    if (groupId === 'group-1') {
-      return posts.filter(p => p.id === 'post-1' || p.id === 'post-5'); // React 19 + accessibility details
-    }
-    if (groupId === 'group-3') {
-      return posts.filter(p => p.id === 'post-4' || p.id === 'post-3'); // project neon grids + webGPU links
-    }
-    return []; // no posts are linked to this community yet
-  };
-
   const activeGroup = groups.find(g => g.id === selectedGroupId);
 
+  // Owner rule (M10): the owner (the creator's membership row) sees the moderation controls.
+  // The server does not enforce it yet (B3/B13); see the hook's notes.
+  const isOwner = activeGroup ? myRoleByGroup.get(activeGroup.id) === 'owner' : false;
+
+  // One join control per community. Its state is shown by the variant and the label.
+  const joinButton = (group: Group) => (
+    <Button
+      size="small"
+      variant={group.joined ? 'outlined' : 'contained'}
+      onClick={() => handleToggleJoin(group)}
+      aria-label={`${group.joined ? 'Leave' : 'Join'} ${group.name}`}
+      sx={{ ...PILL_BUTTON, fontSize: 'var(--ui-fs-xs)' }}
+    >
+      {group.joined ? 'Joined' : 'Join'}
+    </Button>
+  );
+
   return (
-    <Box id="communities-tab-page" className="space-y-4">
+    <Box id="communities-tab-page" sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--ui-gap)' }}>
       {selectedGroupId && activeGroup ? (
-        // LOCALIZED COMMUNITY INNER FEED VIEW
-        <Box className="space-y-4 animate-fade-in">
-          <Button 
-            size="small" 
-            variant="text" 
+        // COMMUNITY INNER VIEW
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--ui-gap)' }}>
+          <Button
+            variant="text"
             onClick={() => setSelectedGroupId(null)}
-            className="flex items-center gap-1 min-h-[44px] normal-case text-zinc-600 dark:text-zinc-400 p-0 text-xs font-semibold mb-2"
+            startIcon={<ArrowLeft size={18} strokeWidth={1.75} aria-hidden="true" />}
+            sx={{ ...TOUCH_TARGET, alignSelf: 'flex-start', color: T.muted, fontWeight: 600, fontSize: 'var(--ui-fs-xs)' }}
           >
-            <ArrowLeft className="w-4 h-4" />
             All communities
           </Button>
 
-          {/* COMMUNITY BANNER */}
-          <Card variant="outlined" className="p-4 border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950 overflow-hidden relative">
-            <Box className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-r from-emerald-500/20 to-teal-500/10 dark:from-emerald-950/30 dark:to-zinc-950" />
-            <Box className="relative mt-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <Box className="flex items-start gap-3 min-w-0">
-                <Avatar 
-                  src={activeGroup.coverUrl} 
-                  variant="rounded" 
-                  className="w-16 h-16 border-2 border-white dark:border-zinc-950 shadow-md"
+          {/* COMMUNITY BANNER: cover (when there is one), name, privacy, member count, join and more. */}
+          <Surface as="section" padding="none" sx={{ overflow: 'hidden' }}>
+            {activeGroup.coverImage ? (
+              <Box component="img" src={activeGroup.coverImage} alt={`Cover image of ${activeGroup.name}`} sx={{ display: 'block', width: '100%', height: 120, objectFit: 'cover' }} />
+            ) : (
+              <Box aria-hidden="true" sx={{ height: 80, bgcolor: T.successSoft }} />
+            )}
+            <Box
+              sx={{
+                px: 'var(--ui-card-pad)',
+                pb: 'var(--ui-card-pad)',
+                mt: activeGroup.coverImage ? -3 : -4,
+                display: 'flex',
+                flexDirection: { xs: 'column', md: 'row' },
+                alignItems: { md: 'center' },
+                justifyContent: 'space-between',
+                gap: 2,
+                minWidth: 0,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, minWidth: 0 }}>
+                <Avatar
+                  src={activeGroup.coverUrl}
+                  alt=""
+                  variant="rounded"
+                  sx={{ width: 64, height: 64, flexShrink: 0, border: `2px solid ${T.surface}`, borderRadius: 'var(--ui-radius-lg)' }}
                 />
-                <Box>
-                  <Typography variant="h6" className="font-display font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography component="h1" sx={{ ...sectionTitleSx, fontSize: 'var(--ui-fs-xl)', overflowWrap: 'anywhere' }}>
                     {activeGroup.name}
                   </Typography>
-                  <Typography variant="caption" className="font-mono text-emerald-600 dark:text-emerald-450 font-semibold uppercase tracking-wider block text-xs mt-0.5">
-                    {activeGroup.category} • {activeGroup.memberCount.toLocaleString()} Members
-                  </Typography>
-                  <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 block mt-1 leading-relaxed text-xs max-w-xl">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
+                    <StatusChip label={activeGroup.privacy === 'private' ? 'Private' : 'Public'} tone="neutral" />
+                    <Typography sx={{ ...subtleSx, color: T.success, fontWeight: 600 }}>
+                      {activeGroup.memberCount.toLocaleString()} {activeGroup.memberCount === 1 ? 'member' : 'members'}
+                    </Typography>
+                  </Box>
+                  <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-sm)', mt: 0.5, maxWidth: 560 }}>
                     {activeGroup.description}
                   </Typography>
                 </Box>
               </Box>
-
-              <Button
-                size="small"
-                variant={activeGroup.joined ? "outlined" : "contained"}
-                onClick={() => handleToggleJoin(activeGroup)}
-                className={`normal-case font-display text-xs min-w-[95px] pr-3 pl-3 rounded-xl py-1.5 shrink-0 self-start md:self-center ${
-                  activeGroup.joined
-                  ? 'border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800'
-                  : 'bg-emerald-600 hover:opacity-90 text-white'
-                }`}
-              >
-                {activeGroup.joined ? 'Subscribed' : 'Join Community'}
-              </Button>
+              <Box sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', md: 'center' }, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                {joinButton(activeGroup)}
+                {/* Owner rule: only the creator (owner membership) sees delete. Groups created before owners were recorded show none. */}
+                <OverflowMenu
+                  label="More actions for this community"
+                  items={[{ id: 'delete', label: 'Delete community', icon: Trash2, danger: true, hidden: myRoleByGroup.get(activeGroup.id) !== 'owner', onSelect: () => setConfirmDeleteOpen(true) }]}
+                />
+              </Box>
             </Box>
-          </Card>
+          </Surface>
 
-          {/* GROUP SEGMENTED POSTS */}
-          <Typography variant="subtitle2" className="font-display font-bold text-zinc-800 dark:text-zinc-200 text-xs px-1">
-            Posts in {activeGroup.name}
-          </Typography>
+          <Tabs
+            value={tab}
+            onChange={(_, value: CommunityTab) => setTab(value)}
+            aria-label="Community sections"
+            sx={{ minHeight: 44, borderBottom: `1px solid ${T.border}` }}
+          >
+            <Tab value="posts" label="Posts" sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }} />
+            <Tab value="members" label="Members" sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }} />
+          </Tabs>
 
-          <Box className="space-y-4">
-            {getGroupPosts(activeGroup.id).length > 0 ? (
-              getGroupPosts(activeGroup.id).map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))
-            ) : (
-              <EmptyState title="No posts in this community yet" body="Posts shared here will appear in this list." />
-            )}
-          </Box>
-        </Box>
-      ) : (
-        // COMMUNITIES DISCOVERY GRID VIEW
-        <Box className="space-y-4">
-          <Card variant="outlined" sx={{ ...cardSx, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            <Typography component="h2" sx={{ ...sectionTitleSx, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Users className="w-4 h-4 text-emerald-500" aria-hidden="true" />
-              Find communities
-            </Typography>
+          {tab === 'posts' && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--ui-gap)' }}>
+              {/* Only members get the composer (the same one as Home, M9); others are asked to join. */}
+              {activeGroup.joined ? (
+                <PostComposer
+                  key={activeGroup.id}
+                  target={{ kind: 'group', id: activeGroup.id, name: activeGroup.name }}
+                  placeholder={`Share something with ${activeGroup.name}`}
+                  label="Post in this community"
+                  onPosted={() => { loadGroupPosts(activeGroup.id).catch(() => {}); }}
+                />
+              ) : (
+                <Surface as="section" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+                  <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-sm)' }}>Join to post in this community</Typography>
+                  <Button
+                    variant="contained"
+                    onClick={() => handleToggleJoin(activeGroup)}
+                    aria-label={`Join ${activeGroup.name} to post`}
+                    sx={{ ...PILL_BUTTON, fontSize: 'var(--ui-fs-xs)' }}
+                  >
+                    Join
+                  </Button>
+                </Surface>
+              )}
 
-            <Box className="flex gap-2">
-              <TextField
-                size="small"
-                fullWidth
-                placeholder="Search communities..."
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                variant="outlined"
-                className="bg-zinc-50/50 dark:bg-zinc-900 text-xs"
-                slotProps={{
-                  input: {
-                    className: 'text-xs',
-                    startAdornment: <Search className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 mr-2 shrink-0" />
-                  },
-                  htmlInput: { 'aria-label': 'Search communities' }
-                }}
-              />
-              <Button
-                size="small"
-                variant="contained"
-                onClick={openCreate}
-                className="normal-case text-xs font-display bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-3 min-h-[44px] shrink-0"
-              >
-                Create community
-              </Button>
-            </Box>
+              <SectionHeader title={`Posts in ${activeGroup.name}`} />
 
-            {/* HORIZONTAL CATEGORIES SPLIT CHIPS */}
-            <Box className="flex items-center gap-1.5 flex-wrap pt-0.5 min-w-0">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 mr-1 shrink-0" aria-hidden="true" />
-              {categories.map((cat) => (
-                <Chip 
-                  key={cat}
-                  label={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  size="small"
-                  aria-pressed={activeCategory === cat}
-                  sx={{ maxWidth: '100%', height: 32, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }}
-                  className={`text-xs font-medium transition ${
-                    activeCategory === cat 
-                    ? 'bg-emerald-500 text-white font-semibold' 
-                    : 'bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800'
-                  }`}
+              {groupPostsLoading && groupPosts.length === 0 && <ListSkeleton rows={2} />}
+              {!(groupPostsLoading && groupPosts.length === 0) && groupPosts.length === 0 && (
+                <EmptyState title="No posts in this community yet" body="Posts shared here will appear in this list." />
+              )}
+              {groupPosts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  // The owner can take someone else's post out of this community. Their own posts
+                  // are removed with "Delete post" instead.
+                  extraMenuItems={isOwner && post.authorId !== currentUser.id
+                    ? [{ id: 'remove-from-community', label: 'Remove from community', icon: X, danger: true, onSelect: () => setPostToRemove(post) }]
+                    : undefined}
                 />
               ))}
             </Box>
-          </Card>
+          )}
 
-          <Dialog
+          {tab === 'members' && (() => {
+            const members = groupMembers[activeGroup.id];
+            if (members === undefined) return <ListSkeleton rows={3} />;
+            if (members.length === 0) return <EmptyState title="No members yet" body="People who join this community will appear here." />;
+            return (
+              <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {members.map((m) => (
+                  <Box component="li" key={m.id}>
+                    <UserLine
+                      name={m.name}
+                      handle={m.handle}
+                      avatarSrc={m.avatar}
+                      onOpen={() => openProfile(m.userId)}
+                      meta={<StatusChip label={m.role === 'owner' ? 'Owner' : 'Member'} tone={m.role === 'owner' ? 'primary' : 'neutral'} />}
+                      // Owner only, and never on the owner row.
+                      trailing={isOwner && m.role !== 'owner' ? (
+                        <IconButton
+                          aria-label={`Remove ${m.name}`}
+                          onClick={() => setMemberToRemove({ id: m.id, name: m.name })}
+                          sx={{ ...TOUCH_TARGET, color: T.danger, '&.Mui-focusVisible': { outline: `2px solid ${T.focus}`, outlineOffset: 2 } }}
+                        >
+                          <UserMinus aria-hidden="true" size={18} strokeWidth={1.75} />
+                        </IconButton>
+                      ) : undefined}
+                    />
+                  </Box>
+                ))}
+              </Box>
+            );
+          })()}
+
+          {myRoleByGroup.get(activeGroup.id) === 'owner' && (
+            <ConfirmDialog
+              open={confirmDeleteOpen}
+              title="Delete this community?"
+              body="It is removed for everyone. This cannot be undone."
+              confirmLabel="Delete"
+              destructive
+              onConfirm={async () => {
+                await deleteGroup(activeGroup.id);
+                setSelectedGroupId(null);
+                showToast('Community deleted', 'success');
+              }}
+              onClose={() => setConfirmDeleteOpen(false)}
+            />
+          )}
+
+          {/* Owner moderation (M10): the confirm dialogs for taking a post out and removing a member. */}
+          {isOwner && (
+            <>
+              <ConfirmDialog
+                open={postToRemove !== null}
+                title={`Remove this post from ${activeGroup.name}?`}
+                body={postToRemove ? `It stays on ${postToRemove.author.name}'s profile.` : undefined}
+                confirmLabel="Remove"
+                destructive
+                onConfirm={async () => {
+                  if (!postToRemove) return;
+                  await removePostFromGroup(activeGroup.id, postToRemove.id);
+                  showToast('Post removed from the community', 'success');
+                }}
+                onClose={() => setPostToRemove(null)}
+              />
+              <ConfirmDialog
+                open={memberToRemove !== null}
+                title={memberToRemove ? `Remove ${memberToRemove.name} from this community?` : 'Remove this member?'}
+                body="They are no longer a member. They can join again."
+                confirmLabel="Remove"
+                destructive
+                onConfirm={async () => {
+                  if (!memberToRemove) return;
+                  await removeMember(activeGroup.id, memberToRemove.id);
+                  showToast(`${memberToRemove.name} was removed from the community`, 'success');
+                }}
+                onClose={() => setMemberToRemove(null)}
+              />
+            </>
+          )}
+        </Box>
+      ) : (
+        // COMMUNITIES DISCOVERY VIEW
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--ui-gap)' }}>
+          <PageHeader
+            title="Communities"
+            description="Find groups around what you care about, or start one."
+            actions={
+              <Button variant="contained" onClick={openCreate} sx={PILL_BUTTON}>
+                Create community
+              </Button>
+            }
+          />
+
+          <Surface as="section" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <SectionHeader title="Find communities" />
+
+            <TextField
+              size="small"
+              fullWidth
+              placeholder="Search communities"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              variant="outlined"
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search size={16} strokeWidth={1.75} aria-hidden="true" style={{ color: T.muted }} />
+                    </InputAdornment>
+                  ),
+                },
+                htmlInput: { 'aria-label': 'Search communities' },
+              }}
+            />
+
+            {/* CATEGORY FILTER CHIPS */}
+            <Box role="group" aria-label="Categories" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', minWidth: 0 }}>
+              <SlidersHorizontal size={16} strokeWidth={1.75} aria-hidden="true" style={{ color: T.muted }} />
+              {CATEGORIES.map((cat) => {
+                const active = activeCategory === cat;
+                return (
+                  <Chip
+                    key={cat}
+                    label={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    size="small"
+                    aria-pressed={active}
+                    sx={{
+                      height: 32,
+                      maxWidth: '100%',
+                      borderRadius: 'var(--ui-radius-full)',
+                      border: `1px solid ${active ? T.primary : 'transparent'}`,
+                      bgcolor: active ? T.primarySoft : T.surface2,
+                      color: active ? T.primary : T.muted,
+                      fontWeight: active ? 600 : 500,
+                      '&:hover': { bgcolor: active ? T.primarySoft : T.surface3 },
+                      '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+                    }}
+                  />
+                );
+              })}
+            </Box>
+          </Surface>
+
+          <ResponsiveDialog
             open={createOpen}
-            onClose={() => { if (!creating) setCreateOpen(false); }}
-            slotProps={{
-              paper: { className: 'w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2' }
-            }}
+            onClose={closeCreate}
+            title="Create a community"
+            actions={
+              <>
+                <Button onClick={() => setCreateOpen(false)} disabled={creating} sx={{ ...TOUCH_TARGET, color: T.muted }}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  form="create-community-form"
+                  variant="contained"
+                  disabled={creating}
+                  sx={PILL_BUTTON}
+                >
+                  {creating ? 'Creating…' : 'Create'}
+                </Button>
+              </>
+            }
           >
-            <DialogTitle className="font-display font-bold text-sm text-zinc-800 dark:text-zinc-200 pb-2">
-              Create a community
-            </DialogTitle>
-            <form onSubmit={handleCreate} noValidate>
-              <DialogContent className="space-y-3.5 pt-2">
-                {formError && <Alert severity="error" className="text-xs">{formError}</Alert>}
+            <form id="create-community-form" onSubmit={handleCreate} noValidate>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+                {formError && <Alert severity="error">{formError}</Alert>}
                 <TextField
                   size="small"
                   fullWidth
@@ -238,7 +470,6 @@ export const GroupsTab: React.FC = () => {
                   label="Name"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  slotProps={{ input: { className: 'text-xs' }, inputLabel: { className: 'text-xs' } }}
                 />
                 <TextField
                   size="small"
@@ -248,7 +479,6 @@ export const GroupsTab: React.FC = () => {
                   label="Description"
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  slotProps={{ input: { className: 'text-xs' }, inputLabel: { className: 'text-xs' } }}
                 />
                 <TextField
                   size="small"
@@ -257,29 +487,30 @@ export const GroupsTab: React.FC = () => {
                   label="Who can see it"
                   value={form.privacy}
                   onChange={(e) => setForm({ ...form, privacy: e.target.value as 'public' | 'private' })}
-                  slotProps={{ input: { className: 'text-xs' }, inputLabel: { className: 'text-xs' } }}
+                  helperText="Posts in this community can be seen by anyone signed in."
                 >
-                  <MenuItem value="public">Public: anyone can find and join</MenuItem>
-                  <MenuItem value="private">Private: only people you add</MenuItem>
+                  <MenuItem value="public">Public: shown in the list to everyone</MenuItem>
+                  <MenuItem value="private">Private: shown as private (joining is still open)</MenuItem>
                 </TextField>
-              </DialogContent>
-              <DialogActions className="pr-4 pb-4">
-                <Button size="small" onClick={() => setCreateOpen(false)} disabled={creating} className="text-xs text-zinc-600 dark:text-zinc-400 normal-case">Cancel</Button>
-                <Button
-                  size="small"
-                  type="submit"
-                  variant="contained"
-                  disabled={creating}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs normal-case px-4"
-                >
-                  {creating ? 'Creating…' : 'Create'}
-                </Button>
-              </DialogActions>
+                <MediaPicker
+                  kind="image"
+                  label="Cover image (optional)"
+                  value={form.coverImage || undefined}
+                  onChange={(url) => setForm({ ...form, coverImage: url ?? '' })}
+                />
+                <MediaPicker
+                  kind="image"
+                  label="Avatar (optional)"
+                  value={form.avatar || undefined}
+                  onChange={(url) => setForm({ ...form, avatar: url ?? '' })}
+                />
+              </Box>
             </form>
-          </Dialog>
+          </ResponsiveDialog>
 
-          {/* GROUPS CATALOG GRID */}
-          {filteredGroups.length === 0 && (
+          {/* COMMUNITIES CATALOG */}
+          {listPending && <CardGridSkeleton count={4} />}
+          {!listPending && filteredGroups.length === 0 && (
             <EmptyState
               icon={Users}
               title={groups.length === 0 ? 'No communities yet' : 'No communities match your search'}
@@ -287,70 +518,57 @@ export const GroupsTab: React.FC = () => {
               action={groups.length === 0 ? { label: 'Create community', onClick: openCreate } : undefined}
             />
           )}
-          <Grid container spacing={2}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' },
+              gap: 'var(--ui-gap)',
+            }}
+          >
             {filteredGroups.map((group) => (
-              <Grid size={{ xs: 12, sm: 6 }} key={group.id}>
-                <Card 
-                  variant="outlined" 
-                  className="h-full border-zinc-200 dark:border-zinc-850 hover:border-emerald-350 dark:hover:border-emerald-850 transition-all rounded-2xl bg-white dark:bg-zinc-950 p-4 flex flex-col justify-between gap-3 relative overflow-hidden"
+              <Surface
+                key={group.id}
+                as="article"
+                sx={{ position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 1.5 }}
+              >
+                {/* Decorative stripe */}
+                <Box aria-hidden="true" sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, bgcolor: T.success }} />
+
+                <ButtonBase
+                  onClick={() => setSelectedGroupId(group.id)}
+                  aria-label={`Open ${group.name}`}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'flex-start',
+                    alignItems: 'flex-start',
+                    gap: 1.5,
+                    minWidth: 0,
+                    textAlign: 'left',
+                    borderRadius: 'var(--ui-radius-sm)',
+                    '&:hover': { bgcolor: T.surface2 },
+                    '&:active': { bgcolor: T.surface3 },
+                    '&.Mui-focusVisible': { outline: `2px solid ${T.focus}`, outlineOffset: 2 },
+                  }}
                 >
-                  {/* Miniature decorative stripe */}
-                  <Box className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-505 to-teal-505" />
-
-                  <Box
-                    className="flex items-start gap-3 cursor-pointer min-w-0"
-                    onClick={() => setSelectedGroupId(group.id)}
-                  >
-                    <Avatar
-                      src={group.coverUrl}
-                      variant="rounded"
-                      className="w-12 h-12 shrink-0"
-                    />
-                    <Box className="min-w-0">
-                      <Typography variant="body2" className="font-display font-semibold text-zinc-900 dark:text-zinc-100 hover:text-emerald-505 line-clamp-1 break-words text-xs">
-                        {group.name}
-                      </Typography>
-                      <Typography variant="caption" className="font-mono text-xs text-zinc-600 dark:text-zinc-400 -mt-0.5 block">
-                        {group.category} • {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}
-                      </Typography>
-                    </Box>
+                  <Avatar src={group.coverUrl} alt={group.name} variant="rounded" sx={{ width: 48, height: 48, flexShrink: 0, borderRadius: 'var(--ui-radius-lg)' }} />
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography component="span" sx={{ ...sectionTitleSx, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {group.name}
+                    </Typography>
+                    <Typography component="span" sx={{ ...subtleSx, display: 'block', fontFamily: 'var(--font-mono)' }}>
+                      {group.category} · {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}
+                    </Typography>
                   </Box>
+                </ButtonBase>
 
-                  <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 text-xs line-clamp-2 leading-relaxed">
-                    {group.description}
-                  </Typography>
+                <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-xs)' }}>
+                  {group.description}
+                </Typography>
 
-                  <Divider className="my-0.5" />
-
-                  <Box className="flex items-center justify-between">
-                    <Button 
-                      size="small" 
-                      variant="text" 
-                      onClick={() => setSelectedGroupId(group.id)}
-                      className="text-xs capitalize font-semibold font-display text-emerald-600 dark:text-emerald-400 p-0 flex items-center gap-0.5"
-                    >
-                      Open
-                      <ArrowRight className="w-3" aria-hidden="true" />
-                    </Button>
-
-                    <Button
-                      size="small"
-                      variant={group.joined ? "text" : "contained"}
-                      onClick={() => handleToggleJoin(group)}
-                      className={`normal-case text-xs py-1 border border-transparent rounded-lg ${
-                        group.joined
-                        ? 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-500 bg-zinc-100 dark:bg-zinc-900 py-1 border border-zinc-200 dark:border-zinc-800'
-                        : 'bg-emerald-600 hover:opacity-95 text-white pr-2.5 pl-2.5 shadow-md shadow-emerald-500/10'
-                      }`}
-                      style={{ minHeight: 44, minWidth: 44 }}
-                    >
-                      {group.joined ? 'Subscribed' : 'Join'}
-                    </Button>
-                  </Box>
-                </Card>
-              </Grid>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 'auto' }}>{joinButton(group)}</Box>
+              </Surface>
             ))}
-          </Grid>
+          </Box>
         </Box>
       )}
     </Box>

@@ -1,7 +1,8 @@
 # socialLight — demo deployment (Docker Compose)
 
 Subset of the stack for a demo: Postgres (pgvector), RabbitMQ, Identity, Profile, Posts,
-Engagement, SocialGraph, Feed, Media, the YARP gateway (`social-bff`) and the web frontend.
+Engagement, SocialGraph, Feed, Media, Groups, Organizations, Events, Stories, Reels, Notifications,
+Chat, Catalog, the YARP gateway (`social-bff`) and the web frontend.
 Verified end to end (signup → login → profile → post → comment) on Docker 29 / Linux, ~0.7 GB RAM.
 
 ## Why Compose and not the Aspire AppHost
@@ -42,4 +43,5 @@ Use `--step publish-compose`; the default publish pipeline also runs a `compose 
 ## Before exposing it publicly
 - Dev OAuth client `social-tests` / secret `secret` is still seeded in Identity — remove or rotate it.
 - Only the gateway and web ports are published; keep it that way.
-- Modules not in this subset (Chat, Stories, Groups, Gaming, Marketplace…) return 502 at the gateway.
+- Modules not in this subset (Gaming, Jobs, Moderation, Pages, Recommendation, Threads, and the
+  store's Ordering/Basket) return 502 at the gateway.

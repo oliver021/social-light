@@ -1,30 +1,48 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import {
-  Box,
-  Card,
-  Typography,
-  Grid,
-  Button,
-  TextField,
-  Divider,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Chip,
-  InputAdornment
-} from '@mui/material';
-import { ShoppingBag, MapPin, Search, PlusCircle, ShoppingCart, ImageOff } from 'lucide-react';
+import { Box, Typography, Grid, Button, TextField, Divider, Chip, InputAdornment, MenuItem } from '@mui/material';
+import { ShoppingBag, Tag, Search, PlusCircle, ShoppingCart, ImageOff } from 'lucide-react';
 import { MediaPicker } from './MediaPicker';
 import { mediaUrl } from '../api/gateway';
-import { EmptyState } from './ui/EmptyState';
-import { cardSx, mutedSx, sectionTitleSx, touchTargetSx } from './ui/tokens';
+import { AsyncButton, CardGridSkeleton, EmptyState, InlineError, PageHeader, ResponsiveDialog, Surface, SectionHeader, T, mutedSx, touchTargetSx } from './ui';
+
+/** Prices are shown in US dollars, the only currency the catalog stores. */
+const usd = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' });
+const SEARCH_DEBOUNCE_MS = 350;
 
 export const MarketplaceTab: React.FC = () => {
-  const { marketItems, marketCategories, createMarketItem, addNotification } = useApp();
-  const [activeCategory, setActiveCategory] = useState('All');
-  const [search, setSearch] = useState('');
+  const {
+    marketItems,
+    marketTypes,
+    marketBrands,
+    marketQuery,
+    setMarketQuery,
+    marketCountLabel,
+    marketNote,
+    marketHasMore,
+    loadMoreMarket,
+    marketError,
+    retryMarketplace,
+    marketplaceLoading,
+    createMarketItem,
+    addNotification,
+    marketSelectedId,
+    openMarketItem,
+    closeMarketItem,
+    marketDetail,
+    marketDetailLoading,
+    marketDetailError,
+  } = useApp();
+  // The first catalog load is pending: show placeholder cards, not a false "no listings".
+  const gridPending = Boolean(marketplaceLoading) && marketItems.length === 0;
+  // The text box is local; the query (and the server request) follows it after a short pause.
+  const [searchInput, setSearchInput] = useState(marketQuery.text);
+  useEffect(() => {
+    const next = searchInput.trim();
+    if (next === marketQuery.text.trim()) return;
+    const timer = setTimeout(() => setMarketQuery({ text: next }), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput, marketQuery.text, setMarketQuery]);
 
   // Create listing form state
   const [createOpen, setCreateOpen] = useState(false);
@@ -36,21 +54,11 @@ export const MarketplaceTab: React.FC = () => {
   // Root-relative url of the uploaded listing picture (empty when none chosen).
   const [newImage, setNewImage] = useState('');
 
-  // Real catalog types from the backend (falls back to a sensible default before load).
-  const categories = ['All', ...(marketCategories.length ? marketCategories : ['General'])];
-
-  const filteredItems = marketItems.filter((item) => {
-    const matchSearch = item.title.toLowerCase().includes(search.toLowerCase()) ||
-                        item.description.toLowerCase().includes(search.toLowerCase());
-    const matchCat = activeCategory === 'All' || item.category === activeCategory;
-    return matchSearch && matchCat;
-  });
-
-  const filtersActive = search.trim() !== '' || activeCategory !== 'All';
+  const filtersActive = marketQuery.text.trim() !== '' || marketQuery.typeId !== null || marketQuery.brandId !== null;
 
   const clearFilters = () => {
-    setSearch('');
-    setActiveCategory('All');
+    setSearchInput('');
+    setMarketQuery({ text: '', typeId: null, brandId: null });
   };
 
   const handleCreateSubmit = (e: React.FormEvent) => {
@@ -76,77 +84,129 @@ export const MarketplaceTab: React.FC = () => {
     addNotification('mention', 'Marketplace', `Saved "${newTitle}" as a draft on this device. It is not published yet.`);
   };
 
-  return (
-    <Box id="marketplace-tab-page" className="space-y-4">
-      {/* HEADER, SEARCH AND CATEGORY FILTERS */}
-      <Card variant="outlined" component="section" aria-label="Marketplace filters" sx={{ ...cardSx, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        <Box className="flex items-center justify-between gap-2">
-          <Typography component="h2" sx={{ ...sectionTitleSx, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ShoppingBag aria-hidden="true" className="w-4 h-4 text-amber-500" />
-            Marketplace
-          </Typography>
+  const listButton = (
+    <Button
+      variant="contained"
+      onClick={() => setCreateOpen(true)}
+      startIcon={<PlusCircle aria-hidden="true" className="w-[18px] h-[18px]" strokeWidth={1.75} />}
+      sx={{ borderRadius: 'var(--ui-radius-full)', px: 2, minWidth: 44, minHeight: 44, textTransform: 'none', fontWeight: 600, flexShrink: 0 }}
+    >
+      List an item
+    </Button>
+  );
 
-          <Button
-            variant="contained"
-            onClick={() => setCreateOpen(true)}
-            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, borderRadius: 999, px: 2, bgcolor: '#b45309', color: '#fff', '&:hover': { bgcolor: '#92400e' }, flexShrink: 0 }}
-          >
-            <PlusCircle aria-hidden="true" className="w-4 h-4 mr-1" />
-            List an item
-          </Button>
-        </Box>
+  return (
+    <Box id="marketplace-tab-page" sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--ui-gap)' }}>
+      <PageHeader title="Marketplace" description="Items people list for sale near you." actions={listButton} />
+
+      {/* SEARCH, MODE AND FILTERS */}
+      <Surface as="section" aria-label="Marketplace filters" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <SectionHeader title="Browse" as="h2" />
 
         <TextField
           size="small"
           fullWidth
-          placeholder="Search items"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search the marketplace…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           variant="outlined"
           slotProps={{
             input: {
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search aria-hidden="true" className="w-3.5 h-3.5" />
+                  <Search aria-hidden="true" className="w-[18px] h-[18px]" strokeWidth={1.75} />
                 </InputAdornment>
               ),
             },
-            htmlInput: { 'aria-label': 'Search items' }
+            htmlInput: { 'aria-label': 'Search the marketplace' }
           }}
         />
 
-        {/* CATEGORY CHIPS (44 px touch targets on phones) */}
-        <Box role="group" aria-label="Categories" className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-          {categories.map((cat) => {
-            const selected = activeCategory === cat;
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Box role="radiogroup" aria-label="Search mode" sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {(['smart', 'name'] as const).map((mode) => {
+              const selected = marketQuery.mode === mode;
+              return (
+                <Button
+                  key={mode}
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setMarketQuery({ mode })}
+                  variant={selected ? 'contained' : 'outlined'}
+                  sx={{ ...touchTargetSx, borderRadius: 'var(--ui-radius-full)', px: 2, textTransform: 'none', fontWeight: 600 }}
+                >
+                  {mode === 'smart' ? 'Smart search' : 'Name'}
+                </Button>
+              );
+            })}
+          </Box>
+          {marketQuery.mode === 'smart' && (
+            <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-xs)' }}>Finds related products, not just matching words.</Typography>
+          )}
+        </Box>
+
+        <TextField
+          select
+          size="small"
+          label="Brand"
+          value={marketQuery.brandId === null ? '' : String(marketQuery.brandId)}
+          onChange={(e) => setMarketQuery({ brandId: e.target.value === '' ? null : Number(e.target.value) })}
+          sx={{ maxWidth: { sm: 260 }, width: '100%' }}
+        >
+          <MenuItem value="">All brands</MenuItem>
+          {marketBrands.map((brand) => (
+            <MenuItem key={brand.id} value={String(brand.id)}>
+              {brand.label}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        {/* TYPE CHIPS (44 px touch targets on phones) */}
+        <Box role="group" aria-label="Categories" sx={{ display: 'flex', alignItems: 'center', gap: 1, overflowX: 'auto', py: 0.5 }}>
+          {[{ id: null as number | null, label: 'All' }, ...marketTypes].map((cat) => {
+            const selected = marketQuery.typeId === cat.id;
             return (
               <Chip
-                key={cat}
-                label={cat}
-                onClick={() => setActiveCategory(cat)}
+                key={cat.label}
+                label={cat.label}
+                onClick={() => setMarketQuery({ typeId: cat.id })}
                 aria-pressed={selected}
                 variant={selected ? 'filled' : 'outlined'}
                 sx={{
                   height: { xs: 44, sm: 32 },
                   px: 0.5,
-                  borderRadius: 999,
-                  fontSize: '0.8125rem',
+                  borderRadius: 'var(--ui-radius-full)',
+                  fontSize: 'var(--ui-fs-sm)',
                   fontWeight: selected ? 600 : 500,
                   flexShrink: 0,
-                  bgcolor: selected ? '#f59e0b' : 'transparent',
-                  color: selected ? '#18181b' : 'var(--ui-text)',
-                  borderColor: 'var(--ui-border)',
-                  '&:hover': { bgcolor: selected ? '#d97706' : 'action.hover' },
+                  bgcolor: selected ? T.primarySoft : 'transparent',
+                  color: selected ? T.primary : T.text,
+                  borderColor: T.border,
+                  '&:hover': { bgcolor: selected ? T.primarySoft : T.surface2 },
+                  '&:active': { bgcolor: T.surface3 },
                 }}
               />
             );
           })}
         </Box>
-      </Card>
+      </Surface>
+
+      {!gridPending && !marketError && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+          <Typography role="status" aria-live="polite" sx={{ ...mutedSx, fontSize: 'var(--ui-fs-sm)' }}>
+            {marketCountLabel}
+          </Typography>
+          {marketNote && <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-xs)' }}>{marketNote}</Typography>}
+        </Box>
+      )}
+
+      {marketError && <InlineError message={marketError} onRetry={retryMarketplace} />}
 
       {/* PRODUCTS */}
-      {filteredItems.length === 0 ? (
-        marketItems.length === 0 || !filtersActive ? (
+      {gridPending ? (
+        <CardGridSkeleton count={6} />
+      ) : marketItems.length === 0 ? (
+        marketError ? null : !filtersActive ? (
           <EmptyState
             icon={ShoppingBag}
             title="No listings yet"
@@ -156,55 +216,55 @@ export const MarketplaceTab: React.FC = () => {
         ) : (
           <EmptyState
             icon={Search}
-            title="No items match your search"
-            body="Try another word or category."
+            title="No products match"
+            body="Try another word, type or brand."
             action={{ label: 'Clear filters', onClick: clearFilters }}
           />
         )
       ) : (
         <Grid container spacing={2}>
-          {filteredItems.map((item) => (
+          {marketItems.map((item) => (
             <Grid size={{ xs: 12, sm: 6 }} key={item.id}>
-              <Card
-                variant="outlined"
-                component="article"
+              <Surface
+                as="article"
                 aria-label={item.title}
-                sx={{ ...cardSx, p: 0, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'border-color 0.2s', '&:hover': { borderColor: '#fcd34d' } }}
+                padding="none"
+                sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
               >
                 {item.imageUrl ? (
                   <img
                     src={item.imageUrl}
                     alt={item.title}
                     className="w-full max-w-full h-40 object-cover"
-                    style={{ borderBottom: '1px solid var(--ui-border)' }}
+                    style={{ borderBottom: `1px solid ${T.border}` }}
                     referrerPolicy="no-referrer"
                   />
                 ) : (
                   <Box
                     role="img"
                     aria-label={`${item.title}: no picture`}
-                    sx={{ width: '100%', height: 160, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.5, borderBottom: '1px solid var(--ui-border)', bgcolor: 'var(--ui-page)', color: 'var(--ui-muted)' }}
+                    sx={{ width: '100%', height: 160, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.5, borderBottom: `1px solid ${T.border}`, bgcolor: T.page, color: T.muted }}
                   >
-                    <ImageOff aria-hidden="true" className="w-6 h-6" />
-                    <Typography sx={{ ...mutedSx, fontSize: '0.75rem' }}>No picture</Typography>
+                    <ImageOff aria-hidden="true" className="w-6 h-6" strokeWidth={1.75} />
+                    <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-xs)' }}>No picture</Typography>
                   </Box>
                 )}
                 <Box sx={{ p: 'var(--ui-card-pad)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 1.5, flex: 1 }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--ui-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: 'var(--ui-fs-base)', color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
                         {item.title}
                       </Typography>
-                      <Typography sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.875rem', color: '#b45309', whiteSpace: 'nowrap' }}>
-                        ${item.price}
+                      <Typography sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 'var(--ui-fs-base)', color: T.text, whiteSpace: 'nowrap' }}>
+                        {usd.format(item.price)}
                       </Typography>
                     </Box>
 
                     {item.id.startsWith('draft-') && (
-                      <Chip size="small" label="Draft, this device only" sx={{ alignSelf: 'flex-start', fontSize: '0.6875rem', height: 22, bgcolor: '#fef3c7', color: '#92400e' }} />
+                      <Chip size="small" label="Draft, this device only" sx={{ alignSelf: 'flex-start', fontSize: 'var(--ui-fs-xs)', height: 24, bgcolor: T.warningSoft, color: T.warning }} />
                     )}
 
-                    <Typography sx={{ ...mutedSx, fontSize: '0.8125rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    <Typography sx={{ ...mutedSx, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       {item.description}
                     </Typography>
                   </Box>
@@ -212,45 +272,117 @@ export const MarketplaceTab: React.FC = () => {
                   <Divider />
 
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
-                    <Box sx={{ ...mutedSx, fontSize: '0.75rem', fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-                      <MapPin aria-hidden="true" className="w-3.5 h-3.5 shrink-0" />
-                      {item.location}
+                    <Box sx={{ ...mutedSx, fontSize: 'var(--ui-fs-xs)', fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                      <Tag aria-hidden="true" className="w-[14px] h-[14px] shrink-0" strokeWidth={1.75} />
+                      {item.seller}
                     </Box>
 
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      disabled
-                      startIcon={<ShoppingCart aria-hidden="true" className="w-3 h-3" />}
-                      sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', borderRadius: 999, minHeight: 32 }}
-                    >
-                      Checkout unavailable in this demo
-                    </Button>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      {!item.id.startsWith('draft-') && (
+                        <Button
+                          size="small"
+                          aria-label={`View ${item.title}`}
+                          onClick={() => openMarketItem(item.id)}
+                          sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, color: T.primary }}
+                        >
+                          View
+                        </Button>
+                      )}
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled
+                        startIcon={<ShoppingCart aria-hidden="true" className="w-3 h-3" strokeWidth={1.75} />}
+                        sx={{ borderRadius: 'var(--ui-radius-full)', px: 2, textTransform: 'none', fontWeight: 600, fontSize: 'var(--ui-fs-xs)', minHeight: 32 }}
+                      >
+                        Checkout unavailable in this demo
+                      </Button>
+                    </Box>
                   </Box>
                 </Box>
-              </Card>
+              </Surface>
             </Grid>
           ))}
         </Grid>
       )}
 
+      {marketHasMore && (
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <AsyncButton
+            variant="outlined"
+            onClick={loadMoreMarket}
+            sx={{ ...touchTargetSx, borderRadius: 'var(--ui-radius-full)', px: 3, textTransform: 'none', fontWeight: 600 }}
+          >
+            Load more
+          </AsyncButton>
+        </Box>
+      )}
+
+      {/* PRODUCT DETAIL (catalog item, fetched by id) */}
+      <ResponsiveDialog
+        open={Boolean(marketSelectedId)}
+        onClose={closeMarketItem}
+        title={marketDetail?.name ?? 'Product'}
+        actions={
+          <Button onClick={closeMarketItem} sx={{ ...touchTargetSx, textTransform: 'none', color: T.muted }}>Close</Button>
+        }
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
+          {marketDetailLoading && <Typography role="status" sx={mutedSx}>Loading product…</Typography>}
+          {marketDetailError && <InlineError message={marketDetailError} />}
+          {marketDetail && !marketDetailLoading && (
+            <>
+              <img
+                src={marketDetail.imageUrl}
+                alt={marketDetail.name}
+                className="w-full max-w-full h-56 object-cover"
+                style={{ borderRadius: 'var(--ui-radius-sm)' }}
+                referrerPolicy="no-referrer"
+              />
+              <Typography sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 'var(--ui-fs-lg)', color: T.text }}>
+                {usd.format(marketDetail.price)}
+              </Typography>
+              <Typography sx={{ fontSize: 'var(--ui-fs-sm)', color: T.text }}>Brand: {marketDetail.brand}</Typography>
+              <Typography sx={{ fontSize: 'var(--ui-fs-sm)', color: T.text }}>Type: {marketDetail.type}</Typography>
+              <Typography sx={{ fontSize: 'var(--ui-fs-sm)', color: marketDetail.availableStock > 0 ? T.success : T.warning, fontWeight: 600 }}>
+                {marketDetail.availableStock > 0 ? 'In stock' : 'Out of stock'}
+              </Typography>
+              {marketDetail.description && (
+                <Typography sx={{ ...mutedSx, whiteSpace: 'pre-wrap' }}>{marketDetail.description}</Typography>
+              )}
+              <Button
+                disabled
+                variant="outlined"
+                sx={{ ...touchTargetSx, alignSelf: 'flex-start', borderRadius: 'var(--ui-radius-full)', px: 2, textTransform: 'none', fontWeight: 600 }}
+              >
+                Checkout unavailable in this demo
+              </Button>
+            </>
+          )}
+        </Box>
+      </ResponsiveDialog>
+
       {/* CREATE LISTING DIALOG */}
-      <Dialog
+      <ResponsiveDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        fullWidth
-        maxWidth="xs"
-        slotProps={{
-          paper: {
-            sx: { borderRadius: 'var(--ui-radius)', border: '1px solid var(--ui-border)', bgcolor: 'var(--ui-surface)', backgroundImage: 'none' }
-          }
-        }}
+        title="New listing"
+        actions={
+          <>
+            <Button onClick={() => setCreateOpen(false)} sx={{ ...touchTargetSx, textTransform: 'none', color: T.muted }}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={handleCreateSubmit}
+              disabled={!newTitle.trim() || !newPrice}
+              sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, '&.Mui-disabled': { bgcolor: T.border, color: T.muted } }}
+            >
+              Save draft
+            </Button>
+          </>
+        }
       >
-        <DialogTitle sx={{ ...sectionTitleSx, fontSize: '1rem', pb: 1 }}>
-          New listing
-        </DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          <Typography role="note" sx={{ fontSize: '0.8125rem', color: '#92400e', bgcolor: '#fffbeb', borderRadius: 2, p: 1.25, border: '1px solid #fde68a', '.dark &': { color: '#fcd34d', bgcolor: 'rgba(120,53,15,0.25)', borderColor: 'rgba(146,64,14,0.5)' } }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <Typography role="note" sx={{ fontSize: 'var(--ui-fs-sm)', color: T.text, bgcolor: T.warningSoft, borderRadius: 'var(--ui-radius-sm)', p: 1.25, border: `1px solid ${T.warning}` }}>
             Saved in this browser only. Listings are not published to the catalog yet.
           </Typography>
           <TextField
@@ -304,19 +436,8 @@ export const MarketplaceTab: React.FC = () => {
             value={newImage || undefined}
             onChange={(url) => setNewImage(url ?? '')}
           />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setCreateOpen(false)} sx={{ ...touchTargetSx, textTransform: 'none', color: 'var(--ui-muted)' }}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleCreateSubmit}
-            disabled={!newTitle.trim() || !newPrice}
-            sx={{ ...touchTargetSx, textTransform: 'none', fontWeight: 600, bgcolor: '#b45309', color: '#fff', '&:hover': { bgcolor: '#92400e' }, '&.Mui-disabled': { bgcolor: 'var(--ui-border)', color: 'var(--ui-muted)' } }}
-          >
-            Save draft
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+      </ResponsiveDialog>
     </Box>
   );
 };

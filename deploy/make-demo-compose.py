@@ -9,7 +9,7 @@ import sys, yaml
 
 KEEP = ["postgres", "eventbus", "identity-api", "profile-api", "posts-api",
         "engagement-api", "socialgraph-api", "feed-api", "media-service",
-        "groups-api", "events-api", "stories-api", "reels-api", "notifications-api",
+        "groups-api", "organizations-api", "events-api", "stories-api", "reels-api", "notifications-api",
         "chat-api", "catalog-api", "social-bff"]
 APIS = [s for s in KEEP if s.endswith(("-api", "-service"))]
 
@@ -34,6 +34,9 @@ svc["media-service"]["environment"]["Media__BlobRoot"] = "/data/blobs"
 svc["media-service"]["volumes"] = ["blobs:/data/blobs"]
 svc["media-service"]["user"] = "0:0"
 svc["postgres"].setdefault("volumes", []).append("pgdata:/var/lib/postgresql/data")
+# Every module keeps its own Npgsql pool against this one server; the default 100
+# connections run out under load (seen at checkpoint 4), so allow more.
+svc["postgres"]["command"] = ["postgres", "-c", "max_connections=300"]
 
 for name in APIS:
     dep = svc[name].setdefault("depends_on", {})

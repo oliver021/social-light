@@ -13,6 +13,7 @@ pub socialgraph-api src/Modules/SocialGraph/SocialGraph.API/SocialGraph.API.cspr
 pub feed-api        src/Feed.API/Feed.API.csproj
 pub media-service   src/MPEG.Service/MPEG.Service.csproj
 pub groups-api        src/Modules/Groups/Groups.API/Groups.API.csproj
+pub organizations-api src/Modules/Organizations/Organizations.API/Organizations.API.csproj
 pub events-api        src/Modules/Events/Events.API/Events.API.csproj
 pub stories-api       src/Modules/Stories/Stories.API/Stories.API.csproj
 pub reels-api         src/Modules/Reels/Reels.API/Reels.API.csproj

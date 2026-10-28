@@ -11,6 +11,10 @@ import type { components as NotificationComponents } from '@sdk/notifications';
 import type { components as CatalogComponents } from '@sdk/catalog';
 import type { UserProfile, Post, Comment, Reactions, NotificationItem, MarketItem } from '../types';
 import { mediaUrl, unMediaUrl } from './gateway';
+import { timeAgo } from '../components/ui/time';
+
+// timeAgo lives in components/ui/time.ts (M0.3); re-exported so existing imports keep working.
+export { timeAgo };
 
 /** The six reaction kinds the UI knows about; the backend stores the key verbatim. */
 const REACTION_KEYS: (keyof Reactions)[] = ['like', 'love', 'laugh', 'wow', 'sad', 'angry'];
@@ -82,20 +86,6 @@ export function userToUpdateRequest(u: Partial<UserProfile>): ProfileComponents[
   };
 }
 
-/** Best-effort relative time from an ISO timestamp. */
-export function timeAgo(iso: string | null | undefined): string {
-  if (!iso) return 'Just now';
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return 'Just now';
-  const secs = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (secs < 60) return 'Just now';
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
 /** FeedItemDto (already composed by Feed.API) -> the UI's Post. */
 export function feedItemToPost(f: FeedItemDto): Post {
   const authorName = f.author?.displayName || 'Unknown User';
@@ -134,11 +124,12 @@ export function commentDtoToComment(c: CommentDto, author: ProfileDto | null): C
     },
     content: c.body,
     createdAt: 'recently', // CommentDto has no timestamp in the v0 engagement schema.
+    parentCommentId: c.parentCommentId ?? null,
   };
 }
 
 /** The UI's notification kinds keyed by the backend's free-form `type` string. */
-const NOTIFICATION_TYPES: NotificationItem['type'][] = ['like', 'comment', 'reaction', 'mention', 'follow', 'group', 'live'];
+const NOTIFICATION_TYPES: NotificationItem['type'][] = ['like', 'comment', 'reaction', 'mention', 'follow', 'group', 'live', 'friend_request', 'friend_accept', 'story_reply'];
 
 /**
  * NotificationDto -> the UI's NotificationItem. The v0 module stores no message or
@@ -154,11 +145,15 @@ export function notificationToItem(n: NotificationDto, actor: ProfileDto | null)
     : type === 'comment' ? 'commented on your post.'
     : type === 'like' || type === 'reaction' ? 'reacted to your post.'
     : type === 'group' ? 'updated a community you are in.'
+    : type === 'friend_request' ? 'sent you a friend request.'
+    : type === 'friend_accept' ? 'accepted your friend request.'
+    : type === 'story_reply' ? 'replied to your story.'
     : `sent you a ${type}.`;
   return {
     id: n.id,
     type,
     actor: { name, avatar: mediaUrl(actor?.avatarUrl) ?? defaultAvatar(n.actorId || name) },
+    actorId: n.actorId || undefined,
     text,
     createdAt: 'recently', // NotificationDto has no timestamp in the v0 schema.
     read: n.isRead,
@@ -185,6 +180,30 @@ export function catalogItemToMarketItem(dto: CatalogItemDto, imageUrl: string, c
     imageUrl,
     seller: dto.catalogBrand?.brand ?? 'socialLight Store',
     dateAdded: (Number(dto.availableStock ?? 0) > 0) ? 'In stock' : 'Out of stock',
+  };
+}
+
+/**
+ * A PostDto -> a read-only UI Post. The author's name, handle and avatar come from the caller's
+ * Profile lookup when it has one (community posts, M5); otherwise they are placeholders.
+ * Attachments and engagement are filled in afterwards by the shared enrichment.
+ */
+export function postDtoToPost(p: PostDto, profile?: ProfileDto | null): Post {
+  const name = profile?.displayName || 'Unknown User';
+  return {
+    id: p.id,
+    type: 'text',
+    authorId: p.authorId || undefined,
+    author: {
+      name,
+      handle: withHandle(profile?.handle),
+      avatar: mediaUrl(profile?.avatarUrl) ?? defaultAvatar(p.authorId || p.id),
+    },
+    content: p.body ?? '',
+    createdAt: timeAgo(p.publishedAt),
+    reactions: emptyReactions(),
+    comments: [],
+    sharesCount: 0,
   };
 }
 

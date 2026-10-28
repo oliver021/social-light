@@ -14,6 +14,7 @@ import type { paths as StoriesPaths } from '@sdk/stories';
 import type { paths as ReelsPaths } from '@sdk/reels';
 import type { paths as EventsPaths } from '@sdk/events';
 import type { paths as CatalogPaths } from '@sdk/catalog';
+import type { paths as OrganizationsPaths } from '@sdk/organizations';
 
 const BFF_BASE = '/bff';
 const TOKEN_KEY = 'sl_access_token';
@@ -77,6 +78,8 @@ export function messageOf(err: unknown, fallback: string): string {
 export function mediaUrl(url: string | null | undefined): string | undefined {
   if (!url) return undefined;
   if (/^(https?:|data:|blob:)/i.test(url)) return url;
+  // Idempotent: a url already prefixed with /bff (what the stores hold) is returned as is.
+  if (url.startsWith(`${BFF_BASE}/`)) return url;
   return `${BFF_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
@@ -171,6 +174,9 @@ export const eventsApi = makeClient<EventsPaths>();
 export const CHAT_HUB_URL = `${BFF_BASE}/hubs/chat`;
 export const socialGraphApi = makeClient<SocialGraphPaths>();
 export const groupsApi = makeClient<GroupsPaths>();
+// Organizations module (M8). Nothing is bound from the JWT: the client sends the owner and
+// member ids itself, so it must only ever send the signed-in user's id.
+export const organizationsApi = makeClient<OrganizationsPaths>();
 export const notificationsApi = makeClient<NotificationsPaths>();
 // Marketplace module (eShop Catalog). Browsing is public (anonymous), so an <img src>
 // can hit the picture endpoint through the same /bff origin without a bearer token.

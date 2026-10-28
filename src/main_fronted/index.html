@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>socialLight</title>
+    <script>
+      // Apply the saved theme before the first paint; useUiPreferences keeps it in sync
+      // afterwards. Same default as there: dark unless the user chose light.
+      (function () {
+        var dark = true;
+        try { dark = localStorage.getItem('nexus_dark_mode') !== 'false'; } catch (e) {}
+        document.documentElement.classList.toggle('dark', dark);
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

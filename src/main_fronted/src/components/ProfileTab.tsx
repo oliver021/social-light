@@ -1,35 +1,38 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  Box, 
-  Card, 
-  Typography, 
-  Avatar, 
-  Button, 
-  TextField, 
-  Divider, 
-  Grid,
-  Chip,
+import {
   Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton
+  Box,
+  Button,
+  Chip,
+  Divider,
+  IconButton,
+  TextField,
+  Typography,
 } from '@mui/material';
-import { 
-  User, 
-  Edit3, 
-  CheckCircle, 
-  Tag, 
-  Plus, 
-  Settings, 
-  Eye, 
-  BookOpen,
-  Cpu
-} from 'lucide-react';
+import { Edit3, Plus, ShieldCheck, X } from 'lucide-react';
+import {
+  EmptyState,
+  PageHeader,
+  ResponsiveDialog,
+  SectionHeader,
+  Surface,
+  T,
+  UserAvatar,
+  mutedSx,
+  sectionTitleSx,
+  subtleSx,
+} from './ui';
 import { MediaPicker } from './MediaPicker';
+import { PersonProfile } from './profile/PersonProfile';
+import { ProfilePosts } from './profile/ProfilePosts';
+import { ProfileShares } from './profile/ProfileShares';
 import { mediaUrl, unMediaUrl, messageOf } from '../api/gateway';
+import { PrivacyDialog } from './relationships/PrivacyDialog';
+
+const TOUCH_TARGET = { minHeight: 44, minWidth: 44 };
+/** The pill button: a 44px target with the full radius token. */
+const PILL_BUTTON = { ...TOUCH_TARGET, borderRadius: 'var(--ui-radius-full)', px: 2 };
 
 /** A handle is 3 to 30 letters, digits, dots or underscores (the API stores up to 50). */
 const HANDLE_PATTERN = /^[A-Za-z0-9_.]{3,30}$/;
@@ -39,8 +42,31 @@ interface FieldErrors {
   handle?: string;
 }
 
+const Stat: React.FC<{ value: number; label: string }> = ({ value, label }) => (
+  <Box sx={{ minWidth: 0 }}>
+    <Typography sx={{ ...sectionTitleSx, fontFamily: 'var(--font-mono)', fontSize: '1rem' }}>{value}</Typography>
+    <Typography sx={{ ...subtleSx, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', mt: 0.25 }}>{label}</Typography>
+  </Box>
+);
+
+/**
+ * The Profile tab. With no profile selected it shows my own profile; otherwise the profile of
+ * the person opened (see openProfile in the app context).
+ */
 export const ProfileTab: React.FC = () => {
-  const { currentUser, updateProfile, showToast } = useApp();
+  const { viewedProfileId } = useApp();
+  if (viewedProfileId) return <PersonProfile key={viewedProfileId} userId={viewedProfileId} />;
+  return <OwnProfile />;
+};
+
+const OwnProfile: React.FC = () => {
+  const { currentUser, updateProfile, showToast, loadTimeline, friendCount } = useApp();
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+
+  // My posts come from Feed.API (the same timeline other people's profiles use).
+  useEffect(() => {
+    if (currentUser.id) loadTimeline(currentUser.id).catch(() => {});
+  }, [currentUser.id, loadTimeline]);
 
   // Local edit states. editedAvatar holds the backend url (root-relative after an upload).
   const [editOpen, setEditOpen] = useState(false);
@@ -52,7 +78,7 @@ export const ProfileTab: React.FC = () => {
   const [editedHandle, setEditedHandle] = useState('');
   const [editedAvatar, setEditedAvatar] = useState('');
 
-  // Interest Tag input
+  // Interest tag input
   const [newTag, setNewTag] = useState('');
 
   // Start every edit from the saved profile, not from whatever was typed last time.
@@ -64,6 +90,10 @@ export const ProfileTab: React.FC = () => {
     setFieldErrors({});
     setSaveError(null);
     setEditOpen(true);
+  };
+
+  const closeEditor = () => {
+    if (!saving) setEditOpen(false);
   };
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
@@ -98,130 +128,134 @@ export const ProfileTab: React.FC = () => {
     }
   };
 
-  const handleAddTag = () => {
-    if (newTag.trim() && !currentUser.interests.includes(newTag.trim())) {
-      updateProfile({
-        interests: [...currentUser.interests, newTag.trim()]
-      }).catch(() => {});
-      setNewTag('');
-    }
+  const handleAddTag = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const tag = newTag.trim();
+    if (!tag || currentUser.interests.includes(tag)) return;
+    updateProfile({ interests: [...currentUser.interests, tag] }).catch((err) => {
+      showToast(messageOf(err, 'The interest was not saved'), 'error');
+    });
+    setNewTag('');
   };
 
   const handleRemoveTag = (tag: string) => {
-    updateProfile({
-      interests: currentUser.interests.filter(i => i !== tag)
-    }).catch(() => {});
+    updateProfile({ interests: currentUser.interests.filter(i => i !== tag) }).catch((err) => {
+      showToast(messageOf(err, 'The interest was not removed'), 'error');
+    });
   };
 
   return (
-    <Box id="profile-tab-page" className="space-y-4">
-      {/* COVER PHOTO AND HERO BANNER */}
-      <Card variant="outlined" className="border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950 overflow-hidden relative pb-4">
-        {/* Banner Cover image */}
-        <Box className="h-44 w-full overflow-hidden relative">
-          <img 
-            src={currentUser.coverPhoto} 
-            alt="User profile mesh background cover" 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
+    <Box id="profile-tab-page" sx={{ display: 'flex', flexDirection: 'column', gap: 'var(--ui-gap)' }}>
+      <PageHeader title="Profile" />
+
+      {/* COVER AND HERO */}
+      <Surface as="section" padding="none" sx={{ overflow: 'hidden', pb: 'var(--ui-card-pad)' }}>
+        <Box sx={{ height: 176, width: '100%', overflow: 'hidden', bgcolor: T.primarySoft }}>
+          {currentUser.coverPhoto && (
+            <Box
+              component="img"
+              src={currentUser.coverPhoto}
+              alt={`Cover photo of ${currentUser.name}`}
+              referrerPolicy="no-referrer"
+              sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          )}
         </Box>
 
-        {/* Profile Avatar & Actions offset */}
-        <Box className="px-6 flex flex-col md:flex-row md:items-end justify-between gap-4 -mt-12 relative z-10">
-          <Box className="flex flex-col md:flex-row md:items-end gap-3 text-left min-w-0">
-            <Avatar
-              src={currentUser.avatar}
-              alt={currentUser.name}
-              className="w-24 h-24 shrink-0 border-4 border-white dark:border-zinc-950 shadow-lg"
-            />
-            <Box className="md:pb-1 min-w-0">
-              <Typography variant="h6" className="font-display font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 leading-none text-base break-words">
+        <Box
+          sx={{
+            px: 'var(--ui-card-pad)',
+            mt: -6,
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: { md: 'flex-end' },
+            justifyContent: 'space-between',
+            gap: 2,
+            minWidth: 0,
+          }}
+        >
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'flex-end' }, gap: 1.5, minWidth: 0 }}>
+            <Box sx={{ border: `4px solid ${T.surface}`, borderRadius: 'var(--ui-radius-full)', display: 'inline-flex', lineHeight: 0, alignSelf: 'flex-start' }}>
+              <UserAvatar name={currentUser.name} src={currentUser.avatar} size="xl" />
+            </Box>
+            <Box sx={{ minWidth: 0, pb: { md: 0.5 } }}>
+              <Typography component="h2" sx={{ ...sectionTitleSx, fontSize: { xs: '1.25rem', md: '1.5rem' }, fontWeight: 700, overflowWrap: 'anywhere' }}>
                 {currentUser.name}
-                <CheckCircle className="w-4 h-4 text-violet-500 fill-current" />
               </Typography>
-              <Typography variant="caption" className="font-mono text-zinc-600 dark:text-zinc-400 block text-xs mt-0.5">
-                {currentUser.handle}
-              </Typography>
+              <Typography sx={{ ...subtleSx, fontFamily: 'var(--font-mono)' }}>{currentUser.handle}</Typography>
+              <Typography sx={{ ...mutedSx, fontSize: 'var(--ui-fs-xs)' }}>{`${friendCount} friends`}</Typography>
             </Box>
           </Box>
 
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={openEditor}
-            className="normal-case text-xs font-semibold font-display border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl flex items-center gap-1.5 py-1.5 px-3 min-h-[44px] md:min-h-8 self-start md:self-end"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-            Edit profile
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, alignSelf: { xs: 'flex-start', md: 'flex-end' }, flexWrap: 'wrap' }}>
+            <Button
+              variant="outlined"
+              onClick={openEditor}
+              startIcon={<Edit3 size={16} strokeWidth={1.75} aria-hidden="true" />}
+              sx={{ ...PILL_BUTTON, color: T.text, borderColor: T.borderStrong, fontSize: 'var(--ui-fs-xs)' }}
+            >
+              Edit profile
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setPrivacyOpen(true)}
+              startIcon={<ShieldCheck size={16} strokeWidth={1.75} aria-hidden="true" />}
+              sx={{ ...PILL_BUTTON, color: T.text, borderColor: T.borderStrong, fontSize: 'var(--ui-fs-xs)' }}
+            >
+              Privacy
+            </Button>
+          </Box>
         </Box>
-      </Card>
+      </Surface>
 
-      <Grid container spacing={2}>
-        {/* LEFT COLUMN DETAILS AND BIO SUMMARY */}
-        <Grid size={{ xs: 12, md: 7 }}>
-          <Card variant="outlined" className="p-4 border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950 flex flex-col gap-3">
-            <Box className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-              <Typography variant="subtitle2" className="font-display font-semibold text-zinc-800 dark:text-zinc-200">
-                About
-              </Typography>
-            </Box>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 7fr) minmax(0, 5fr)' },
+          gap: 'var(--ui-gap)',
+          alignItems: 'start',
+        }}
+      >
+        {/* ABOUT */}
+        <Surface as="section" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <SectionHeader title="About" />
+          <Typography sx={{ ...mutedSx, whiteSpace: 'pre-line', overflowWrap: 'anywhere' }}>
+            {currentUser.bio || 'No bio yet.'}
+          </Typography>
+          <Divider />
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', textAlign: 'center', py: 1 }}>
+            <Stat value={currentUser.followersCount} label="Followers" />
+            <Divider orientation="vertical" flexItem />
+            <Stat value={currentUser.followingCount} label="Following" />
+          </Box>
+        </Surface>
 
-            <Typography variant="body2" className="text-zinc-600 dark:text-zinc-400 text-xs leading-relaxed pr-2">
-              {currentUser.bio}
-            </Typography>
+        {/* INTERESTS */}
+        <Box id="profile-interests-card" sx={{ minWidth: 0 }}>
+          <Surface as="section" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
+            <SectionHeader title="Interests" />
 
-            <Divider />
-
-            <Box className="flex items-center justify-around text-center py-2">
-              <Box>
-                <Typography variant="subtitle2" className="font-bold font-mono text-zinc-800 dark:text-zinc-100">
-                  {currentUser.followersCount}
-                </Typography>
-                <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 text-xs uppercase font-bold tracking-wider block mt-0.5">Followers</Typography>
-              </Box>
-              <Box className="w-[1px] h-8 bg-zinc-200 dark:bg-zinc-800" />
-              <Box>
-                <Typography variant="subtitle2" className="font-bold font-mono text-zinc-800 dark:text-zinc-100">
-                  {currentUser.followingCount}
-                </Typography>
-                <Typography variant="caption" className="text-zinc-600 dark:text-zinc-400 text-xs uppercase font-bold tracking-wider block mt-0.5">Following</Typography>
-              </Box>
-            </Box>
-          </Card>
-        </Grid>
-
-        {/* RIGHT COLUMN DYNAMIC INTERESTS CONFIGY */}
-        <Grid size={{ xs: 12, md: 5 }}>
-          <Card variant="outlined" id="profile-interests-card" className="p-4 border-zinc-200 dark:border-zinc-850 rounded-2xl bg-white dark:bg-zinc-950 flex flex-col gap-3">
-            <Box className="flex items-center justify-between">
-              <Box className="flex items-center gap-2">
-                <Tag className="w-4 h-4 text-emerald-500" />
-                <Typography variant="subtitle2" className="font-display font-semibold text-zinc-800 dark:text-zinc-200">
-                  Interests
-                </Typography>
-              </Box>
-            </Box>
-
-            {/* INTERESTS CHIP HOLDER */}
-            <Box className="flex flex-wrap gap-1.5 min-h-[44px] align-items-center">
-              {currentUser.interests.map((tag) => (
-                <Chip 
-                  key={tag}
-                  label={tag}
-                  onDelete={() => handleRemoveTag(tag)}
-                  size="small"
-                  className="bg-zinc-100 dark:bg-zinc-90 text-xs font-mono hover:bg-zinc-200 dark:hover:bg-zinc-800"
-                />
-              ))}
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', minHeight: 44 }}>
+              {currentUser.interests.length === 0 ? (
+                <EmptyState compact title="No interests yet" body="Add a few topics to show what you care about." />
+              ) : (
+                currentUser.interests.map((tag) => (
+                  <Chip
+                    key={tag}
+                    label={tag}
+                    onDelete={() => handleRemoveTag(tag)}
+                    deleteIcon={<X size={14} strokeWidth={1.75} role="button" aria-label={`Remove interest ${tag}`} />}
+                    size="small"
+                    sx={{ bgcolor: T.surface2, color: T.text, fontFamily: 'var(--font-mono)', fontSize: 'var(--ui-fs-xs)' }}
+                  />
+                ))
+              )}
             </Box>
 
             <Divider />
 
-            {/* ADD QUICK NEW INTEREST */}
-            <Box className="flex gap-2">
+            {/* ADD AN INTEREST */}
+            <Box component="form" onSubmit={handleAddTag} noValidate sx={{ display: 'flex', gap: 1, minWidth: 0 }}>
               <TextField
                 size="small"
                 fullWidth
@@ -229,96 +263,94 @@ export const ProfileTab: React.FC = () => {
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
                 variant="outlined"
-                className="bg-zinc-50/50 dark:bg-zinc-900 text-xs min-w-0"
-                slotProps={{
-                  input: {
-                    className: 'text-xs pr-1 py-1'
-                  },
-                  htmlInput: { 'aria-label': 'New interest' }
-                }}
+                sx={{ minWidth: 0 }}
+                slotProps={{ htmlInput: { 'aria-label': 'New interest' } }}
               />
               <IconButton
-                size="small"
+                type="submit"
                 aria-label="Add interest"
-                onClick={handleAddTag}
-                className="bg-emerald-600 text-white hover:bg-emerald-700 w-11 h-11 shrink-0"
-                style={{ borderRadius: '8px' }}
+                sx={{
+                  ...TOUCH_TARGET,
+                  flexShrink: 0,
+                  borderRadius: 'var(--ui-radius-sm)',
+                  bgcolor: T.primary,
+                  color: T.onPrimary,
+                  '&:hover': { bgcolor: T.primaryHover },
+                }}
               >
-                <Plus className="w-4 h-4 text-white" />
+                <Plus size={18} strokeWidth={1.75} aria-hidden="true" />
               </IconButton>
             </Box>
-          </Card>
-        </Grid>
-      </Grid>
+          </Surface>
+        </Box>
+      </Box>
 
-      {/* DISPATCH EDIT PROFILE POP DIALOG */}
-      <Dialog 
-        open={editOpen} 
-        onClose={() => { if (!saving) setEditOpen(false); }}
-        slotProps={{
-          paper: {
-            className: 'w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2'
-          }
-        }}
+      <ProfilePosts userId={currentUser.id} />
+      <ProfileShares userId={currentUser.id} />
+
+      <PrivacyDialog open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
+
+      {/* EDIT PROFILE */}
+      <ResponsiveDialog
+        open={editOpen}
+        onClose={closeEditor}
+        title="Edit profile"
+        actions={
+          <>
+            <Button onClick={() => setEditOpen(false)} disabled={saving} sx={{ ...TOUCH_TARGET, color: T.muted }}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="edit-profile-form"
+              variant="contained"
+              disabled={saving}
+              sx={PILL_BUTTON}
+            >
+              {saving ? 'Saving…' : 'Save profile'}
+            </Button>
+          </>
+        }
       >
-        <DialogTitle className="font-display font-bold text-sm text-zinc-800 dark:text-zinc-200 pb-2">
-          Edit profile
-        </DialogTitle>
-        <form onSubmit={handleProfileUpdate} noValidate>
-          <DialogContent className="space-y-3.5 pt-2">
-            {saveError && <Alert severity="error" className="text-xs">{saveError}</Alert>}
+        <form id="edit-profile-form" onSubmit={handleProfileUpdate} noValidate>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            {saveError && <Alert severity="error">{saveError}</Alert>}
             <TextField
               size="small"
               fullWidth
-              label="Display Name"
+              label="Display name"
               value={editedName}
               onChange={(e) => setEditedName(e.target.value)}
               error={!!fieldErrors.name}
               helperText={fieldErrors.name}
-              slotProps={{ input: { className: 'text-xs' }, inputLabel: { className: 'text-xs' } }}
             />
             <TextField
               size="small"
               fullWidth
-              label="Unique Handle"
+              label="Handle"
               value={editedHandle}
               onChange={(e) => setEditedHandle(e.target.value)}
               error={!!fieldErrors.handle}
-              helperText={fieldErrors.handle}
-              slotProps={{ input: { className: 'text-xs' }, inputLabel: { className: 'text-xs' } }}
+              helperText={fieldErrors.handle ?? 'Optional. Letters, numbers, dots or underscores.'}
             />
             <TextField
               size="small"
               fullWidth
               multiline
-              rows={2}
-              label="Profile Bio Summary"
+              minRows={2}
+              label="Bio"
               value={editedBio}
               onChange={(e) => setEditedBio(e.target.value)}
-              slotProps={{ input: { className: 'text-xs' }, inputLabel: { className: 'text-xs' } }}
             />
-            
             <MediaPicker
               kind="image"
               label="Avatar"
               value={editedAvatar || undefined}
               onChange={(url) => setEditedAvatar(url ?? '')}
             />
-          </DialogContent>
-          <DialogActions className="pr-4 pb-4">
-            <Button size="small" onClick={() => setEditOpen(false)} disabled={saving} className="text-xs text-zinc-600 dark:text-zinc-400 normal-case">Cancel</Button>
-            <Button 
-              size="small" 
-              type="submit"
-              variant="contained" 
-              disabled={saving}
-              className="bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs normal-case px-4.5"
-            >
-              {saving ? 'Saving…' : 'Save profile'}
-            </Button>
-          </DialogActions>
+          </Box>
         </form>
-      </Dialog>
+      </ResponsiveDialog>
     </Box>
   );
 };

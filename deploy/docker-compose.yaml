@@ -2,6 +2,10 @@ name: sociallight-demo
 services:
   postgres:
     image: docker.io/ankane/pgvector:latest
+    command:
+    - postgres
+    - -c
+    - max_connections=300
     environment:
       POSTGRES_HOST_AUTH_METHOD: scram-sha-256
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
@@ -278,6 +282,40 @@ services:
       Identity__Scopes__socialapi: socialLight API
     expose:
     - ${GROUPS_API_PORT:-8080}
+    depends_on:
+      eventbus:
+        condition: service_healthy
+      identity-api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+    - aspire
+    restart: unless-stopped
+  organizations-api:
+    image: ${ORGANIZATIONS_API_IMAGE}
+    environment:
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: 'true'
+      HTTP_PORTS: ${ORGANIZATIONS_API_PORT:-8080}
+      ConnectionStrings__eventbus: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      EVENTBUS_HOST: eventbus
+      EVENTBUS_PORT: '5672'
+      EVENTBUS_USERNAME: guest
+      EVENTBUS_PASSWORD: ${EVENTBUS_PASSWORD}
+      EVENTBUS_URI: amqp://guest:${EVENTBUS_PASSWORD}@eventbus:5672
+      ConnectionStrings__organizationsdb: Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=organizationsdb
+      ORGANIZATIONSDB_HOST: postgres
+      ORGANIZATIONSDB_PORT: '5432'
+      ORGANIZATIONSDB_USERNAME: postgres
+      ORGANIZATIONSDB_PASSWORD: ${POSTGRES_PASSWORD}
+      ORGANIZATIONSDB_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/organizationsdb
+      ORGANIZATIONSDB_JDBCCONNECTIONSTRING: jdbc:postgresql://postgres:5432/organizationsdb
+      ORGANIZATIONSDB_DATABASENAME: organizationsdb
+      Identity__Url: http://identity-api:${IDENTITY_API_PORT:-8080}
+      Identity__Audience: socialapi
+      Identity__Scopes__socialapi: socialLight API
+    expose:
+    - ${ORGANIZATIONS_API_PORT:-8080}
     depends_on:
       eventbus:
         condition: service_healthy
@@ -656,6 +694,9 @@ services:
       media-service:
         condition: service_started
       groups-api:
+        condition: service_started
+
+      organizations-api:
         condition: service_started
       events-api:
         condition: service_started

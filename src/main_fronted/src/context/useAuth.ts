@@ -8,7 +8,11 @@ import { OWNER_KEY, readStored, writeStored } from './usePersistentState';
 interface Loaders {
   loadFeed: () => Promise<void>;
   loadPeople: () => Promise<void>;
+  /** Friends, blocks and preferences (M4). */
+  loadRelationships: () => Promise<void>;
   loadGroups: () => Promise<void>;
+  /** Organizations and memberships (M8). Never rejects: failures are shown in the tab. */
+  loadOrganizations: () => Promise<void>;
   loadNotifications: () => Promise<void>;
   loadStories: () => Promise<void>;
   loadReels: () => Promise<void>;
@@ -36,7 +40,7 @@ interface Loaders {
  */
 export function useAuth(session: SessionState, loaders: Loaders) {
   const { setCurrentUser, myUserId, setIsAuthenticated, setAuthReady } = session;
-  const { loadFeed, loadPeople, loadGroups, loadNotifications, loadStories, loadReels, loadEvents, loadMarketplace, teardownChat, resetUserData } = loaders;
+  const { loadFeed, loadPeople, loadRelationships, loadGroups, loadOrganizations, loadNotifications, loadStories, loadReels, loadEvents, loadMarketplace, teardownChat, resetUserData } = loaders;
 
   // Make sure the cache belongs to `userId`: if it belongs to someone else, wipe it first.
   const claimOwner = (userId: string) => {
@@ -66,9 +70,13 @@ export function useAuth(session: SessionState, loaders: Loaders) {
       myUserId.current = sub;
     }
     await loadCurrentUser();
+    // Blocks and mutes load next to the feed: the app shows no posts until they settle.
+    const relations = loadRelationships().catch(() => {});
     await loadFeed();
+    await relations;
     loadPeople().catch(() => {});
     loadGroups().catch(() => {});
+    loadOrganizations().catch(() => {});
     loadNotifications().catch(() => {});
     loadStories().catch(() => {});
     loadReels().catch(() => {});

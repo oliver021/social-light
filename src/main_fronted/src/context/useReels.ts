@@ -1,5 +1,5 @@
 import { useState, type MutableRefObject } from 'react';
-import { reelsApi, getProfile } from '../api/gateway';
+import { reelsApi, getProfile, describeApiError } from '../api/gateway';
 
 /** A reel (generated Reels module) joined with its resolved creator profile. */
 export interface Reel {
@@ -25,8 +25,18 @@ const DEFAULT_AVATAR = (seed: string) => `https://api.dicebear.com/7.x/identicon
  */
 export function useReels({ myUserId }: Deps) {
   const [reels, setReels] = useState<Reel[]>([]);
+  // True until the first reels load settles, so the feed can show a skeleton.
+  const [loading, setLoading] = useState(true);
 
   const loadReels = async () => {
+    try {
+      await fetchReels();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchReels = async () => {
     const { data } = await reelsApi.GET('/api/reels');
     if (!data) return;
     const creatorIds = [...new Set(data.map((r) => r.creatorId))];
@@ -68,6 +78,13 @@ export function useReels({ myUserId }: Deps) {
     await loadReels().catch(() => {});
   };
 
+  // Delete my reel. Rejects with a readable message so the player can keep it on screen.
+  const deleteReel = async (reelId: string): Promise<void> => {
+    const { error, response } = await reelsApi.DELETE('/api/reels/{id}', { params: { path: { id: reelId } } });
+    if (!response.ok) throw new Error(describeApiError(error, response, 'The reel was not deleted'));
+    setReels((prev) => prev.filter((r) => r.id !== reelId));
+  };
+
   const viewReel = (reelId: string) => {
     reelsApi
       .POST('/api/reel-views', {
@@ -76,5 +93,11 @@ export function useReels({ myUserId }: Deps) {
       .catch(() => {});
   };
 
-  return { reels, loadReels, addReel, viewReel };
+  // Forget the previous account's reels (used when the signed-in user changes or logs out).
+  const reset = () => {
+    setReels([]);
+    setLoading(true);
+  };
+
+  return { reels, loading, loadReels, addReel, viewReel, deleteReel, reset };
 }
